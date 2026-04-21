@@ -1,115 +1,604 @@
 ﻿@{
-    ViewData["Title"] = "الأجهزة والمناطق";
+    ViewData["Title"] = "المناطق والأجهزة";
 }
 
-<div dir="rtl" style="max-width:1100px;margin:auto;padding:20px;font-family:Segoe UI,Tahoma,Arial">
-    <h2 style="margin-bottom:12px">الأجهزة والمناطق</h2>
+<div class="content-card fade-in">
+    <div class="page-header">
+        <h1 class="page-title">
+            <span class="page-title-icon">🗺️</span>
+            <span>المناطق والأجهزة</span>
+        </h1>
 
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-        <button id="btnAuto" style="padding:10px 14px;cursor:pointer">تشغيل التوزيع التلقائي</button>
-
-        <label>فلترة حسب المنطقة:</label>
-        <select id="regionFilter" style="padding:10px;min-width:220px">
-            <option value="">الكل</option>
-        </select>
-
-        <span id="status" style="color:#555"></span>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button id="btnRefresh" class="btn btn-secondary">
+                <span>🔄</span>
+                <span>تحديث</span>
+            </button>
+            <button id="btnAutoAssign" class="btn btn-outline btn-sm">
+                <span>⚡</span>
+                <span>توزيع تلقائي</span>
+            </button>
+        </div>
     </div>
 
-    <table border="1" cellpadding="10" cellspacing="0" style="width:100%;border-collapse:collapse">
-        <thead>
-            <tr style="background:#f3f4f6">
-                <th>رقم الجهاز</th>
-                <th>المنطقة</th>
-                <th>رقم المنطقة</th>
-            </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-    </table>
+    <div id="alertHost"></div>
+
+    <div style="display:grid; grid-template-columns: 360px 1fr; gap: 18px; align-items:start;">
+        <!-- Left: Regions -->
+        <section>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 12px;">
+                <h2 style="margin:0; color: var(--maroon); font-size: 1.15em; font-weight: 900;">المناطق</h2>
+                <button id="btnAddRegion" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                    <span>➕</span>
+                    <span>إضافة منطقة</span>
+                </button>
+            </div>
+
+            <div class="table-container" style="max-height: calc(100vh - 280px); overflow:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>المنطقة</th>
+                            <th style="width: 92px;">الأجهزة</th>
+                            <th style="width: 110px; text-align:center;">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="regionsBody"></tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 10px; color: var(--gray-600); font-weight: 600; font-size: 0.9em;">
+                اختيار منطقة يعرض أجهزتها مباشرة. لا يمكن حذف منطقة مرتبطة بأجهزة.
+            </div>
+        </section>
+
+        <!-- Right: Devices -->
+        <section>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap: 12px; flex-wrap:wrap; margin-bottom: 12px;">
+                <div style="display:flex; align-items:center; gap: 10px; flex-wrap:wrap;">
+                    <h2 style="margin:0; color: var(--maroon); font-size: 1.15em; font-weight: 900;">الأجهزة</h2>
+                    <span id="selectedRegionBadge" class="badge badge-info" style="display:none;">
+                        <span id="selectedRegionIcon">📍</span>
+                        <span id="selectedRegionText"></span>
+                    </span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap: 10px; flex-wrap:wrap;">
+                    <input id="filterSearch" class="form-control" placeholder="بحث بالاسم أو DeviceId" style="min-width: 240px; padding: 10px 12px;" />
+                  `
+                    
+                    <label class="form-check" style="padding: 10px 12px; margin: 0;">
+                        <input id="filterUnassigned" type="checkbox" />
+                        <span>غير مرتبطة بمنطقة فقط</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Bulk bar (appears only when there is a selection) -->
+            <div id="bulkBar" style="display:none; gap: 10px; align-items:center; flex-wrap:wrap; background: var(--gray-50); border: 2px solid var(--gray-200); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px;">
+                <div style="color: var(--gray-700); font-weight: 800;">
+                    المحدد: <span id="selectedCount">0</span>
+                </div>
+                <select id="bulkRegion" class="form-control" style="min-width: 220px; padding: 10px 12px;">
+                    <option value="">إزالة المنطقة (فك الربط)</option>
+                </select>
+                <button id="btnBulkApply" class="btn btn-success btn-sm">
+                    <span>⚙️</span>
+                    <span>تطبيق</span>
+                </button>
+                <button id="btnBulkClearSelection" class="btn btn-secondary btn-sm">
+                    <span>✕</span>
+                    <span>إلغاء التحديد</span>
+                </button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom: 10px;">
+                <div id="devicesStatus" style="color: var(--gray-600); font-weight: 700;"></div>
+                <button id="btnShowAllDevices" class="btn btn-outline btn-sm" type="button">
+                    <span>📋</span>
+                    <span>كل الأجهزة</span>
+                </button>
+            </div>
+
+            <div class="table-container" style="max-height: calc(100vh - 320px); overflow:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align:center;">
+                                <input id="chkAll" type="checkbox" />
+                            </th>
+                            <th style="width: 110px;">DeviceId</th>
+                            <th>DeviceName</th>
+                            <th style="width: 180px;">Location</th>
+                            <th style="width: 220px;">Current Region</th>
+                            <th style="width: 120px;">Status</th>
+                            <th style="width: 130px; text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesBody"></tbody>
+                </table>
+            </div>
+
+            <div id="devicesHint" style="margin-top: 10px; color: var(--gray-600); font-weight: 600; font-size: 0.9em;"></div>
+        </section>
+    </div>
 </div>
 
+@section Scripts {
 <script>
-    const apiBase = ""; // نفس الدومين
-    let allMaps = [];
-    let regionsById = {};
+    const api = {
+        regions: "/api/regions",
+        devices: "/api/terminals",
+        assignOne: (terminalId) => `/api/terminals/${encodeURIComponent(terminalId)}/region`,
+        clearOne: (terminalId) => `/api/terminals/${encodeURIComponent(terminalId)}/region`,
+        bulkAssign: "/api/terminals/bulk/region",
+        bulkClear: "/api/terminals/bulk/clear-region",
+        autoAssign: "/api/terminals/auto-assign-regions"
+    };
 
-    const statusEl = document.getElementById("status");
-    const tbody = document.getElementById("tbody");
-    const regionFilter = document.getElementById("regionFilter");
-    const btnAuto = document.getElementById("btnAuto");
+    const el = {
+        alertHost: document.getElementById("alertHost"),
+        regionsBody: document.getElementById("regionsBody"),
+        btnAddRegion: document.getElementById("btnAddRegion"),
+        btnRefresh: document.getElementById("btnRefresh"),
+        btnAutoAssign: document.getElementById("btnAutoAssign"),
 
-    function setStatus(msg) { statusEl.textContent = msg || ""; }
+        filterSearch: document.getElementById("filterSearch"),
+        filterUnassigned: document.getElementById("filterUnassigned"),
+
+        bulkRegion: document.getElementById("bulkRegion"),
+        btnBulkApply: document.getElementById("btnBulkApply"),
+        selectedCount: document.getElementById("selectedCount"),
+        devicesStatus: document.getElementById("devicesStatus"),
+        bulkBar: document.getElementById("bulkBar"),
+        btnBulkClearSelection: document.getElementById("btnBulkClearSelection"),
+        selectedRegionBadge: document.getElementById("selectedRegionBadge"),
+        selectedRegionIcon: document.getElementById("selectedRegionIcon"),
+        selectedRegionText: document.getElementById("selectedRegionText"),
+        btnShowAllDevices: document.getElementById("btnShowAllDevices"),
+
+        chkAll: document.getElementById("chkAll"),
+        devicesBody: document.getElementById("devicesBody"),
+        devicesHint: document.getElementById("devicesHint")
+    };
+
+    let regions = [];   // {id,name,deviceCount}
+    let devices = [];   // {deviceId, deviceName, location, regionId, regionName, status}
+    let staleMappings = 0;
+    const selected = new Set(); // deviceIds
+    let selectedRegionId = null; // number | null
+
+    function escapeHtml(s) {
+        return String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll("\"", "&quot;")
+            .replaceAll("'", "&#39;");
+    }
+
+    function showAlert(kind, message) {
+        const cls = kind === "success" ? "alert-success"
+            : kind === "warning" ? "alert-warning"
+            : "alert-error";
+        const icon = kind === "success" ? "✅" : kind === "warning" ? "⚠️" : "❌";
+
+        el.alertHost.innerHTML = `
+            <div class="alert ${cls}">
+                <span class="alert-icon">${icon}</span>
+                <span>${escapeHtml(message)}</span>
+            </div>
+        `;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function clearAlert() {
+        el.alertHost.innerHTML = "";
+    }
+
+    async function fetchJson(url, options) {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(txt || `HTTP ${res.status}`);
+        }
+        return await res.json();
+    }
+
+    function syncSelectedUi() {
+        el.selectedCount.textContent = String(selected.size);
+        el.bulkBar.style.display = selected.size > 0 ? "flex" : "none";
+    }
 
     async function loadRegions() {
-        setStatus("جاري تحميل المناطق...");
-        const res = await fetch(`${apiBase}/api/terminals/regions`);
-        const data = await res.json();
+        const data = await fetchJson(api.regions);
+        regions = Array.isArray(data) ? data : [];
 
-        regionFilter.innerHTML = `<option value="">الكل</option>`;
-        regionsById = {};
+        const bulkOpts = [`<option value="">إزالة المنطقة (فك الربط)</option>`]
+            .concat(regions.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`));
+        el.bulkRegion.innerHTML = bulkOpts.join("");
 
-        data.regions.forEach(r => {
-            regionsById[r.id] = r.name;
-            const opt = document.createElement("option");
-            opt.value = r.id;
-            opt.textContent = r.name;
-            regionFilter.appendChild(opt);
+        renderRegions();
+    }
+
+    async function loadDevices() {
+        const data = await fetchJson(api.devices);
+        devices = Array.isArray(data.devices) ? data.devices : [];
+        staleMappings = Number(data.staleMappings || 0);
+        renderDevices();
+    }
+
+    function renderRegions() {
+        const allRowSelected = selectedRegionId === null && !el.filterUnassigned.checked;
+
+        const specialRows = `
+            <tr class="regionRow" data-mode="all" style="cursor:pointer; ${allRowSelected ? "background: var(--gray-50);" : ""}">
+                <td style="font-weight: 900;">كل الأجهزة</td>
+                <td>
+                    <span class="badge badge-info"><span>📋</span><span>${devices.length}</span></span>
+                </td>
+                <td style="text-align:center;">
+                    <span class="badge badge-info"><span>↩️</span><span>عرض</span></span>
+                </td>
+            </tr>
+        `;
+
+        const regionRows = regions.map(r => {
+            const count = Number(r.deviceCount || 0);
+            const canDelete = count === 0;
+            const isSelected = selectedRegionId !== null && String(selectedRegionId) === String(r.id);
+
+            return `
+                <tr class="regionRow" data-id="${r.id}" style="cursor:pointer; ${isSelected ? "background: var(--gray-50);" : ""}">
+                    <td style="font-weight: 900;">${escapeHtml(r.name)}</td>
+                    <td>
+                        <span class="badge badge-info">
+                            <span>🖥️</span>
+                            <span>${count}</span>
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-secondary btnRenameRegion" data-id="${r.id}" data-name="${escapeHtml(r.name)}" type="button" onclick="event.stopPropagation();">
+                                <span>✏️</span>
+                                <span>تعديل</span>
+                            </button>
+                            <button class="btn btn-sm btn-danger btnDeleteRegion" data-id="${r.id}" data-name="${escapeHtml(r.name)}" ${canDelete ? "" : "disabled"} type="button" onclick="event.stopPropagation();">
+                                <span>🗑️</span>
+                                <span>حذف</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        el.regionsBody.innerHTML = specialRows + regionRows;
+
+        document.querySelectorAll(".regionRow").forEach(row => {
+            row.addEventListener("click", () => {
+                const mode = row.getAttribute("data-mode");
+                if (mode === "all") {
+                    selectedRegionId = null;
+                    el.filterUnassigned.checked = false;
+                    renderSelectedRegionBadge();
+                    renderDevices();
+                    renderRegions();
+                    return;
+                }
+
+                const id = Number(row.getAttribute("data-id") || 0);
+                if (!id) return;
+                selectedRegionId = id;
+                el.filterUnassigned.checked = false;
+                renderSelectedRegionBadge();
+                renderDevices();
+                renderRegions();
+            });
+        });
+
+        document.querySelectorAll(".btnRenameRegion").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = Number(btn.getAttribute("data-id") || 0);
+                const name = btn.getAttribute("data-name") || "";
+                await renameRegion(id, name);
+            });
+        });
+
+        document.querySelectorAll(".btnDeleteRegion").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = Number(btn.getAttribute("data-id") || 0);
+                const name = btn.getAttribute("data-name") || "";
+                await deleteRegion(id, name);
+            });
         });
     }
 
-    async function loadMaps() {
-        setStatus("جاري تحميل الأجهزة...");
-        const res = await fetch(`${apiBase}/api/terminals`);
-        const data = await res.json();
-        allMaps = data.maps || [];
-        renderTable();
-        setStatus(`تم التحميل: ${allMaps.length} جهاز`);
+    function getFilteredDevices() {
+        const q = (el.filterSearch.value || "").trim().toLowerCase();
+        const onlyUnassigned = el.filterUnassigned.checked;
+
+        return devices.filter(d => {
+            const isAssigned = d.status === "Assigned";
+            if (onlyUnassigned && isAssigned) return false;
+            // When viewing Unassigned, ignore the selected region filter.
+            if (!onlyUnassigned && selectedRegionId !== null && String(d.regionId || "") !== String(selectedRegionId)) return false;
+            if (q) {
+                const hay = `${d.deviceId || ""} ${d.deviceName || ""} ${d.location || ""}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
     }
 
-    function renderTable() {
-        const selected = regionFilter.value;
-        const rows = selected
-            ? allMaps.filter(x => String(x.regionId) === String(selected))
-            : allMaps;
+    function renderDevices() {
+        const rows = getFilteredDevices();
 
-        tbody.innerHTML = rows.map(x => `
-            <tr>
-                <td>${x.terminalId}</td>
-                <td>${x.regionName || (regionsById[x.regionId] ?? "")}</td>
-                <td>${x.regionId}</td>
-            </tr>
-        `).join("");
+        el.devicesBody.innerHTML = rows.map(d => {
+            const id = d.deviceId;
+            const isAssigned = d.status === "Assigned";
+
+            const badge = isAssigned
+                ? `<span class="badge badge-success"><span>✅</span><span>Assigned</span></span>`
+                : `<span class="badge badge-warning"><span>⚠️</span><span>Unassigned (غير مرتبط)</span></span>`;
+
+            const regionOptions = [`<option value="">إزالة المنطقة (فك الربط)</option>`]
+                .concat(regions.map(r => {
+                    const selectedAttr = String(r.id) === String(d.regionId || "") ? "selected" : "";
+                    return `<option value="${r.id}" ${selectedAttr}>${escapeHtml(r.name)}</option>`;
+                }))
+                .join("");
+
+            const checked = selected.has(id) ? "checked" : "";
+
+            return `
+                <tr>
+                    <td style="text-align:center;">
+                        <input class="rowChk" data-id="${escapeHtml(id)}" type="checkbox" ${checked} />
+                    </td>
+                    <td style="font-weight: 900;">${escapeHtml(id)}</td>
+                    <td>${escapeHtml(d.deviceName)}</td>
+                    <td>${escapeHtml(d.location || "")}</td>
+                    <td>
+                        <select class="form-control regionSelect" data-id="${escapeHtml(id)}" style="padding: 10px 12px;">
+                            ${regionOptions}
+                        </select>
+                    </td>
+                    <td>${badge}</td>
+                    <td style="text-align:center;">
+                        <button class="btn btn-sm btn-success btnApply" data-id="${escapeHtml(id)}">
+                            <span>💾</span>
+                            <span>حفظ</span>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        el.devicesStatus.textContent = `إجمالي: ${devices.length} | معروض: ${rows.length}`;
+
+        el.devicesHint.textContent = staleMappings > 0
+            ? `تنبيه: يوجد ${staleMappings} ربط/روابط لأجهزة غير موجودة في Alpeta (قديمة).`
+            : "";
+
+        document.querySelectorAll(".rowChk").forEach(chk => {
+            chk.addEventListener("change", () => {
+                const id = chk.getAttribute("data-id");
+                if (!id) return;
+                if (chk.checked) selected.add(id); else selected.delete(id);
+                syncSelectedUi();
+            });
+        });
+
+        document.querySelectorAll(".btnApply").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = btn.getAttribute("data-id");
+                if (!id) return;
+                const sel = document.querySelector(`.regionSelect[data-id="${CSS.escape(id)}"]`);
+                const regionId = sel ? sel.value : "";
+                await applyOne(id, regionId);
+            });
+        });
+
+        // Select-all respects current filter result
+        el.chkAll.checked = rows.length > 0 && rows.every(r => selected.has(r.deviceId));
+        syncSelectedUi();
     }
 
-    regionFilter.addEventListener("change", renderTable);
+    function renderSelectedRegionBadge() {
+        if (el.filterUnassigned.checked) {
+            el.selectedRegionBadge.className = "badge badge-warning";
+            el.selectedRegionIcon.textContent = "🔎";
+            el.selectedRegionText.textContent = "فلتر: أجهزة غير مرتبطة بمنطقة";
+            el.selectedRegionBadge.style.display = "inline-flex";
+            return;
+        }
 
-    btnAuto.addEventListener("click", async () => {
+        if (selectedRegionId === null) {
+            el.selectedRegionBadge.style.display = "none";
+            el.selectedRegionText.textContent = "";
+            return;
+        }
+
+        const r = regions.find(x => String(x.id) === String(selectedRegionId));
+        el.selectedRegionBadge.className = "badge badge-info";
+        el.selectedRegionIcon.textContent = "📍";
+        el.selectedRegionText.textContent = r ? `منطقة: ${r.name}` : `منطقة: ${selectedRegionId}`;
+        el.selectedRegionBadge.style.display = "inline-flex";
+    }
+
+    async function addRegion() {
+        const name = (prompt("اسم المنطقة:", "") || "").trim();
+        if (!name) {
+            showAlert("warning", "يرجى إدخال اسم المنطقة.");
+            return;
+        }
+
+        const created = await fetchJson(api.regions, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name })
+        });
+
+        showAlert("success", `تمت إضافة المنطقة: ${created.name}`);
+        await refreshAll();
+    }
+
+    async function renameRegion(regionId, currentName) {
+        const newName = (prompt("اسم المنطقة الجديد:", currentName) || "").trim();
+        if (!newName || newName === currentName) return;
+
+        await fetchJson(`${api.regions}/${regionId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: newName })
+        });
+
+        showAlert("success", "تم تعديل اسم المنطقة.");
+        await refreshAll();
+    }
+
+    async function deleteRegion(regionId, name) {
+        if (!confirm(`هل أنت متأكد من حذف المنطقة: ${name}؟`)) return;
+
         try {
-            btnAuto.disabled = true;
-            setStatus("جاري تشغيل التوزيع التلقائي...");
-            const res = await fetch(`${apiBase}/api/terminals/auto-assign-regions`, {
-                method: "POST"
+            await fetchJson(`${api.regions}/${regionId}`, { method: "DELETE" });
+            showAlert("success", "تم حذف المنطقة.");
+            await refreshAll();
+        } catch {
+            showAlert("error", "لا يمكن حذف المنطقة لأنها مرتبطة بأجهزة.");
+        }
+    }
+
+    async function applyOne(terminalId, regionId) {
+        clearAlert();
+
+        if (!regionId) {
+            if (!confirm(`فك ربط الجهاز ${terminalId} (يصبح بدون منطقة)؟`)) return;
+            await fetchJson(api.clearOne(terminalId), { method: "DELETE" });
+            showAlert("success", `تم فك ربط الجهاز ${terminalId}.`);
+            await refreshAll({ keepSelection: true });
+            return;
+        }
+
+        await fetchJson(api.assignOne(terminalId), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ regionId: Number(regionId) })
+        });
+
+        showAlert("success", `تم حفظ منطقة الجهاز ${terminalId}.`);
+        await refreshAll({ keepSelection: true });
+    }
+
+    async function bulkApply() {
+        const ids = Array.from(selected);
+        if (ids.length === 0) {
+            showAlert("warning", "اختر جهازًا واحدًا على الأقل.");
+            return;
+        }
+
+        const regionId = (el.bulkRegion.value || "").trim();
+
+        if (!regionId) {
+            if (!confirm(`فك ربط ${ids.length} جهاز (تصبح بدون منطقة)؟`)) return;
+
+            const result = await fetchJson(api.bulkClear, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ terminalIds: ids })
             });
 
-            if (!res.ok) {
-                const txt = await res.text();
-                throw new Error(txt);
-            }
+            showAlert("success", result.message || "تم فك ربط الأجهزة المحددة.");
+        } else {
+            if (!confirm(`ربط/نقل ${ids.length} جهاز إلى المنطقة المختارة؟`)) return;
 
-            const result = await res.json();
-            setStatus(`تم التحديث: تمت الإضافة=${result.inserted}، تم التعديل=${result.updated}، إجمالي الأجهزة=${result.totalDevices}`);
-            await loadMaps();
-        } catch (e) {
-            setStatus("خطأ: " + e.message);
-        } finally {
-            btnAuto.disabled = false;
+            const result = await fetchJson(api.bulkAssign, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ terminalIds: ids, regionId: Number(regionId) })
+            });
+
+            showAlert("success", result.message || "تم تحديث الأجهزة المحددة.");
         }
+
+        selected.clear();
+        syncSelectedUi();
+        await refreshAll();
+    }
+
+    async function autoAssign() {
+        if (!confirm("تشغيل التوزيع التلقائي قد يعدّل ربط أجهزة موجود. هل تريد المتابعة؟")) return;
+
+        const data = await fetchJson(api.autoAssign, { method: "POST" });
+        showAlert(
+            "success",
+            `تم تشغيل التوزيع التلقائي. إجمالي=${data.totalDevices}, جديد=${data.inserted ?? data.newlyAssigned}, تم تعديلها=${data.updated ?? data.updatedRegions}, غير رقمية=${data.invalidDeviceIds}`
+        );
+        await refreshAll();
+    }
+
+    async function refreshAll(opts) {
+        const keepSelection = !!(opts && opts.keepSelection);
+        const snapshot = keepSelection ? new Set(selected) : null;
+
+        await Promise.all([loadRegions(), loadDevices()]);
+
+        if (snapshot) {
+            selected.clear();
+            snapshot.forEach(x => selected.add(x));
+        }
+
+        renderDevices();
+        renderRegions();
+        syncSelectedUi();
+        renderSelectedRegionBadge();
+        clearAlert();
+    }
+
+    // Events
+    el.filterUnassigned.addEventListener("change", () => {
+        if (el.filterUnassigned.checked) selectedRegionId = null;
+        renderSelectedRegionBadge();
+        renderDevices();
+        renderRegions();
+    });
+    el.filterSearch.addEventListener("input", () => {
+        if (window.__devSearchT) clearTimeout(window.__devSearchT);
+        window.__devSearchT = setTimeout(renderDevices, 120);
     });
 
-    // init
-    (async function () {
-        await loadRegions();
-        await loadMaps();
-        setStatus("");
+    el.btnBulkApply.addEventListener("click", () => bulkApply().catch(e => showAlert("error", e.message)));
+    el.btnBulkClearSelection.addEventListener("click", () => {
+        selected.clear();
+        renderDevices();
+        syncSelectedUi();
+    });
+    el.btnAutoAssign.addEventListener("click", () => autoAssign().catch(e => showAlert("error", e.message)));
+    el.btnRefresh.addEventListener("click", () => refreshAll().catch(e => showAlert("error", e.message)));
+    el.btnAddRegion.addEventListener("click", () => addRegion().catch(e => showAlert("error", e.message)));
+    el.btnShowAllDevices.addEventListener("click", () => {
+        selectedRegionId = null;
+        el.filterUnassigned.checked = false;
+        renderSelectedRegionBadge();
+        renderDevices();
+        renderRegions();
+    });
+
+    el.chkAll.addEventListener("change", () => {
+        const rows = getFilteredDevices();
+        if (el.chkAll.checked) rows.forEach(r => selected.add(r.deviceId));
+        else rows.forEach(r => selected.delete(r.deviceId));
+        renderDevices();
+    });
+
+    // Init
+    (async function init() {
+        try {
+            await refreshAll();
+        } catch (e) {
+            showAlert("error", e.message);
+        }
     })();
 </script>
+}

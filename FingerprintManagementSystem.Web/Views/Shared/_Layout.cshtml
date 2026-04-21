@@ -1,7 +1,8 @@
 ﻿@{
     var currentEmpId = Context.Session.GetString("EmpId") ?? "";
     var currentEmpName = Context.Session.GetString("EmpName") ?? "غير مسجل";
-    var isAdmin = Context.Session.GetString("IsAdmin") == "true";
+    // Session is set as "1"/"0" in HomeController. Keep checks consistent across the app.
+    var isAdmin = Context.Session.GetString("IsAdmin") == "1";
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -60,15 +61,10 @@
                 @if (isAdmin)
                 {
                     <div class="navbar-divider"></div>
-                    
-                    <a href="/admin/reports" class="nav-link">
-                        <span class="navbar-link-icon">📊</span>
-                        <span class="navbar-link-text">التقارير</span>
-                    </a>
-                    
-                    <a href="/admin/settings" class="nav-link">
-                        <span class="navbar-link-icon">⚙️</span>
-                        <span class="navbar-link-text">الإعدادات</span>
+
+                    <a href="/terminals" class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Terminals" ? "active" : "")">
+                        <span class="navbar-link-icon">🗺️</span>
+                        <span class="navbar-link-text">المناطق والأجهزة</span>
                     </a>
                 }
             </div>

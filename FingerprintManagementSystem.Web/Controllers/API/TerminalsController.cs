@@ -1,9 +1,11 @@
 ﻿using FingerprintManagementSystem.ApiAdapter.Alpeta;
 using FingerprintManagementSystem.ApiAdapter.Persistence;
 using FingerprintManagementSystem.ApiAdapter.Persistence.Entities;
+using FingerprintManagementSystem.Contracts.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
+
 namespace FingerprintManagementSystem.Web.Controllers.Api;
 
 [ApiController]
@@ -19,10 +21,18 @@ public class TerminalsController : ControllerBase
         _alpeta = alpeta;
     }
 
+    private IActionResult? RequireAdmin()
+    {
+        var isAdmin = HttpContext.Session.GetString("IsAdmin") == "1";
+        return isAdmin ? null : Forbid();
+    }
+
     // 🔹 جلب المناطق (للبحث / dropdown)
     [HttpGet("regions")]
     public async Task<IActionResult> GetRegions(CancellationToken ct)
     {
+        if (RequireAdmin() is IActionResult forbid) return forbid;
+
         var regions = await _db.Regions
             .AsNoTracking()
             .OrderBy(r => r.Id)
@@ -32,39 +42,198 @@ public class TerminalsController : ControllerBase
         return Ok(new { total = regions.Count, regions });
     }
 
-    // 🔹 جلب توزيع الأجهزة الحالي
+    // 🔹 جلب جميع أجهزة Alpeta + المنطقة الحالية إن وجدت (مصدر الأجهزة: Alpeta، ومصدر الربط: DB)
     [HttpGet]
-    public async Task<IActionResult> GetMaps(CancellationToken ct)
+    public async Task<IActionResult> GetAllDevices(CancellationToken ct)
     {
-        var maps = await (
-            from m in _db.TerminalRegionMaps.AsNoTracking()
-            join r in _db.Regions.AsNoTracking() on m.RegionId equals r.Id
-            orderby m.TerminalId
-            select new
-            {
-                terminalId = m.TerminalId,
-                regionId = m.RegionId,
-                regionName = r.Name
-            }
-        ).ToListAsync(ct);
+        if (RequireAdmin() is IActionResult forbid) return forbid;
 
-        return Ok(new { total = maps.Count, maps });
+        var devices = await _alpeta.GetAllDevicesAsync(ct);
+
+        var regionNameById = await _db.Regions
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, x => x.Name, ct);
+
+        var maps = await _db.TerminalRegionMaps
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var mapByTerminalId = maps.ToDictionary(x => x.TerminalId, x => x.RegionId, StringComparer.OrdinalIgnoreCase);
+        var deviceIdSet = new HashSet<string>(devices.Select(x => x.DeviceId?.Trim() ?? ""), StringComparer.OrdinalIgnoreCase);
+
+        var rows = devices
+            .Where(d => !string.IsNullOrWhiteSpace(d.DeviceId))
+            .Select(d =>
+            {
+                var id = d.DeviceId.Trim();
+                mapByTerminalId.TryGetValue(id, out var regionId);
+                regionNameById.TryGetValue(regionId, out var regionName);
+
+                return new
+                {
+                    deviceId = id,
+                    deviceName = d.DeviceName,
+                    location = d.Location,
+                    regionId = regionId == 0 ? (int?)null : regionId,
+                    regionName = string.IsNullOrWhiteSpace(regionName) ? null : regionName,
+                    status = regionId == 0 ? "Unassigned" : "Assigned"
+                };
+            })
+            .OrderBy(x => x.status == "Unassigned" ? 0 : 1)
+            .ThenBy(x => x.regionName ?? "")
+            .ThenBy(x => x.deviceName ?? "")
+            .ThenBy(x => x.deviceId)
+            .ToList();
+
+        var staleMappings = maps.Count(m => !deviceIdSet.Contains(m.TerminalId ?? ""));
+
+        return Ok(new
+        {
+            total = rows.Count,
+            devices = rows,
+            staleMappings
+        });
+    }
+
+    // 🔹 ربط/نقل جهاز إلى منطقة (Upsert)
+    [HttpPut("{terminalId}/region")]
+    public async Task<IActionResult> AssignToRegion(string terminalId, [FromBody] AssignTerminalRegionRequest req, CancellationToken ct)
+    {
+        if (RequireAdmin() is IActionResult forbid) return forbid;
+
+        terminalId = (terminalId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(terminalId))
+            return BadRequest(new { message = "TerminalId مطلوب." });
+
+        if (req == null || req.RegionId <= 0)
+            return BadRequest(new { message = "RegionId غير صحيح." });
+
+        var regionExists = await _db.Regions.AnyAsync(x => x.Id == req.RegionId, ct);
+        if (!regionExists)
+            return NotFound(new { message = "المنطقة غير موجودة." });
+
+        var row = await _db.TerminalRegionMaps.FirstOrDefaultAsync(x => x.TerminalId == terminalId, ct);
+        if (row is null)
+            _db.TerminalRegionMaps.Add(new TerminalRegionMap { TerminalId = terminalId, RegionId = req.RegionId });
+        else
+            row.RegionId = req.RegionId;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { message = "تم حفظ ربط الجهاز بالمنطقة بنجاح." });
+    }
+
+    // 🔹 فك ربط جهاز من أي منطقة (يصبح Unassigned)
+    [HttpDelete("{terminalId}/region")]
+    public async Task<IActionResult> ClearRegion(string terminalId, CancellationToken ct)
+    {
+        if (RequireAdmin() is IActionResult forbid) return forbid;
+
+        terminalId = (terminalId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(terminalId))
+            return BadRequest(new { message = "TerminalId مطلوب." });
+
+        var row = await _db.TerminalRegionMaps.FirstOrDefaultAsync(x => x.TerminalId == terminalId, ct);
+        if (row is null)
+            return Ok(new { message = "الجهاز غير مرتبط مسبقًا." });
+
+        _db.TerminalRegionMaps.Remove(row);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { message = "تم فك ربط الجهاز بنجاح." });
+    }
+
+    public sealed class BulkAssignRequest
+    {
+        public List<string> TerminalIds { get; set; } = new();
+        public int RegionId { get; set; }
+    }
+
+    // 🔹 ربط/نقل مجموعة أجهزة إلى منطقة
+    [HttpPost("bulk/region")]
+    public async Task<IActionResult> BulkAssignToRegion([FromBody] BulkAssignRequest req, CancellationToken ct)
+    {
+        if (RequireAdmin() is IActionResult forbid) return forbid;
+
+        if (req == null || req.RegionId <= 0)
+            return BadRequest(new { message = "RegionId غير صحيح." });
+
+        var ids = (req.TerminalIds ?? new List<string>())
+            .Select(x => (x ?? "").Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (ids.Count == 0)
+            return BadRequest(new { message = "قائمة الأجهزة فارغة." });
+
+        var regionExists = await _db.Regions.AnyAsync(x => x.Id == req.RegionId, ct);
+        if (!regionExists)
+            return NotFound(new { message = "المنطقة غير موجودة." });
+
+        var existing = await _db.TerminalRegionMaps
+            .Where(x => ids.Contains(x.TerminalId))
+            .ToListAsync(ct);
+
+        var existingById = existing.ToDictionary(x => x.TerminalId, x => x, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var id in ids)
+        {
+            if (existingById.TryGetValue(id, out var row))
+                row.RegionId = req.RegionId;
+            else
+                _db.TerminalRegionMaps.Add(new TerminalRegionMap { TerminalId = id, RegionId = req.RegionId });
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new BulkOpResultDto
+        {
+            Ok = ids.Count,
+            Fail = 0,
+            Message = "تم تحديث توزيع الأجهزة المحددة بنجاح."
+        });
+    }
+
+    public sealed class BulkClearRequest
+    {
+        public List<string> TerminalIds { get; set; } = new();
+    }
+
+    // 🔹 فك ربط مجموعة أجهزة (تصبح Unassigned)
+    [HttpPost("bulk/clear-region")]
+    public async Task<IActionResult> BulkClearRegions([FromBody] BulkClearRequest req, CancellationToken ct)
+    {
+        if (RequireAdmin() is IActionResult forbid) return forbid;
+
+        var ids = (req?.TerminalIds ?? new List<string>())
+            .Select(x => (x ?? "").Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (ids.Count == 0)
+            return BadRequest(new { message = "قائمة الأجهزة فارغة." });
+
+        var rows = await _db.TerminalRegionMaps
+            .Where(x => ids.Contains(x.TerminalId))
+            .ToListAsync(ct);
+
+        _db.TerminalRegionMaps.RemoveRange(rows);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new BulkOpResultDto
+        {
+            Ok = rows.Count,
+            Fail = ids.Count - rows.Count,
+            Message = "تم فك ربط الأجهزة المحددة."
+        });
     }
 
     [HttpPost("auto-assign-regions")]
     public async Task<IActionResult> AutoAssignRegions(CancellationToken ct)
     {
-        
-        // 1) التحقق من الصلاحية
-        var isAdminStr = HttpContext.Session.GetString("IsAdmin");
-    
-        // نتحقق إذا كان فارغاً أو لا يساوي "1"
-        if (string.IsNullOrEmpty(isAdminStr) || isAdminStr != "1")
-        {
-            // Forbid() تعني أن المستخدم مسجل دخول لكن ليس لديه صلاحية
-            // Unauthorized() تعني أن المستخدم غير معروف أصلاً
-            return Forbid(); 
-        }
+        if (RequireAdmin() is IActionResult forbid) return forbid;
+
         // 1) جلب المناطق والخرائط الحالية لتقليل استهلاك قاعدة البيانات
         var regionsList = await _db.Regions.AsNoTracking().ToListAsync(ct);
         var existingMaps = await _db.TerminalRegionMaps.ToDictionaryAsync(x => x.TerminalId, x => x, ct);
@@ -190,6 +359,9 @@ public class TerminalsController : ControllerBase
         {
             message = "تم تحديث توزيع الأجهزة بنجاح",
             totalDevices = devices.Count,
+            // Backward/forward compatibility for existing UI code.
+            inserted,
+            updated,
             newlyAssigned = inserted,
             updatedRegions = updated,
             invalidDeviceIds = skippedInvalidId
