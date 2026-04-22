@@ -16,6 +16,7 @@
     
     <!-- ملف CSS الموحد -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     
     @await RenderSectionAsync("Styles", required: false)
 </head>
@@ -35,7 +36,7 @@
             <div class="navbar-section">
                 <a href="/" class="navbar-brand">
                     <div class="navbar-logo">
-                        <img src="https://www.pahw.gov.kw/images/PAHW-Logo.png" alt="PAHW" style="height: 90px; filter: brightness(0) invert(1);" />
+                        <img src="https://www.pahw.gov.kw/images/PAHW-Logo.png" alt="PAHW" class="navbar-logo-img" />
                     </div>
                   
                 </a>
@@ -89,7 +90,7 @@
                                 }
                             </span>
                         </div>
-                        <span style="font-size: 0.8em;">▼</span>
+                        <span class="navbar-caret">▼</span>
                     </div>
                     
                     <!-- قائمة المستخدم المنسدلة -->
@@ -98,9 +99,9 @@
                         
                         @if (Context.Session.GetString("EmpName") != null)
                         {
-                            <form asp-controller="Home" asp-action="Logout" method="post" style="display:inline;">
+                            <form asp-controller="Home" asp-action="Logout" method="post" class="u-inline">
                                 @Html.AntiForgeryToken()
-                                <button type="submit" class="navbar-dropdown-item navbar-logout" style="width: 100%; border: none; background: none; text-align: right; font-family: inherit;">
+                                <button type="submit" class="navbar-dropdown-item navbar-logout navbar-logout-btn">
                                     <span class="navbar-dropdown-item-icon">🚪</span>
                                     <span>تسجيل الخروج</span>
                                 </button>

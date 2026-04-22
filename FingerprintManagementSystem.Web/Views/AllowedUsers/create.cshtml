@@ -11,7 +11,8 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"]</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/shared-styles.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
 <body>
 <!-- جزيئات الخلفية المتحركة -->
@@ -25,7 +26,7 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
 
 <!-- المحتوى الرئيسي -->
 <div class="main-container">
-    <div class="content-card fade-in" style="max-width: 800px; margin: 0 auto;">
+    <div class="content-card fade-in c-card-narrow">
         <!-- رسائل التنبيه -->
         @if (TempData["ErrorMsg"] != null)
         {
@@ -57,26 +58,26 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
         <div class="divider"></div>
 
         <!-- خطوة 1: جلب بيانات الموظف من SOAP -->
-        <div style="background: linear-gradient(135deg, var(--blue) 0%, var(--blue-light) 100%); padding: 24px; border-radius: 12px; color: white; margin-bottom: 32px;">
-            <h3 style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 1.3em;">
-                <span style="font-size: 1.5em;">🔍</span>
+        <div class="c-banner c-banner--blue">
+            <h3 class="c-banner-title">
+                <span class="c-banner-titleIcon">🔍</span>
                 <span>الخطوة 1: جلب بيانات المستخدم</span>
             </h3>
-            <p style="opacity: 0.9; margin-bottom: 20px;">أدخل اسم المستخدم لجلب بياناته</p>
+            <p class="c-banner-subtext">أدخل اسم المستخدم لجلب بياناته</p>
 
             <form method="post" asp-action="Fetch">
-                <div style="display: flex; gap: 12px; align-items: flex-end;">
-                    <div style="flex: 1;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.95em;">
+                <div class="c-form-inline">
+                    <div class="u-flex-1">
+                        <label class="form-label form-label--inverted">
                             اسم المستخدم:
                         </label>
                         <input type="number"
                                name="employeeId"
                                required
                                placeholder="اسم المستخدم"
-                               style="width: 100%; padding: 14px 16px; border: none; border-radius: 10px; font-size: 1.1em; font-family: 'Tajawal', sans-serif; font-weight: 700;" />
+                               class="c-input-hero" />
                     </div>
-                    <button type="submit" class="btn btn-lg" style="background: white; color: var(--blue); padding: 14px 32px;">
+                    <button type="submit" class="btn btn-lg btn-invert-blue">
                         <span>🔄</span>
                         <span>جلب البيانات</span>
                     </button>
@@ -87,16 +88,16 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
         <!-- خطوة 2: حفظ الموظف (تظهر فقط بعد جلب البيانات) -->
         @if (Model != null)
         {
-        <div style="background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-light) 100%); padding: 24px; border-radius: 12px; color: white; margin-bottom: 32px;">
-            <h3 style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 1.3em;">
-                <span style="font-size: 1.5em;">✓</span>
+        <div class="c-banner c-banner--emerald">
+            <h3 class="c-banner-title">
+                <span class="c-banner-titleIcon">✓</span>
                 <span>تم جلب البيانات بنجاح!</span>
             </h3>
         </div>
 
-        <div style="background: var(--gray-50); padding: 32px; border-radius: 12px; border: 2px solid var(--gray-200);">
-            <h3 style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; font-size: 1.3em; color: var(--maroon);">
-                <span style="font-size: 1.5em;">📝</span>
+        <div class="c-panel">
+            <h3 class="c-panel-title">
+                <span class="c-panel-titleIcon">📝</span>
                 <span>الخطوة 2: مراجعة وحفظ البيانات</span>
             </h3>
 
@@ -108,7 +109,7 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
                     <!-- الاسم -->
                     <div class="form-group">
                         <label class="form-label">
-                            <span style="color: var(--maroon);">👤</span>
+                            <span class="text-maroon">👤</span>
                             الاسم الكامل
                         </label>
                         <input type="text"
@@ -121,7 +122,7 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
                     <!-- البريد الإلكتروني -->
                     <div class="form-group">
                         <label class="form-label">
-                            <span style="color: var(--maroon);">📧</span>
+                            <span class="text-maroon">📧</span>
                             البريد الإلكتروني
                         </label>
                         <input type="email"
@@ -136,7 +137,7 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
                     <!-- القسم -->
                     <div class="form-group">
                         <label class="form-label">
-                            <span style="color: var(--maroon);">🏢</span>
+                            <span class="text-maroon">🏢</span>
                             القسم
                         </label>
                         <input type="text"
@@ -150,8 +151,8 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
 
                 <!-- صلاحيات الإدارة -->
                 <div class="form-group">
-                    <label class="form-label" style="margin-bottom: 12px;">
-                        <span style="color: var(--maroon);">⭐</span>
+                    <label class="form-label u-mb-12">
+                        <span class="text-maroon">⭐</span>
                         صلاحية مدير
                     </label>
                     <div class="form-check">
@@ -163,21 +164,21 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
                             منح صلاحية مدير
                         </label>
                     </div>
-                    <small style="display: block; margin-top: 8px; color: var(--gray-500); font-size: 0.85em; padding-right: 32px;">
+                    <small class="c-form-hint">
                         المدير لديه صلاحيات كاملة لإدارة النظام والمستخدمين
                     </small>
                 </div>
 
                 <!-- معلومات إضافية -->
-                <div style="background: linear-gradient(135deg, var(--copper-light) 0%, var(--copper) 100%); padding: 20px; border-radius: 10px; margin: 24px 0; color: white;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div class="c-banner c-banner--copper c-banner--compact">
+                    <div class="c-info-grid">
                         <div>
-                            <div style="font-size: 0.85em; opacity: 0.9; margin-bottom: 4px;">اسم المستخدم</div>
-                            <div style="font-size: 1.3em; font-weight: 900;">@Model.EmployeeId</div>
+                            <div class="c-info-label">اسم المستخدم</div>
+                            <div class="c-info-value">@Model.EmployeeId</div>
                         </div>
                         <div>
-                            <div style="font-size: 0.85em; opacity: 0.9; margin-bottom: 4px;">الحالة الافتراضية</div>
-                            <div style="font-size: 1.3em; font-weight: 900;">✓ فعال</div>
+                            <div class="c-info-label">الحالة الافتراضية</div>
+                            <div class="c-info-value">✓ فعال</div>
                         </div>
                     </div>
                 </div>
@@ -199,10 +200,10 @@ var currentEmpId = Context.Session.GetString("EmpId") ?? "";
         else
         {
         <!-- إرشادات -->
-        <div style="background: var(--gray-50); padding: 32px; border-radius: 12px; border: 2px dashed var(--gray-300); text-align: center;">
-            <div style="font-size: 4em; margin-bottom: 16px; opacity: 0.3;">📋</div>
-            <h3 style="color: var(--gray-600); margin-bottom: 12px;">في انتظار جلب البيانات</h3>
-            <p style="color: var(--gray-500); line-height: 1.8;">
+        <div class="c-empty-panel">
+            <div class="c-empty-icon">📋</div>
+            <h3 class="c-empty-title">في انتظار جلب البيانات</h3>
+            <p class="c-empty-text">
                 أدخل اسم المستخدم في الخطوة الأولى أعلاه لجلب بيانات المستخدم<br/>
                 من نظام SOAP، ثم سيظهر هنا نموذج إدخال البيانات
             </p>

@@ -11,7 +11,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"]</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/shared-styles.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
 <body>
     <!-- جزيئات الخلفية المتحركة -->
@@ -84,21 +85,21 @@
             <div class="divider"></div>
 
             <!-- إحصائيات سريعة -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 32px;">
+            <div class="c-stats-grid">
                 <div class="stat-card">
                     <div class="stat-value">@Model.Count</div>
                     <div class="stat-label">إجمالي المستخدمين</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" style="color: var(--emerald);">@Model.Count(u => u.IsActive)</div>
+                    <div class="stat-value text-emerald">@Model.Count(u => u.IsActive)</div>
                     <div class="stat-label">الحسابات النشطة</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" style="color: var(--rose);">@Model.Count(u => !u.IsActive)</div>
+                    <div class="stat-value text-rose">@Model.Count(u => !u.IsActive)</div>
                     <div class="stat-label">الحسابات المعطّلة</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" style="color: var(--blue);">@Model.Count(u => u.IsAdmin)</div>
+                    <div class="stat-value text-blue">@Model.Count(u => u.IsAdmin)</div>
                     <div class="stat-label">المدراء</div>
                 </div>
             </div>
@@ -117,7 +118,7 @@
                                 <th>صلاحية مدير</th>
                                 <th>الحالة</th>
                                 <th>صالح حتى</th>
-                                <th style="text-align: center;">الإجراءات</th>
+                                <th class="u-text-center">الإجراءات</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -125,13 +126,13 @@
                             {
                                 <tr>
                                     <td>
-                                        <strong style="color: var(--maroon);">@u.EmployeeId</strong>
+                                        <strong class="text-maroon">@u.EmployeeId</strong>
                                     </td>
                                     <td>
                                         <strong>@u.FullName</strong>
                                     </td>
                                     <td>
-                                        <span style="color: var(--gray-600);">@u.Email</span>
+                                        <span class="text-muted">@u.Email</span>
                                     </td>
                                     <td>@u.Department</td>
                                     <td>
@@ -144,7 +145,7 @@
                                         }
                                         else
                                         {
-                                            <span class="badge" style="background: var(--gray-300); color: var(--gray-700);">
+                                            <span class="badge badge-muted">
                                                 <span>👤</span>
                                                 <span>مستخدم</span>
                                             </span>
@@ -169,21 +170,21 @@
                                     <td>
                                         @if (u.ValidUntil.HasValue)
                                         {
-                                            <span style="color: var(--amber); font-weight: 700;">
+                                            <span class="text-amber u-fw-700">
                                                 @u.ValidUntil.Value.ToString("yyyy-MM-dd")
                                             </span>
                                         }
                                         else
                                         {
-                                            <span style="color: var(--gray-400);">دائم</span>
+                                            <span class="text-gray-400">دائم</span>
                                         }
                                     </td>
                                     <td>
-                                        <div style="display: flex; gap: 8px; justify-content: center;">
+                                        <div class="c-actions-row">
                                             @if (u.EmployeeId.ToString() != currentEmpId)
                                             {
                                                 <!-- زر التفعيل/التعطيل -->
-                                                <form method="post" asp-action="Toggle" style="display:inline">
+                                                <form method="post" asp-action="Toggle" class="u-inline">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="employeeId" value="@u.EmployeeId" />
                                                     <input type="hidden" name="makeActive" value="@(u.IsActive ? "false" : "true")" />
@@ -200,7 +201,7 @@
                                                 </form>
 
                                                 <!-- زر الحذف -->
-                                                <form method="post" asp-action="Delete" style="display:inline"
+                                                <form method="post" asp-action="Delete" class="u-inline"
                                             onsubmit="return confirm('⚠️ هل أنت متأكد من الحذف النهائي لهذا المستخدم؟');">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="employeeId" value="@u.EmployeeId" />
@@ -211,7 +212,7 @@
                                             }
                                             else
                                             {
-                                                <span class="badge" style="background: var(--copper); color: white;">
+                                                <span class="badge badge-copper">
                                                     <span>🔒</span>
                                                     <span>حسابك</span>
                                                 </span>
@@ -229,7 +230,7 @@
                 <div class="empty-state">
                     <div class="empty-state-icon">📭</div>
                     <div class="empty-state-text">لا يوجد مستخدمون في القائمة حالياً</div>
-                    <div style="margin-top: 24px;">
+                    <div class="u-mt-24">
                         <a asp-action="Create" class="btn btn-primary">
                             <span>➕</span>
                             <span>إضافة مستخدم</span>
