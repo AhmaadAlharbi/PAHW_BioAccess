@@ -15,6 +15,7 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add<SessionGuardFilter>();
 });
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 
 
 var connectionString = builder.Configuration.GetConnectionString("serverDB")
@@ -25,6 +26,7 @@ Console.WriteLine($"[DEBUG] Using connection: {connectionString}");
 builder.Services.AddDbContext<LocalAppDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddScoped<RegionMappingService>();
+builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddHttpClient(); // مهم لأن SoapLoginApi يعتمد على HttpClient
 builder.Services.AddScoped<ILoginApi, SoapLoginApi>();
 builder.Services.AddSession();

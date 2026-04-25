@@ -272,6 +272,20 @@
   line-height: 1.8;
 }
 
+/* Activity log (Dashboard) */
+.c-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.c-activity-item {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
 .form-control-compact {
   padding: 10px 12px;
 }

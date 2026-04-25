@@ -49,6 +49,14 @@
 
             <!-- القسم الأوسط: روابط التنقل -->
             <div class="navbar-nav" id="navbarNav">
+                @if (Context.Session.GetString("EmpName") != null)
+                {
+                     <a href="/dashboard" class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")">
+                         <span class="navbar-link-icon">📊</span>
+                         <span class="navbar-link-text">لوحة التحكم</span>
+                     </a>
+                 }
+
                 <a href="/employees/search" class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Search" ? "active" : "")">
                     <span class="navbar-link-icon">🔍</span>
                     <span class="navbar-link-text">بحث موظف</span>

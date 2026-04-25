@@ -18,7 +18,7 @@ namespace FingerprintManagementSystem.Web.Controllers
         {
             if (HttpContext.Session.GetString("EmpName") != null)
             {
-                return RedirectToAction("Index", "Employees");
+                return Redirect("/dashboard");
             }
 
             return View();
@@ -65,7 +65,7 @@ namespace FingerprintManagementSystem.Web.Controllers
             HttpContext.Session.SetString("EmpId", empId);
             // TempData["SuccessMsg"] = $"Welcome {result.EmployeeName}";
 
-            return RedirectToAction("Index", "Employees");
+            return Redirect("/dashboard");
         }
 
         [HttpPost]

@@ -1,16 +1,19 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FingerprintManagementSystem.ApiAdapter.Persistence;
+using FingerprintManagementSystem.Web.Services;
 
 [ApiController]
 [Route("api/regions")]
 public class RegionsController : ControllerBase
 {
     private readonly LocalAppDbContext _db;
+    private readonly IActivityLogService _activity;
 
-    public RegionsController(LocalAppDbContext db)
+    public RegionsController(LocalAppDbContext db, IActivityLogService activity)
     {
         _db = db;
+        _activity = activity;
     }
 
     private IActionResult? RequireAdmin()
@@ -74,6 +77,15 @@ public class RegionsController : ControllerBase
         _db.Regions.Add(region);
         await _db.SaveChangesAsync(ct);
 
+        await _activity.LogAsync(
+            action: "Region.Created",
+            entityType: "Region",
+            entityId: region.Id.ToString(),
+            summary: $"تم إنشاء منطقة جديدة: {region.Id} ({region.Name}).",
+            details: new { regionId = region.Id, regionName = region.Name },
+            ct: ct
+        );
+
         return Ok(new { id = region.Id, name = region.Name });
     }
 
@@ -99,8 +111,18 @@ public class RegionsController : ControllerBase
         if (region is null)
             return NotFound(new { message = "المنطقة غير موجودة." });
 
+        var oldName = region.Name;
         region.Name = name;
         await _db.SaveChangesAsync(ct);
+
+        await _activity.LogAsync(
+            action: "Region.Renamed",
+            entityType: "Region",
+            entityId: region.Id.ToString(),
+            summary: $"تم تعديل اسم المنطقة {region.Id}: \"{oldName}\" → \"{region.Name}\".",
+            details: new { regionId = region.Id, oldName, newName = region.Name },
+            ct: ct
+        );
 
         return Ok(new { message = "تم تحديث اسم المنطقة." });
     }
@@ -119,8 +141,18 @@ public class RegionsController : ControllerBase
         if (hasDevices)
             return Conflict(new { message = "لا يمكن حذف المنطقة لأنها مرتبطة بأجهزة." });
 
+        var name = region.Name;
         _db.Regions.Remove(region);
         await _db.SaveChangesAsync(ct);
+
+        await _activity.LogAsync(
+            action: "Region.Deleted",
+            entityType: "Region",
+            entityId: regionId.ToString(),
+            summary: $"تم حذف المنطقة {regionId} ({name}).",
+            details: new { regionId, regionName = name },
+            ct: ct
+        );
 
         return Ok(new { message = "تم حذف المنطقة." });
     }

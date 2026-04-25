@@ -1,16 +1,20 @@
 using FingerprintManagementSystem.ApiAdapter.Persistence;
 using FingerprintManagementSystem.ApiAdapter.Persistence.Entities;
 using FingerprintManagementSystem.Contracts;
+using FingerprintManagementSystem.Web.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace FingerprintManagementSystem.ApiAdapter.Implementations;
 
 public class DelegationService : IDelegationService
 {
     private readonly LocalAppDbContext _db;
+    private readonly IActivityLogService _activity;
 
-    public DelegationService(LocalAppDbContext db)
+    public DelegationService(LocalAppDbContext db, IActivityLogService activity)
     {
         _db = db;
+        _activity = activity;
     }
 
     public async Task<string> SaveDelegationAsync(
@@ -56,6 +60,25 @@ public class DelegationService : IDelegationService
 
         _db.Delegations.Add(d);
         await _db.SaveChangesAsync(ct);
+
+        var employeeName = await _db.AllowedUsers
+            .AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId)
+            .Select(x => x.FullName)
+            .FirstOrDefaultAsync(ct);
+
+        var employeeText = string.IsNullOrWhiteSpace(employeeName)
+            ? $"الموظف رقم {employeeId}"
+            : $"{employeeName} ({employeeId})";
+
+        await _activity.LogAsync(
+            action: "Delegation.Created",
+            entityType: "Delegation",
+            entityId: d.Id.ToString(),
+            summary: $"تم إنشاء انتداب لـ {employeeText} ({terminalIds.Count} أجهزة) من {startDate:yyyy-MM-dd} إلى {endDate:yyyy-MM-dd}.",
+            details: new { employeeId, employeeName, terminalCount = terminalIds.Count, startDate, endDate, status },
+            ct: ct
+        );
 
         return status;
     }

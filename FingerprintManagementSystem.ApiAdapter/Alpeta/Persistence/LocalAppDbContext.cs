@@ -17,6 +17,7 @@ public class LocalAppDbContext : DbContext
     public DbSet<Region> Regions => Set<Region>();
     public DbSet<TerminalRegionMap> TerminalRegionMaps => Set<TerminalRegionMap>();
     public DbSet<AllowedUser> AllowedUsers => Set<AllowedUser>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -117,6 +118,45 @@ public class LocalAppDbContext : DbContext
                 IsAdmin = true
             }
         );
+
+        // ===== ActivityLog =====
+        modelBuilder.Entity<ActivityLog>()
+            .HasKey(x => x.Id);
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.ActorType)
+            .HasMaxLength(20)
+            .IsRequired();
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.ActorName)
+            .HasMaxLength(200);
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.Action)
+            .HasMaxLength(100)
+            .IsRequired();
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.EntityType)
+            .HasMaxLength(100)
+            .IsRequired();
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.EntityId)
+            .HasMaxLength(100);
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.Summary)
+            .HasMaxLength(500)
+            .IsRequired();
+
+        modelBuilder.Entity<ActivityLog>()
+            .Property(x => x.Severity)
+            .HasMaxLength(20);
+
+        modelBuilder.Entity<ActivityLog>()
+            .HasIndex(x => x.CreatedAt);
 
     }
 

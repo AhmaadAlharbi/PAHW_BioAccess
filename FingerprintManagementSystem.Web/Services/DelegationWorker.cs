@@ -26,6 +26,7 @@ public class DelegationWorker : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<LocalAppDbContext>();
                 var api = scope.ServiceProvider.GetRequiredService<IEmployeeDevicesApi>();
+                var activity = scope.ServiceProvider.GetRequiredService<IActivityLogService>();
 
                 var now = DateTime.Now;
 
@@ -54,6 +55,16 @@ public class DelegationWorker : BackgroundService
 
                     del.Status = "Active";
                     del.ActivatedAt = now;
+
+                    await activity.LogSystemAsync(
+                        actorName: "DelegationWorker",
+                        action: "Delegation.Activated",
+                        entityType: "Delegation",
+                        entityId: del.Id.ToString(),
+                        summary: $"تم تفعيل انتداب للموظف {del.EmployeeId} ({terminals.Count} أجهزة).",
+                        details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
+                        ct: stoppingToken
+                    );
                 }
 
                 // 2) التحقق من الانتدابات المنتهية
@@ -81,6 +92,16 @@ public class DelegationWorker : BackgroundService
 
                     del.Status = "Expired";
                     del.ExpiredAt = now;
+
+                    await activity.LogSystemAsync(
+                        actorName: "DelegationWorker",
+                        action: "Delegation.Expired",
+                        entityType: "Delegation",
+                        entityId: del.Id.ToString(),
+                        summary: $"تم إنهاء انتداب للموظف {del.EmployeeId} ({terminals.Count} أجهزة).",
+                        details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
+                        ct: stoppingToken
+                    );
                 }
 
                 await db.SaveChangesAsync(stoppingToken);

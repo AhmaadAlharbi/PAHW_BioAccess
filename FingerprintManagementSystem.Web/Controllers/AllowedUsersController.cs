@@ -1,14 +1,17 @@
 ﻿using FingerprintManagementSystem.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using FingerprintManagementSystem.Web.Services;
 
 public class AllowedUsersController : Controller
 {
     private readonly IAllowedUsersAdmin _admin;
+    private readonly IActivityLogService _activity;
 
-    public AllowedUsersController(IAllowedUsersAdmin admin)
+    public AllowedUsersController(IAllowedUsersAdmin admin, IActivityLogService activity)
     {
         _admin = admin;
+        _activity = activity;
     }
     
     public override void OnActionExecuting(ActionExecutingContext context)
@@ -50,6 +53,19 @@ public class AllowedUsersController : Controller
         var ok = await _admin.AddAsync(new AllowedUserDto(employeeId, fullName, email, department), validUntil, isAdmin, ct);
 
         TempData["SuccessMsg"] = ok ? "تمت الإضافة." : "الموظف موجود مسبقًا.";
+
+        if (ok)
+        {
+            await _activity.LogAsync(
+                action: "AllowedUser.Added",
+                entityType: "AllowedUser",
+                entityId: employeeId.ToString(),
+                summary: $"تمت إضافة مستخدم إلى قائمة الصلاحيات: {employeeId} ({fullName}).",
+                details: new { employeeId, fullName, isAdmin, validUntil },
+                ct: ct
+            );
+        }
+
         return RedirectToAction("Create");
     }
     [HttpGet]
@@ -83,6 +99,20 @@ public class AllowedUsersController : Controller
         else
             TempData["SuccessMsg"] = "تم تحديث الحالة بنجاح.";
 
+        if (ok)
+        {
+            await _activity.LogAsync(
+                action: makeActive ? "AllowedUser.Activated" : "AllowedUser.Deactivated",
+                entityType: "AllowedUser",
+                entityId: employeeId.ToString(),
+                summary: makeActive
+                    ? $"تم تفعيل المستخدم في قائمة الصلاحيات: {employeeId}."
+                    : $"تم تعطيل المستخدم في قائمة الصلاحيات: {employeeId}.",
+                details: new { employeeId, makeActive },
+                ct: ct
+            );
+        }
+
         return RedirectToAction("Index");
     }
 
@@ -109,6 +139,18 @@ public class AllowedUsersController : Controller
         TempData[ok ? "SuccessMsg" : "ErrorMsg"] = ok
             ? "تم حذف المستخدم."
             : "لا يمكن حذف هذا المستخدم (قد يكون آخر مشرف).";
+
+        if (ok)
+        {
+            await _activity.LogAsync(
+                action: "AllowedUser.Deleted",
+                entityType: "AllowedUser",
+                entityId: employeeId.ToString(),
+                summary: $"تم حذف المستخدم من قائمة الصلاحيات: {employeeId}.",
+                details: new { employeeId },
+                ct: ct
+            );
+        }
 
         return RedirectToAction("Index");
     }

@@ -2,6 +2,7 @@
 using FingerprintManagementSystem.ApiAdapter.Persistence;
 using FingerprintManagementSystem.ApiAdapter.Persistence.Entities;
 using FingerprintManagementSystem.Contracts.DTOs;
+using FingerprintManagementSystem.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -14,11 +15,13 @@ public class TerminalsController : ControllerBase
 {
     private readonly LocalAppDbContext _db;
     private readonly AlpetaClient _alpeta;
+    private readonly IActivityLogService _activity;
 
-    public TerminalsController(LocalAppDbContext db, AlpetaClient alpeta)
+    public TerminalsController(LocalAppDbContext db, AlpetaClient alpeta, IActivityLogService activity)
     {
         _db = db;
         _alpeta = alpeta;
+        _activity = activity;
     }
 
     private IActionResult? RequireAdmin()
@@ -108,17 +111,34 @@ public class TerminalsController : ControllerBase
         if (req == null || req.RegionId <= 0)
             return BadRequest(new { message = "RegionId غير صحيح." });
 
-        var regionExists = await _db.Regions.AnyAsync(x => x.Id == req.RegionId, ct);
-        if (!regionExists)
+        var region = await _db.Regions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == req.RegionId, ct);
+        if (region is null)
             return NotFound(new { message = "المنطقة غير موجودة." });
 
         var row = await _db.TerminalRegionMaps.FirstOrDefaultAsync(x => x.TerminalId == terminalId, ct);
+        var oldRegionId = row?.RegionId;
         if (row is null)
             _db.TerminalRegionMaps.Add(new TerminalRegionMap { TerminalId = terminalId, RegionId = req.RegionId });
         else
             row.RegionId = req.RegionId;
 
         await _db.SaveChangesAsync(ct);
+
+        if (oldRegionId != req.RegionId)
+        {
+            var action = oldRegionId.HasValue ? "TerminalRegion.Moved" : "TerminalRegion.Assigned";
+            await _activity.LogAsync(
+                action: action,
+                entityType: "TerminalRegionMap",
+                entityId: terminalId,
+                summary: oldRegionId.HasValue
+                    ? $"تم نقل الجهاز {terminalId} من منطقة {oldRegionId.Value} إلى {region.Id} ({region.Name})."
+                    : $"تم ربط الجهاز {terminalId} بمنطقة {region.Id} ({region.Name}).",
+                details: new { terminalId, oldRegionId, newRegionId = req.RegionId, newRegionName = region.Name },
+                ct: ct
+            );
+        }
+
         return Ok(new { message = "تم حفظ ربط الجهاز بالمنطقة بنجاح." });
     }
 
@@ -136,8 +156,18 @@ public class TerminalsController : ControllerBase
         if (row is null)
             return Ok(new { message = "الجهاز غير مرتبط مسبقًا." });
 
+        var oldRegionId = row.RegionId;
         _db.TerminalRegionMaps.Remove(row);
         await _db.SaveChangesAsync(ct);
+
+        await _activity.LogAsync(
+            action: "TerminalRegion.Cleared",
+            entityType: "TerminalRegionMap",
+            entityId: terminalId,
+            summary: $"تم فك ربط الجهاز {terminalId} من المنطقة {oldRegionId}.",
+            details: new { terminalId, oldRegionId },
+            ct: ct
+        );
 
         return Ok(new { message = "تم فك ربط الجهاز بنجاح." });
     }
@@ -166,8 +196,8 @@ public class TerminalsController : ControllerBase
         if (ids.Count == 0)
             return BadRequest(new { message = "قائمة الأجهزة فارغة." });
 
-        var regionExists = await _db.Regions.AnyAsync(x => x.Id == req.RegionId, ct);
-        if (!regionExists)
+        var region = await _db.Regions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == req.RegionId, ct);
+        if (region is null)
             return NotFound(new { message = "المنطقة غير موجودة." });
 
         var existing = await _db.TerminalRegionMaps
@@ -185,6 +215,15 @@ public class TerminalsController : ControllerBase
         }
 
         await _db.SaveChangesAsync(ct);
+
+        await _activity.LogAsync(
+            action: "TerminalRegion.BulkAssigned",
+            entityType: "TerminalRegionMap",
+            entityId: region.Id.ToString(),
+            summary: $"تم توزيع/نقل {ids.Count} جهاز إلى المنطقة {region.Id} ({region.Name}).",
+            details: new { regionId = region.Id, regionName = region.Name, count = ids.Count },
+            ct: ct
+        );
 
         return Ok(new BulkOpResultDto
         {
@@ -220,6 +259,15 @@ public class TerminalsController : ControllerBase
 
         _db.TerminalRegionMaps.RemoveRange(rows);
         await _db.SaveChangesAsync(ct);
+
+        await _activity.LogAsync(
+            action: "TerminalRegion.BulkCleared",
+            entityType: "TerminalRegionMap",
+            entityId: null,
+            summary: $"تم فك ربط {rows.Count} جهاز (Bulk Clear).",
+            details: new { requested = ids.Count, cleared = rows.Count },
+            ct: ct
+        );
 
         return Ok(new BulkOpResultDto
         {
@@ -354,6 +402,17 @@ public class TerminalsController : ControllerBase
         }
 
         await _db.SaveChangesAsync(ct);
+
+        var total = devices.Count;
+        var skipped = Math.Max(0, total - inserted - updated - skippedInvalidId);
+        await _activity.LogAsync(
+            action: "TerminalRegion.AutoAssign",
+            entityType: "TerminalRegionMap",
+            entityId: null,
+            summary: $"تم تشغيل Auto-Assign: inserted={inserted}, updated={updated}, skipped={skipped}, invalidIds={skippedInvalidId} (total={total}).",
+            details: new { totalDevices = total, inserted, updated, skipped, invalidDeviceIds = skippedInvalidId },
+            ct: ct
+        );
 
         return Ok(new
         {
