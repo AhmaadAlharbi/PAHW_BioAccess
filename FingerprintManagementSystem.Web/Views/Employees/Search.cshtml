@@ -298,41 +298,99 @@ StringComparer.OrdinalIgnoreCase
                                                            onchange="updateDeviceSelection(this)"/>
                                                 </div>
 
-                                                <div class="device-icon"><i class="fa-solid fa-fingerprint"></i></div>
+                                                <div class="c-employee-device-content">
+                                                    <div class="c-employee-device-top">
+                                                        <div class="device-icon"><i class="fa-solid fa-fingerprint"></i></div>
 
-                                                <div class="device-details">
-                                                    <div class="device-name">@d.DeviceName</div>
-                                                    <div class="device-meta"><i class="fa-solid fa-map-pin icon"></i> @d.Location &bull; رقم الجهاز: @d.DeviceId</div>
+                                                        <div class="device-details">
+                                                            <div class="device-name">@d.DeviceName</div>
+
+                                                            <div class="c-employee-device-badges">
+                                                                @if (d.IsAssigned)
+                                                                {
+                                                                    <span class="badge badge-success">مرتبط</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge badge-muted">متاح</span>
+                                                                }
+
+                                                                @if (d.IsDelegated)
+                                                                {
+                                                                    <span class="badge badge-info">ندب</span>
+                                                                }
+                                                            </div>
+
+                                                            <div class="device-meta">
+                                                                <i class="fa-solid fa-map-pin icon"></i>
+                                                                <span>@(string.IsNullOrWhiteSpace(d.RegionName) ? "أجهزة غير مصنفة" : d.RegionName)</span>
+                                                                <span>&bull;</span>
+                                                                <span class="u-nowrap">رقم الجهاز: @d.DeviceId</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                     @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
                                                     {
-                                                        <span class="badge badge-info">
-                                                            (من: @d.DelegationStartDate.Value.ToString("dd/MM/yyyy") - إلى: @d.DelegationEndDate.Value.ToString("dd/MM/yyyy"))
-                                                        </span>
+                                                        <div class="c-employee-device-delegation">
+                                                            <div class="c-employee-device-delegationHead">
+                                                                <span class="c-employee-device-sectionTitle">حالة الندب</span>
+                                                                @if (d.IsDelegatedActive)
+                                                                {
+                                                                    <span class="badge badge-success">ندب نشط</span>
+                                                                }
+                                                                else if (d.DelegationStatus == "Scheduled")
+                                                                {
+                                                                    <span class="badge badge-info">ندب مجدول</span>
+                                                                }
+                                                            </div>
+                                                            <div class="text-muted c-employee-device-delegationDates">
+                                                                من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
+                                                                إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
+                                                            </div>
+                                                        </div>
                                                     }
-                                                </div>
 
-                                                <div class="device-action" onclick="event.stopPropagation();">
-                                                    @if (d.IsAssigned)
-                                                    {
-                                                        <form method="post" action="/employees/unassign" class="u-inline">
-                                                            @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId"/>
-                                                            <input type="hidden" name="terminalId" value="@d.DeviceId"/>
-                                                            <button type="submit" class="btn-device btn-device-danger">
-                                                                <i class="fa-solid fa-xmark"></i>
-                                                            </button>
-                                                        </form>
+                                                    @{
+                                                        var showEndDelegation = d.IsDelegated && d.DelegationId.HasValue && d.IsDelegatedActive;
+                                                        var showCancelDelegation = d.IsDelegated && d.DelegationId.HasValue && d.DelegationStatus == "Scheduled";
+                                                        var showActions = d.IsAssigned || showEndDelegation || showCancelDelegation;
                                                     }
-                                                    else
+
+                                                    @if (showActions)
                                                     {
-                                                        <form method="post" action="/employees/assign" class="u-inline">
-                                                            @Html.AntiForgeryToken()
-                                                            <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId"/>
-                                                            <input type="hidden" name="terminalId" value="@d.DeviceId"/>
-                                                            <button type="submit" class="btn-device btn-device-success">
-                                                                <i class="fa-solid fa-check"></i>
-                                                            </button>
-                                                        </form>
+                                                        <div class="c-employee-device-actions" onclick="event.stopPropagation();">
+                                                            <div class="u-flex u-gap-8 u-flex-wrap">
+                                                                @if (d.IsAssigned)
+                                                                {
+                                                                    <form method="post" action="/employees/unassign" class="u-inline">
+                                                                        @Html.AntiForgeryToken()
+                                                                        <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId"/>
+                                                                        <input type="hidden" name="terminalId" value="@d.DeviceId"/>
+                                                                        <button type="submit" class="btn btn-danger btn-sm u-nowrap">فك الارتباط</button>
+                                                                    </form>
+                                                                }
+
+                                                                @if (showEndDelegation)
+                                                                {
+                                                                    <form method="post" action="/employees/end-delegation" class="u-inline">
+                                                                        @Html.AntiForgeryToken()
+                                                                        <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                                        <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                        <button type="button" class="btn btn-danger btn-sm u-nowrap" onclick="confirmDelegationAction(this, 'هل أنت متأكد من إنهاء الندب؟')">إنهاء الندب</button>
+                                                                    </form>
+                                                                }
+                                                                else if (showCancelDelegation)
+                                                                {
+                                                                    <form method="post" action="/employees/cancel-delegation" class="u-inline">
+                                                                        @Html.AntiForgeryToken()
+                                                                        <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                                        <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                        <button type="button" class="btn btn-outline btn-sm u-nowrap" onclick="confirmDelegationAction(this, 'هل أنت متأكد من إلغاء الندب المجدول؟')">إلغاء الندب</button>
+                                                                    </form>
+                                                                }
+                                                            </div>
+                                                        </div>
                                                     }
                                                 </div>
                                             </div>
@@ -576,6 +634,26 @@ StringComparer.OrdinalIgnoreCase
                     container.appendChild(endInput);
                 }
 
+                form.submit();
+            }
+        });
+    }
+
+    function confirmDelegationAction(button, confirmText) {
+        const form = button.closest('form');
+        if (!form) return;
+
+        Swal.fire({
+            title: 'تأكيد العملية',
+            text: confirmText || 'هل أنت متأكد؟',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#692f39',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'نعم',
+            cancelButtonText: 'إلغاء'
+        }).then((result) => {
+            if (result.isConfirmed) {
                 form.submit();
             }
         });

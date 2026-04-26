@@ -16,6 +16,9 @@ public class DeviceRowDto
 
     // ✅ جديد
     public bool IsDelegated { get; set; }
+    public bool IsDelegatedActive { get; set; }
+    public int? DelegationId { get; set; }
+    public string? DelegationStatus { get; set; } // "Scheduled" | "Active" | ...
     public bool IsEffectivelyAssigned { get; set; }
     public DateTime? DelegationStartDate { get; set; }
     public DateTime? DelegationEndDate { get; set; }

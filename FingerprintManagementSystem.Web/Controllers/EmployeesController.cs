@@ -202,5 +202,28 @@ public class EmployeesController : Controller
         var screen = await _api.GetEmployeeDevicesScreenAsync(employeeId, ct);
         return View("Search", screen);
     }
-}
 
+    [HttpPost("end-delegation")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EndDelegation(int employeeId, int delegationId, CancellationToken ct)
+    {
+        var ok = await _delegations.EndActiveDelegationAsync(delegationId, ct);
+        TempData["ToastType"] = ok ? "success" : "danger";
+        TempData["ToastMsg"] = ok ? "✅ تم إنهاء الندب بنجاح" : "❌ تعذر إنهاء الندب";
+
+        var screen = await _api.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        return View("Search", screen);
+    }
+
+    [HttpPost("cancel-delegation")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelDelegation(int employeeId, int delegationId, CancellationToken ct)
+    {
+        var ok = await _delegations.CancelScheduledDelegationAsync(delegationId, ct);
+        TempData["ToastType"] = ok ? "success" : "danger";
+        TempData["ToastMsg"] = ok ? "✅ تم إلغاء الندب بنجاح" : "❌ تعذر إلغاء الندب";
+
+        var screen = await _api.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        return View("Search", screen);
+    }
+}

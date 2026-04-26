@@ -8,4 +8,7 @@ public interface IDelegationService
         DateTime startDate,
         DateTime endDate,
         CancellationToken ct = default);
+
+    Task<bool> EndActiveDelegationAsync(int delegationId, CancellationToken ct = default);
+    Task<bool> CancelScheduledDelegationAsync(int delegationId, CancellationToken ct = default);
 }

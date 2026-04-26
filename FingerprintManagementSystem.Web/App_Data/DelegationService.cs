@@ -10,11 +10,13 @@ public class DelegationService : IDelegationService
 {
     private readonly LocalAppDbContext _db;
     private readonly IActivityLogService _activity;
+    private readonly IEmployeeDevicesApi _api;
 
-    public DelegationService(LocalAppDbContext db, IActivityLogService activity)
+    public DelegationService(LocalAppDbContext db, IActivityLogService activity, IEmployeeDevicesApi api)
     {
         _db = db;
         _activity = activity;
+        _api = api;
     }
 
     public async Task<string> SaveDelegationAsync(
@@ -33,12 +35,8 @@ public class DelegationService : IDelegationService
         // (اختياري) ضبط البداية على بداية اليوم
         startDate = startDate.Date;
 
-        // ✅ النهاية
-#if DEBUG
-        endDate = DateTime.Now.AddMinutes(2); // اختبار: ينتهي بعد دقيقتين
-#else
-        endDate = endDate.Date.AddDays(1);    // إنتاج: نهاية اليوم المختار
-#endif
+        // ✅ النهاية (exclusive): بداية اليوم التالي للتاريخ المختار
+        endDate = endDate.Date.AddDays(1);
 
         var now = DateTime.Now;
 
@@ -81,5 +79,100 @@ public class DelegationService : IDelegationService
         );
 
         return status;
+    }
+
+    public async Task<bool> EndActiveDelegationAsync(int delegationId, CancellationToken ct = default)
+    {
+        if (delegationId <= 0) return false;
+
+        var delegation = await _db.Delegations
+            .Include(x => x.Terminals)
+            .FirstOrDefaultAsync(x => x.Id == delegationId, ct);
+
+        if (delegation is null) return false;
+        if (delegation.Status != "Active") return false;
+
+        var terminals = (delegation.Terminals ?? new())
+            .Select(t => (t.TerminalId ?? "").Trim())
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var successCount = 0;
+        foreach (var terminalId in terminals)
+        {
+            var success = false;
+            for (var i = 1; i <= 3 && !success; i++)
+            {
+                success = await _api.UnassignOneAsync(delegation.EmployeeId, terminalId, ct);
+                if (!success) await Task.Delay(500, ct);
+            }
+
+            if (success) successCount++;
+        }
+
+        var now = DateTime.Now;
+        delegation.Status = "Expired";
+        delegation.ExpiredAt = now;
+
+        var employeeName = await _db.AllowedUsers
+            .AsNoTracking()
+            .Where(x => x.EmployeeId == delegation.EmployeeId)
+            .Select(x => x.FullName)
+            .FirstOrDefaultAsync(ct);
+
+        var employeeText = string.IsNullOrWhiteSpace(employeeName)
+            ? $"الموظف رقم {delegation.EmployeeId}"
+            : $"{employeeName.Trim()} ({delegation.EmployeeId})";
+
+        await _db.SaveChangesAsync(ct);
+
+        await _activity.LogAsync(
+            action: "Delegation.ManuallyEnded",
+            entityType: "Delegation",
+            entityId: delegation.Id.ToString(),
+            summary: $"تم إنهاء الندب للموظف {employeeText}.",
+            details: new { delegationId = delegation.Id, employeeId = delegation.EmployeeId, employeeName, terminalCount = terminals.Count, unassigned = successCount },
+            ct: ct
+        );
+
+        return true;
+    }
+
+    public async Task<bool> CancelScheduledDelegationAsync(int delegationId, CancellationToken ct = default)
+    {
+        if (delegationId <= 0) return false;
+
+        var delegation = await _db.Delegations
+            .FirstOrDefaultAsync(x => x.Id == delegationId, ct);
+
+        if (delegation is null) return false;
+        if (delegation.Status != "Scheduled") return false;
+
+        var now = DateTime.Now;
+        delegation.Status = "Cancelled";
+        delegation.ExpiredAt = now;
+        await _db.SaveChangesAsync(ct);
+
+        var employeeName = await _db.AllowedUsers
+            .AsNoTracking()
+            .Where(x => x.EmployeeId == delegation.EmployeeId)
+            .Select(x => x.FullName)
+            .FirstOrDefaultAsync(ct);
+
+        var employeeText = string.IsNullOrWhiteSpace(employeeName)
+            ? $"الموظف رقم {delegation.EmployeeId}"
+            : $"{employeeName.Trim()} ({delegation.EmployeeId})";
+
+        await _activity.LogAsync(
+            action: "Delegation.Cancelled",
+            entityType: "Delegation",
+            entityId: delegation.Id.ToString(),
+            summary: $"تم إلغاء الندب المجدول للموظف {employeeText}.",
+            details: new { delegationId = delegation.Id, employeeId = delegation.EmployeeId, employeeName },
+            ct: ct
+        );
+
+        return true;
     }
 }

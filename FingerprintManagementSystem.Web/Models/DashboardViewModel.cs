@@ -8,6 +8,23 @@ public sealed class ActivityLogRowViewModel
     public string Summary { get; set; } = "";
 }
 
+public sealed class DelegationRowViewModel
+{
+    public string EmployeeText { get; set; } = "";
+
+    public string StatusText { get; set; } = "";
+    public string StatusBadgeClass { get; set; } = "badge badge-muted";
+
+    public string StartDateText { get; set; } = "";
+    public string EndDateText { get; set; } = "";
+
+    public int TerminalsCount { get; set; }
+    public string TerminalsCountText { get; set; } = "";
+
+    // Optional small extra text under count (regions, or terminal ids fallback)
+    public string? DevicesHintText { get; set; }
+}
+
 public sealed class DashboardViewModel
 {
     public bool IsAdmin { get; set; }
@@ -17,6 +34,30 @@ public sealed class DashboardViewModel
     public int ActiveDelegationsCount { get; set; }
 
     public List<ActivityLogRowViewModel> LatestActivity { get; set; } = new();
+    public List<DelegationRowViewModel> LatestDelegations { get; set; } = new();
+
+    // Active | Scheduled | All
+    public string DelegationsFilter { get; set; } = "Active";
+
+    public static string ToArabicDelegationStatus(string status)
+        => status switch
+        {
+            "Active" => "نشط",
+            "Scheduled" => "مجدول",
+            "Expired" => "منتهي",
+            "Cancelled" => "ملغي",
+            _ => "—"
+        };
+
+    public static string ToDelegationStatusBadgeClass(string status)
+        => status switch
+        {
+            "Active" => "badge badge-success",
+            "Scheduled" => "badge badge-info",
+            "Expired" => "badge badge-muted",
+            "Cancelled" => "badge badge-muted",
+            _ => "badge badge-muted"
+        };
 
     public static string ToArabicAction(string action)
         => action switch
@@ -24,6 +65,8 @@ public sealed class DashboardViewModel
             "Delegation.Created" => "إنشاء انتداب",
             "Delegation.Activated" => "تفعيل انتداب",
             "Delegation.Expired" => "انتهاء انتداب",
+            "Delegation.ManuallyEnded" => "إنهاء ندب",
+            "Delegation.Cancelled" => "إلغاء ندب",
 
             "TerminalRegion.Assigned" => "ربط جهاز بمنطقة",
             "TerminalRegion.Moved" => "نقل جهاز لمنطقة أخرى",

@@ -68,20 +68,39 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             .SelectMany(d => d.Terminals.Select(t => t.TerminalId))
             .ToHashSetAsync(ct);
 
-        var delegatedDatesList = await _db.Delegations
+        var delegatedRowsList = await _db.Delegations
             .Where(d => d.EmployeeId == employeeId &&
                         (d.Status == "Active" || d.Status == "Scheduled"))
             .SelectMany(d => d.Terminals.Select(t => new
             {
-                t.TerminalId,
+                TerminalId = t.TerminalId,
+                DelegationId = d.Id,
+                d.Status,
                 d.StartDate,
                 d.EndDate
             }))
             .ToListAsync(ct);
 
-        var delegatedDatesByTerminal = delegatedDatesList
-            .GroupBy(x => x.TerminalId)
-            .ToDictionary(g => g.Key, g => g.First());
+        var delegatedRowsByTerminal = delegatedRowsList
+            .Where(x => !string.IsNullOrWhiteSpace(x.TerminalId))
+            .Select(x => new
+            {
+                TerminalId = x.TerminalId.Trim(),
+                x.DelegationId,
+                x.Status,
+                x.StartDate,
+                x.EndDate
+            })
+            .GroupBy(x => x.TerminalId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var active = g.FirstOrDefault(x => x.Status == "Active");
+                    if (active != null) return active;
+                    return g.OrderBy(x => x.StartDate).First();
+                },
+                StringComparer.OrdinalIgnoreCase);
         var baseDto = await GetEmployeeWithDevicesAsync(employeeId, ct);
         if (baseDto?.Employee is null) return null;
 
@@ -112,8 +131,8 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             regionNameById.TryGetValue(regId, out var regName);
             var isAssigned = assignedSet.Contains(id);
             var isDelegatedActive = activeDelegatedTerminalIds.Contains(id);
-            delegatedDatesByTerminal.TryGetValue(id, out var delDates);
-            var isDelegated = delDates != null;
+            delegatedRowsByTerminal.TryGetValue(id, out var delRow);
+            var isDelegated = delRow != null;
             rows.Add(new DeviceRowDto
             {
                 DeviceId = id,
@@ -122,9 +141,12 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
 
                 // ✅ مهم: الجديد
                 IsDelegated = isDelegated,
+                IsDelegatedActive = isDelegatedActive,
+                DelegationId = delRow?.DelegationId,
+                DelegationStatus = delRow?.Status,
                 IsEffectivelyAssigned = isAssigned || isDelegatedActive,
-                DelegationStartDate = delDates?.StartDate,
-                DelegationEndDate = delDates?.EndDate,
+                DelegationStartDate = delRow?.StartDate,
+                DelegationEndDate = delRow?.EndDate,
 
                 RegionId = regId == 0 ? null : regId,
                 RegionName = string.IsNullOrWhiteSpace(regName) ? "أجهزة غير مصنفة" : regName
