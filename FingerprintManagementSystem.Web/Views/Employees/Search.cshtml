@@ -8,15 +8,6 @@ var devices = Model?.Devices ?? new List<FingerprintManagementSystem.Contracts.D
 var assigned = devices.Where(x => x.IsEffectivelyAssigned).ToList();
 var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 }
-@{
-var selectedTerminalsRaw = TempData["SelectedTerminalIds"] as string;
-var selectedTerminals = new HashSet<string>(
-(selectedTerminalsRaw ?? "")
-.Split(',', StringSplitOptions.RemoveEmptyEntries)
-.Select(x => x.Trim()),
-StringComparer.OrdinalIgnoreCase
-);
-}
 
 @section Styles {
     <!-- Font Awesome for professional icons -->
@@ -26,7 +17,9 @@ StringComparer.OrdinalIgnoreCase
     <!-- أنماط خاصة بصفحة البحث فقط -->
 }
 
-<div class="employees-search-page">
+<div class="employees-search-page"
+     data-employee-id="@(Model?.Employee?.EmployeeId ?? 0)"
+     data-employee-name="@(Model?.Employee?.FullNameAr ?? "")">
 <!-- جزيئات الخلفية من site.css -->
 <div class="bg-particles">
     <div class="particle"></div>
@@ -46,10 +39,32 @@ StringComparer.OrdinalIgnoreCase
         <h1><i class="fa-solid fa-magnifying-glass icon"></i> بحث عن موظف</h1>
         @if (isAdmin)
         {
-            <button id="autoAssignBtn" class="btn-admin-action">
-                <i class="fa-solid fa-rotate"></i>
-                <span>تحديث توزيع الأجهزة</span>
-            </button>
+            <div class="c-admin-tools">
+                <button type="button" class="btn btn-muted btn-sm u-nowrap c-admin-tools-toggle" onclick="toggleAdminTools()">
+                    <i class="fa-solid fa-screwdriver-wrench icon"></i>
+                    <span>أدوات إدارية</span>
+                </button>
+
+                <div id="adminToolsPanel" class="c-admin-tools-panel is-hidden" aria-hidden="true">
+                    <div class="c-admin-tools-panelTitle">
+                        <i class="fa-solid fa-triangle-exclamation icon"></i>
+                        <span>إجراءات عامة (لا تخص موظفًا واحدًا)</span>
+                    </div>
+
+                    <div class="c-admin-tools-item">
+                        <div class="c-admin-tools-itemText">
+                            <div class="c-admin-tools-itemName">إعادة توزيع الأجهزة تلقائيًا</div>
+                            <div class="c-admin-tools-itemHint">
+                                قد يغيّر توزيع أجهزة كثيرة على المناطق. استخدمه فقط عند فقدان/تلف بيانات التوزيع.
+                            </div>
+                        </div>
+                        <button id="autoAssignBtn" type="button" class="btn btn-outline btn-sm u-nowrap">
+                            <i class="fa-solid fa-rotate icon"></i>
+                            <span>تشغيل</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         }
     </div>
 
@@ -220,58 +235,6 @@ StringComparer.OrdinalIgnoreCase
                             </div>
 
                             <div id="@collapseId" class="collapse">
-                                <div class="region-options">
-                                    <div class="options-title"><i class="fa-solid fa-gear icon"></i> اختر العملية المطلوبة</div>
-
-                                    <div class="radio-options">
-                                        <div class="radio-option">
-                                            <input type="radio" name="operation_@regionKey" id="transfer_@regionKey" value="transfer" checked onchange="toggleDates('@regionKey', 'transfer')">
-                                            <label for="transfer_@regionKey">
-                                                <i class="fa-solid fa-right-left icon"></i>
-                                                <span>نقل دائم</span>
-                                            </label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input type="radio" name="operation_@regionKey" id="delegate_@regionKey" value="delegate" onchange="toggleDates('@regionKey', 'delegate')">
-                                            <label for="delegate_@regionKey">
-                                                <i class="fa-solid fa-calendar-days icon"></i>
-                                                <span>جدولة انتداب</span>
-                                            </label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input type="radio" name="operation_@regionKey" id="remove_@regionKey" value="remove" onchange="toggleDates('@regionKey', 'remove')">
-                                            <label for="remove_@regionKey">
-                                                <i class="fa-solid fa-fingerprint icon u-opacity-70"></i>
-                                                <span>فك الارتباط</span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div class="dates-row" id="dates_@regionKey">
-                                        <div class="date-field">
-                                            <label class="date-label">
-                                                <i class="fa-solid fa-calendar-plus icon"></i>
-                                                <span>تاريخ البداية</span>
-                                            </label>
-                                            <input type="text" class="date-input datepicker" id="startDate_@regionKey" placeholder="يوم/شهر/سنة" autocomplete="off">
-                                        </div>
-                                        <div class="date-field">
-                                            <label class="date-label">
-                                                <i class="fa-solid fa-calendar-xmark icon"></i>
-                                                <span>تاريخ النهاية</span>
-                                            </label>
-                                            <input type="text" class="date-input datepicker" id="endDate_@regionKey" placeholder="يوم/شهر/سنة" autocomplete="off">
-                                        </div>
-                                    </div>
-
-                                    <div class="warning-note" id="warning_@regionKey">
-                                        <i class="fa-solid fa-triangle-exclamation icon"></i>
-                                        <span>سيتم إلغاء الانتداب تلقائياً في التاريخ المحدد</span>
-                                    </div>
-
-                                   
-                                </div>
-
                                 <div class="devices-section">
                                     <div class="devices-section-title"><i class="fa-solid fa-fingerprint icon"></i> حدد الأجهزة</div>
 
@@ -283,113 +246,112 @@ StringComparer.OrdinalIgnoreCase
                                     <div class="devices-grid">
                                         @foreach (var d in g.Devices)
                                         {
-                                            var isSelected = selectedTerminals.Contains((d.DeviceId ?? "").Trim());
+                                            var terminalId = (d.DeviceId ?? "").Trim();
+                                            var regionName = string.IsNullOrWhiteSpace(d.RegionName) ? "أجهزة غير مصنفة" : d.RegionName;
 
-                                            <div class="device-card @((d.IsEffectivelyAssigned || isSelected) ? "selected" : "")"
-                                                 data-is-assigned="@(d.IsEffectivelyAssigned ? "1" : "0")">
+                                            var delegationDevicesCount = d.DelegationId.HasValue
+                                                ? devices.Count(x => x.DelegationId.HasValue && x.DelegationId.Value == d.DelegationId.Value)
+                                                : 0;
+
+                                            var stateText =
+                                                d.IsDelegatedActive ? "مرتبط عبر ندب"
+                                                : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "ندب مجدول"
+                                                : d.IsAssigned ? "مرتبط فعليًا"
+                                                : "غير مرتبط";
+
+                                            var stateClass =
+                                                d.IsDelegatedActive ? "is-delegated-active"
+                                                : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "is-delegated-scheduled"
+                                                : d.IsAssigned ? "is-assigned"
+                                                : "is-unassigned";
+
+                                            var stateKey =
+                                                d.IsDelegatedActive ? "delegated_active"
+                                                : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "delegated_scheduled"
+                                                : d.IsAssigned ? "assigned"
+                                                : "unassigned";
+
+                                            <div class="device-card"
+                                                 data-is-assigned="@(d.IsEffectivelyAssigned ? "1" : "0")"
+                                                 data-state="@stateText"
+                                                 data-state-key="@stateKey"
+                                                 data-terminal-id="@terminalId"
+                                                 data-device-name="@d.DeviceName"
+                                                 data-delegation-id="@(d.DelegationId?.ToString() ?? "")"
+                                                 data-delegation-status="@(d.DelegationStatus ?? "")"
+                                                 data-delegation-start="@(d.DelegationStartDate?.ToString("dd/MM/yyyy") ?? "")"
+                                                 data-delegation-end="@(d.DelegationEndDate?.ToString("dd/MM/yyyy") ?? "")">
 
                                                 <div class="device-checkbox" onclick="event.stopPropagation();">
                                                     <input type="checkbox"
                                                            class="device-chk"
-                                                           value="@d.DeviceId"
-                                                           id="chk-@d.DeviceId"
-                                                           @((d.IsEffectivelyAssigned || isSelected) ? "checked" : "")
+                                                           value="@terminalId"
+                                                           id="chk-@terminalId"
                                                            onclick="event.stopPropagation();"
                                                            onchange="updateDeviceSelection(this)"/>
                                                 </div>
 
                                                 <div class="c-employee-device-content">
-                                                    <div class="c-employee-device-top">
+                                                    <div class="c-employee-device-head">
                                                         <div class="device-icon"><i class="fa-solid fa-fingerprint"></i></div>
 
-                                                        <div class="device-details">
-                                                            <div class="device-name">@d.DeviceName</div>
-
-                                                            <div class="c-employee-device-badges">
-                                                                @if (d.IsAssigned)
-                                                                {
-                                                                    <span class="badge badge-success">مرتبط</span>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <span class="badge badge-muted">متاح</span>
-                                                                }
-
-                                                                @if (d.IsDelegated)
-                                                                {
-                                                                    <span class="badge badge-info">ندب</span>
-                                                                }
+                                                        <div class="c-employee-device-main">
+                                                            <div class="c-employee-device-titleRow">
+                                                                <div class="device-name">@d.DeviceName</div>
+                                                                <span class="c-employee-device-state @stateClass">@stateText</span>
                                                             </div>
 
-                                                            <div class="device-meta">
-                                                                <i class="fa-solid fa-map-pin icon"></i>
-                                                                <span>@(string.IsNullOrWhiteSpace(d.RegionName) ? "أجهزة غير مصنفة" : d.RegionName)</span>
-                                                                <span>&bull;</span>
-                                                                <span class="u-nowrap">رقم الجهاز: @d.DeviceId</span>
+                                                            <div class="c-employee-device-meta">
+                                                                <span class="c-employee-device-metaItem">
+                                                                    <i class="fa-solid fa-map-pin icon"></i>
+                                                                    <span>@regionName</span>
+                                                                </span>
+                                                                <span class="c-employee-device-metaSep">&bull;</span>
+                                                                <span class="c-employee-device-metaItem u-nowrap">
+                                                                    <i class="fa-solid fa-hashtag icon"></i>
+                                                                    <span>@terminalId</span>
+                                                                </span>
                                                             </div>
+
+                                                            @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
+                                                            {
+                                                                <div class="c-employee-device-submeta text-muted">
+                                                                    <i class="fa-regular fa-calendar icon-sm"></i>
+                                                                    <span class="u-nowrap">من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")</span>
+                                                                    <span class="u-mx-8">→</span>
+                                                                    <span class="u-nowrap">إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")</span>
+                                                                </div>
+                                                            }
                                                         </div>
                                                     </div>
 
-                                                    @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
+                                                    @* Hybrid: delegation actions only (individual, sensitive). *@
+                                                    @if (d.IsDelegatedActive && d.DelegationId.HasValue)
                                                     {
-                                                        <div class="c-employee-device-delegation">
-                                                            <div class="c-employee-device-delegationHead">
-                                                                <span class="c-employee-device-sectionTitle">حالة الندب</span>
-                                                                @if (d.IsDelegatedActive)
-                                                                {
-                                                                    <span class="badge badge-success">ندب نشط</span>
-                                                                }
-                                                                else if (d.DelegationStatus == "Scheduled")
-                                                                {
-                                                                    <span class="badge badge-info">ندب مجدول</span>
-                                                                }
-                                                            </div>
-                                                            <div class="text-muted c-employee-device-delegationDates">
-                                                                من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
-                                                                إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
-                                                            </div>
+                                                        <div class="c-employee-device-actions c-employee-device-actions--compact" onclick="event.stopPropagation();">
+                                                            <form method="post" action="/employees/end-delegation" class="u-inline">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                                <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                <button type="button" class="btn btn-danger btn-sm u-nowrap"
+                                                                        onclick="confirmDelegationCardAction(this, 'end')">
+                                                                    إنهاء الندب
+                                                                </button>
+                                                            </form>
                                                         </div>
                                                     }
-
-                                                    @{
-                                                        var showEndDelegation = d.IsDelegated && d.DelegationId.HasValue && d.IsDelegatedActive;
-                                                        var showCancelDelegation = d.IsDelegated && d.DelegationId.HasValue && d.DelegationStatus == "Scheduled";
-                                                        var showActions = d.IsAssigned || showEndDelegation || showCancelDelegation;
-                                                    }
-
-                                                    @if (showActions)
+                                                    else if (d.IsDelegated && d.DelegationStatus == "Scheduled" && d.DelegationId.HasValue)
                                                     {
-                                                        <div class="c-employee-device-actions" onclick="event.stopPropagation();">
-                                                            <div class="u-flex u-gap-8 u-flex-wrap">
-                                                                @if (d.IsAssigned)
-                                                                {
-                                                                    <form method="post" action="/employees/unassign" class="u-inline">
-                                                                        @Html.AntiForgeryToken()
-                                                                        <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId"/>
-                                                                        <input type="hidden" name="terminalId" value="@d.DeviceId"/>
-                                                                        <button type="submit" class="btn btn-danger btn-sm u-nowrap">فك الارتباط</button>
-                                                                    </form>
-                                                                }
-
-                                                                @if (showEndDelegation)
-                                                                {
-                                                                    <form method="post" action="/employees/end-delegation" class="u-inline">
-                                                                        @Html.AntiForgeryToken()
-                                                                        <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
-                                                                        <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
-                                                                        <button type="button" class="btn btn-danger btn-sm u-nowrap" onclick="confirmDelegationAction(this, 'هل أنت متأكد من إنهاء الندب؟')">إنهاء الندب</button>
-                                                                    </form>
-                                                                }
-                                                                else if (showCancelDelegation)
-                                                                {
-                                                                    <form method="post" action="/employees/cancel-delegation" class="u-inline">
-                                                                        @Html.AntiForgeryToken()
-                                                                        <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
-                                                                        <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
-                                                                        <button type="button" class="btn btn-outline btn-sm u-nowrap" onclick="confirmDelegationAction(this, 'هل أنت متأكد من إلغاء الندب المجدول؟')">إلغاء الندب</button>
-                                                                    </form>
-                                                                }
-                                                            </div>
+                                                        <div class="c-employee-device-actions c-employee-device-actions--compact" onclick="event.stopPropagation();">
+                                                            <form method="post" action="/employees/cancel-delegation" class="u-inline">
+                                                                @Html.AntiForgeryToken()
+                                                                <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                                <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                <button type="button" class="btn btn-outline btn-sm u-nowrap"
+                                                                        onclick="confirmDelegationCardAction(this, 'cancel')">
+                                                                    إلغاء الندب
+                                                                </button>
+                                                            </form>
                                                         </div>
                                                     }
                                                 </div>
@@ -397,13 +359,6 @@ StringComparer.OrdinalIgnoreCase
                                         }
                                         
                                     </div>
-                                    @if (g.RegionId.HasValue && g.RegionId.Value > 0)
-                                    {
-                                        <button type="button" class="submit-region-btn" onclick="submitRegionWithOptions(@g.RegionId.Value, '@regionKey')">
-                                            <i class="fa-solid fa-check icon"></i>
-                                            <span>تطبيق على الأجهزة المحددة</span>
-                                        </button>
-                                    }
                                 </div>
                             </div>
                         </div>
@@ -419,17 +374,28 @@ StringComparer.OrdinalIgnoreCase
         <span class="pulse-indicator"></span>
         <div>
             <div class="bulk-count"><span id="selectedCount">0</span></div>
-            <div class="bulk-label">جهاز محدد</div>
+            <div class="bulk-label" id="selectedLabel">تم تحديد 0 جهاز</div>
         </div>
     </div>
-    <div class="bulk-actions">
-        <button type="button" class="btn-bulk btn-bulk-success" onclick="submitBulk('AssignBulk')">
-            <i class="fa-solid fa-link icon"></i>
-            <span>ربط بالجملة</span>
+    <div class="bulk-actions bulk-actions--controls">
+        <select id="bulkOperation" class="bulk-select" onchange="onBulkOperationChange()">
+            <option value="assign">ربط دائم</option>
+            <option value="unassign">فك الربط</option>
+            <option value="delegate">إنشاء ندب</option>
+        </select>
+
+        <div id="bulkDates" class="bulk-dates is-hidden" aria-hidden="true">
+            <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
+            <input id="bulkEndDate" type="text" class="date-input datepicker" placeholder="تاريخ النهاية" autocomplete="off" />
+        </div>
+
+        <button id="bulkExecuteBtn" type="button" class="btn-bulk btn-bulk-success" onclick="bulkExecute()">
+            <i class="fa-solid fa-check icon"></i>
+            <span>تنفيذ</span>
         </button>
-        <button type="button" class="btn-bulk btn-bulk-danger" onclick="submitBulk('UnassignBulk')">
-            <i class="fa-solid fa-link-slash icon"></i>
-            <span>فك الارتباط بالجملة</span>
+        <button id="bulkClearSelectionBtn" type="button" class="btn-bulk btn-bulk-danger" onclick="clearSelection()">
+            <i class="fa-solid fa-xmark icon"></i>
+            <span>إلغاء التحديد</span>
         </button>
     </div>
 </div>
@@ -440,26 +406,61 @@ StringComparer.OrdinalIgnoreCase
     <div id="bulkInputsContainer"></div>
 </form>
 
-<form id="regionForm" method="post" class="is-hidden">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="employeeId" value="@(Model?.Employee?.EmployeeId ?? 0)" />
-    <input type="hidden" id="regionIdInput" name="regionId" value="" />
-</form>
-
 @section Scripts {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
+    function getEmployeeText() {
+        const page = document.querySelector('.employees-search-page');
+        const employeeId = (page?.dataset?.employeeId || '').trim();
+        const employeeName = (page?.dataset?.employeeName || '').trim();
+        if (employeeName && employeeId && employeeId !== '0') return `${employeeName} (${employeeId})`;
+        if (employeeId && employeeId !== '0') return `الموظف رقم ${employeeId}`;
+        return 'الموظف';
+    }
+
+    function getSelectedCards() {
+        return Array.from(document.querySelectorAll('.device-chk:checked'))
+            .map(cb => cb.closest('.device-card'))
+            .filter(Boolean);
+    }
+
+    function getSelectedTerminalIds() {
+        return getSelectedCards()
+            .map(card => (card.dataset.terminalId || '').trim())
+            .filter(Boolean);
+    }
+
+    function getSelectedStateKeys() {
+        return getSelectedCards()
+            .map(c => (c.dataset.stateKey || '').trim())
+            .filter(Boolean);
+    }
+
+    function getUnique(items) {
+        return Array.from(new Set(items.filter(Boolean)));
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.device-chk:checked').forEach(cb => {
+            cb.checked = false;
+            const card = cb.closest('.device-card');
+            if (card) card.classList.remove('selected');
+        });
+        updateBulkBar();
+    }
+
     function updateBulkBar() {
         const selectedCount = document.querySelectorAll('.device-chk:checked').length;
-        document.getElementById('selectedCount').textContent = selectedCount;
+        document.getElementById('selectedCount').textContent = String(selectedCount);
+        document.getElementById('selectedLabel').textContent = `تم تحديد ${selectedCount} جهاز`;
+
         const bar = document.getElementById('bulkBar');
-        if (selectedCount > 0) {
-            bar.classList.add('show');
-        } else {
-            bar.classList.remove('show');
-        }
+        bar.classList.toggle('show', selectedCount > 0);
+        bar.classList.toggle('is-single', selectedCount === 1);
+
+        updateBulkControls();
     }
 
     function updateDeviceSelection(checkbox) {
@@ -480,6 +481,7 @@ StringComparer.OrdinalIgnoreCase
 
     document.addEventListener('DOMContentLoaded', function() {
         updateBulkBar();
+        onBulkOperationChange();
 
         // Initialize flatpickr for all date inputs with DD/MM/yyyy format
         flatpickr('.datepicker', {
@@ -502,6 +504,9 @@ StringComparer.OrdinalIgnoreCase
                 });
             });
         });
+
+        document.getElementById('bulkStartDate')?.addEventListener('change', updateBulkControls);
+        document.getElementById('bulkEndDate')?.addEventListener('change', updateBulkControls);
     });
 
     // Helper function to convert DD/MM/YYYY to YYYY-MM-DD for server
@@ -527,186 +532,236 @@ StringComparer.OrdinalIgnoreCase
         }
     }
 
-    function toggleDates(regionKey, operation) {
-        const datesRow = document.getElementById('dates_' + regionKey);
-        const warning = document.getElementById('warning_' + regionKey);
-
-        if (operation === 'delegate') {
-            datesRow.classList.add('show');
-            warning.classList.add('show');
-        } else {
-            datesRow.classList.remove('show');
-            warning.classList.remove('show');
-        }
+    function onBulkOperationChange() {
+        const op = (document.getElementById('bulkOperation')?.value || '').trim();
+        const dates = document.getElementById('bulkDates');
+        const showDates = op === 'delegate';
+        dates.classList.toggle('is-hidden', !showDates);
+        dates.setAttribute('aria-hidden', String(!showDates));
+        updateBulkControls();
     }
 
-    function submitRegionWithOptions(regionId, regionKey) {
-        const operation = document.querySelector(`input[name="operation_${regionKey}"]:checked`).value;
-        const startDateDisplay = document.getElementById(`startDate_${regionKey}`).value;
-        const endDateDisplay = document.getElementById(`endDate_${regionKey}`).value;
-        const startDate = convertDateFormat(startDateDisplay);
-        const endDate = convertDateFormat(endDateDisplay);
+    function updateBulkControls() {
+        const op = (document.getElementById('bulkOperation')?.value || '').trim();
+        const btn = document.getElementById('bulkExecuteBtn');
+        const count = getSelectedTerminalIds().length;
 
-        const regionCard = document.querySelector(`#check-${regionKey}`).closest('.region-card');
-        const selectedDevices = Array.from(regionCard.querySelectorAll('.device-chk:checked'));
+        let canRun = count > 0;
+        const stateKeys = getSelectedStateKeys();
+        const uniqueStates = getUnique(stateKeys);
 
-        if (selectedDevices.length === 0) {
-            Swal.fire({
+        // Mixed-selection guard for bulk ops.
+        if (canRun && uniqueStates.length > 1) canRun = false;
+
+        if (op === 'delegate') {
+            const sd = (document.getElementById('bulkStartDate')?.value || '').trim();
+            const ed = (document.getElementById('bulkEndDate')?.value || '').trim();
+            canRun = canRun && !!sd && !!ed;
+        }
+
+        if (canRun && uniqueStates.length === 1) {
+            const s = uniqueStates[0];
+            if (op === 'assign') canRun = (s === 'unassigned');
+            if (op === 'unassign') canRun = (s === 'assigned');
+            if (op === 'delegate') canRun = (s === 'unassigned' || s === 'assigned');
+        }
+
+        btn.disabled = !canRun;
+        btn.classList.toggle('is-disabled', !canRun);
+    }
+
+    function fillAndSubmitBulkForm(actionUrl, fields) {
+        const form = document.getElementById('bulkForm');
+        const container = document.getElementById('bulkInputsContainer');
+        form.action = actionUrl;
+        container.innerHTML = '';
+
+        (fields || []).forEach(f => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = f.name;
+            input.value = f.value;
+            container.appendChild(input);
+        });
+
+        form.submit();
+    }
+
+    async function bulkExecute() {
+        const op = (document.getElementById('bulkOperation')?.value || '').trim();
+        const selectedIds = getSelectedTerminalIds();
+        if (selectedIds.length === 0) {
+            await Swal.fire({
                 icon: 'warning',
                 title: 'تنبيه',
-                text: 'يرجى اختيار الأجهزة أولاً',
+                text: 'يرجى تحديد جهاز واحد على الأقل',
                 confirmButtonColor: '#692f39',
                 confirmButtonText: 'حسناً'
             });
             return;
         }
 
-        if (operation === 'delegate' && (!startDateDisplay || !endDateDisplay)) {
-            Swal.fire({
+        const stateKeys = getSelectedStateKeys();
+        const uniqueStates = getUnique(stateKeys);
+        if (uniqueStates.length > 1) {
+            await Swal.fire({
                 icon: 'warning',
-                title: 'تنبيه',
-                text: 'يرجى تحديد تاريخ البداية والنهاية للانتداب',
+                title: 'لا يمكن التنفيذ',
+                text: 'الأجهزة المحددة ليست بنفس الحالة ولا يمكن تنفيذ العملية عليها معًا.',
                 confirmButtonColor: '#692f39',
                 confirmButtonText: 'حسناً'
             });
             return;
         }
 
-        let actionName = '';
-        let operationText = '';
-        let operationIcon = '';
+        const selectionState = uniqueStates[0] || '';
+        const employeeText = getEmployeeText();
+        const count = selectedIds.length;
 
-        if (operation === 'transfer') {
-            actionName = 'AssignBulk';
-            operationText = 'نقل دائم';
-            operationIcon = '<i class="fa-solid fa-right-left text-maroon"></i>';
-        } else if (operation === 'delegate') {
-            actionName = 'DelegateRegion';
-            operationText = `جدولة انتداب من ${startDateDisplay} إلى ${endDateDisplay}`;
-            operationIcon = '<i class="fa-solid fa-calendar-days text-sky"></i>';
-        } else if (operation === 'remove') {
-            actionName = 'UnassignBulk';
-            operationText = 'فك الارتباط';
-            operationIcon = '<i class="fa-solid fa-fingerprint text-red-500 u-opacity-70"></i>';
+        const startDisplay = (document.getElementById('bulkStartDate')?.value || '').trim();
+        const endDisplay = (document.getElementById('bulkEndDate')?.value || '').trim();
+
+        let title = 'مراجعة قبل التنفيذ';
+        let opText = '';
+        let iconHtml = '<i class="fa-solid fa-fingerprint text-maroon"></i>';
+        let extraMeta = '';
+        let note = '';
+        let actionUrl = '';
+        let fields = [];
+
+        if (op === 'assign') {
+            if (selectionState !== 'unassigned') {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'لا يمكن التنفيذ',
+                    text: 'عملية الربط الدائم متاحة فقط للأجهزة غير المرتبطة.',
+                    confirmButtonColor: '#692f39',
+                    confirmButtonText: 'حسناً'
+                });
+                return;
+            }
+            opText = 'ربط دائم';
+            actionUrl = '/employees/AssignBulk';
+            fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
+        } else if (op === 'unassign') {
+            if (selectionState !== 'assigned') {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'لا يمكن التنفيذ',
+                    text: 'عملية فك الربط متاحة فقط للأجهزة المرتبطة فعليًا.',
+                    confirmButtonColor: '#692f39',
+                    confirmButtonText: 'حسناً'
+                });
+                return;
+            }
+            opText = 'فك الربط';
+            actionUrl = '/employees/UnassignBulk';
+            fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
+            iconHtml = '<i class="fa-solid fa-link-slash text-red-500"></i>';
+        } else if (op === 'delegate') {
+            if (!(selectionState === 'unassigned' || selectionState === 'assigned')) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'لا يمكن التنفيذ',
+                    text: 'إنشاء الندب متاح فقط للأجهزة غير المرتبطة أو المرتبطة فعليًا (بدون ندب).',
+                    confirmButtonColor: '#692f39',
+                    confirmButtonText: 'حسناً'
+                });
+                return;
+            }
+            opText = 'إنشاء ندب';
+            actionUrl = '/employees/DelegateRegion';
+            if (!startDisplay || !endDisplay) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'تنبيه',
+                    text: 'يرجى تحديد تاريخ البداية والنهاية للندب',
+                    confirmButtonColor: '#692f39',
+                    confirmButtonText: 'حسناً'
+                });
+                return;
+            }
+
+            const start = convertDateFormat(startDisplay);
+            const end = convertDateFormat(endDisplay);
+            fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
+            fields.push({ name: 'startDate', value: start });
+            fields.push({ name: 'endDate', value: end });
+            extraMeta = `<div>الفترة: <strong>${startDisplay} → ${endDisplay}</strong></div>`;
+            iconHtml = '<i class="fa-solid fa-calendar-days text-sky"></i>';
+            note = 'ملاحظة: سيتم إنهاء الندب تلقائيًا في تاريخ النهاية.';
+        } else {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'تنبيه',
+                text: 'يرجى اختيار العملية.',
+                confirmButtonColor: '#692f39',
+                confirmButtonText: 'حسناً'
+            });
+            return;
         }
 
-        Swal.fire({
-            title: 'تأكيد العملية',
+        const confirmResult = await Swal.fire({
+            title,
             html: `<div class="c-swal-body">
-                    <div class="c-swal-icon c-swal-icon--xl">${operationIcon}</div>
-                    <p class="c-swal-lead">هل أنت متأكد من تنفيذ</p>
-                    <p class="c-swal-title">${operationText}</p>
-                    <p class="c-swal-count">${selectedDevices.length} جهاز</p>
+                    <div class="c-swal-icon c-swal-icon--lg">${iconHtml}</div>
+                    <p class="c-swal-lead c-swal-lead--sm">${opText}</p>
+                    <p class="c-swal-title">${employeeText}</p>
+                    <div class="c-swal-meta">
+                        <div>عدد الأجهزة المحددة: <strong>${count}</strong></div>
+                        ${extraMeta}
+                    </div>
+                    ${note ? `<p class="c-swal-note">${note}</p>` : ''}
                 </div>`,
-            icon: 'question',
+            icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
             confirmButtonText: '<i class="fa-solid fa-check"></i> تنفيذ',
             cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const form = document.getElementById('bulkForm');
-                form.action = '/employees/' + actionName;
-
-                const container = document.getElementById('bulkInputsContainer');
-                container.innerHTML = '';
-
-                selectedDevices.forEach(cb => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'terminalIds';
-                    input.value = cb.value;
-                    container.appendChild(input);
-                });
-
-                if (operation === 'delegate') {
-                    let startInput = document.createElement('input');
-                    startInput.type = 'hidden';
-                    startInput.name = 'startDate';
-                    startInput.value = startDate;
-                    container.appendChild(startInput);
-
-                    let endInput = document.createElement('input');
-                    endInput.type = 'hidden';
-                    endInput.name = 'endDate';
-                    endInput.value = endDate;
-                    container.appendChild(endInput);
-                }
-
-                form.submit();
-            }
         });
+
+        if (!confirmResult.isConfirmed) return;
+
+        fillAndSubmitBulkForm(actionUrl, fields);
     }
 
-    function confirmDelegationAction(button, confirmText) {
+    async function confirmDelegationCardAction(button, action) {
         const form = button.closest('form');
         if (!form) return;
 
-        Swal.fire({
+        const card = button.closest('.device-card');
+        const employeeText = getEmployeeText();
+
+        const deviceName = (card?.dataset?.deviceName || '').trim();
+        const terminalId = (card?.dataset?.terminalId || '').trim();
+        const start = (card?.dataset?.delegationStart || '').trim();
+        const end = (card?.dataset?.delegationEnd || '').trim();
+
+        const actionText = action === 'cancel' ? 'إلغاء الندب' : 'إنهاء الندب';
+        const datesText = (start && end) ? `${start} → ${end}` : '';
+
+        const confirmResult = await Swal.fire({
             title: 'تأكيد العملية',
-            text: confirmText || 'هل أنت متأكد؟',
+            html: `<div class="c-swal-body">
+                    <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
+                    <p class="c-swal-lead c-swal-lead--sm">${actionText}</p>
+                    <p class="c-swal-title">${employeeText}</p>
+                    <div class="c-swal-meta">
+                        <div>الجهاز: <strong>${deviceName || terminalId || '-'}</strong></div>
+                        ${terminalId ? `<div>TerminalId: <strong>${terminalId}</strong></div>` : ''}
+                        ${datesText ? `<div>الفترة: <strong>${datesText}</strong></div>` : ''}
+                    </div>
+                </div>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'نعم',
             cancelButtonText: 'إلغاء'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                form.submit();
-            }
-        });
-    }
-
-    function submitBulk(actionName) {
-        const selectedIds = [];
-        document.querySelectorAll('.device-chk:checked').forEach(cb => {
-            selectedIds.push(cb.value);
         });
 
-        if (selectedIds.length === 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'تنبيه',
-                text: 'يرجى اختيار الأجهزة أولاً',
-                confirmButtonColor: '#692f39',
-                confirmButtonText: 'حسناً'
-            });
-            return;
-        }
-
-        Swal.fire({
-            title: 'تأكيد العملية',
-            html: `<div class="c-swal-body">
-                    <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-fingerprint text-maroon"></i></div>
-                    <p class="c-swal-lead c-swal-lead--sm">هل أنت متأكد من تنفيذ العملية على</p>
-                    <p class="c-swal-title c-swal-title--big">${selectedIds.length} جهاز؟</p>
-                </div>`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#692f39',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: '<i class="fa-solid fa-check"></i> تنفيذ',
-            cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const form = document.getElementById('bulkForm');
-                form.action = '/employees/' + actionName;
-
-                const container = document.getElementById('bulkInputsContainer');
-                container.innerHTML = '';
-                selectedIds.forEach(id => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'terminalIds';
-                    input.value = id;
-                    container.appendChild(input);
-                });
-
-                form.submit();
-            }
-        });
+        if (confirmResult.isConfirmed) form.submit();
     }
 
     function setRegionFilter(mode) {
@@ -726,7 +781,7 @@ StringComparer.OrdinalIgnoreCase
             if (mode === 'assigned') showRegion = hasAssigned;
             if (mode === 'unassigned') showRegion = hasUnassigned;
 
-            region.style.display = showRegion ? '' : 'none';
+            region.classList.toggle('is-hidden', !showRegion);
 
             const devices = region.querySelectorAll('.device-card');
             devices.forEach(dev => {
@@ -739,9 +794,7 @@ StringComparer.OrdinalIgnoreCase
 
             if (showRegion) {
                 const visibleDevices = region.querySelectorAll('.device-card:not(.is-hidden)');
-                if (visibleDevices.length === 0) {
-                    region.style.display = 'none';
-                }
+                region.classList.toggle('is-hidden', visibleDevices.length === 0);
             }
 
             const selectAll = region.querySelector('.select-all-region');
@@ -771,26 +824,56 @@ StringComparer.OrdinalIgnoreCase
 
         updateBulkBar();
     });
-        document.getElementById("autoAssignBtn")?.addEventListener("click", async () => {
-        if (!confirm("هل تريد تحديث توزيع الأجهزة؟")) return;
 
-        const res = await fetch("/api/terminals/auto-assign-regions", {
-        method: "POST"
-    });
+    document.getElementById("autoAssignBtn")?.addEventListener("click", async () => {
+        const confirmResult = await Swal.fire({
+            title: 'تأكيد إجراء إداري',
+            html: `<div class="c-swal-body">
+                    <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
+                    <p class="c-swal-title">إعادة توزيع الأجهزة تلقائيًا</p>
+                    <p class="c-swal-lead c-swal-lead--sm">هذا الإجراء عام وقد يغيّر توزيع أجهزة كثيرة على المناطق.</p>
+                    <p class="c-swal-note">استخدمه فقط عند فقدان أو تلف بيانات التوزيع.</p>
+                </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#692f39',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'تشغيل',
+            cancelButtonText: 'إلغاء'
+        });
+
+        if (!confirmResult.isConfirmed) return;
+
+        const res = await fetch("/api/terminals/auto-assign-regions", { method: "POST" });
 
         if (res.status === 403) {
-        alert("غير مصرح لك (Admin فقط)");
-        return;
-    }
+            await Swal.fire({ icon: 'error', title: 'غير مصرح', text: 'غير مصرح لك (Admin فقط).' });
+            return;
+        }
 
         const data = await res.json();
-        alert(
-        `تم التحديث بنجاح\n` +
-        `عدد الأجهزة: ${data.totalDevices}\n` +
-        `جديد: ${data.inserted}\n` +
-        `تم تعديلها: ${data.updated}`
-        );
+        await Swal.fire({
+            icon: 'success',
+            title: 'تم التنفيذ',
+            html: `<div class="c-swal-body">
+                    <p class="c-swal-title">تمت إعادة بناء توزيع الأجهزة</p>
+                    <div class="c-swal-meta">
+                        <div>عدد الأجهزة: <strong>${data.totalDevices ?? '-'}</strong></div>
+                        <div>جديد: <strong>${data.inserted ?? data.newlyAssigned ?? '-'}</strong></div>
+                        <div>تم تعديلها: <strong>${data.updated ?? data.updatedRegions ?? '-'}</strong></div>
+                    </div>
+                </div>`,
+            confirmButtonColor: '#692f39'
+        });
     });
+
+    function toggleAdminTools() {
+        const panel = document.getElementById('adminToolsPanel');
+        if (!panel) return;
+        const isHidden = panel.classList.contains('is-hidden');
+        panel.classList.toggle('is-hidden', !isHidden);
+        panel.setAttribute('aria-hidden', String(!isHidden));
+    }
 
 </script>
 }

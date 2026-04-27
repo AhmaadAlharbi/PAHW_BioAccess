@@ -1883,7 +1883,6 @@
 
         /* Bulk Actions Bar */
         .employees-search-page .bulk-bar{
-            display: none !important;
             position: fixed;
             bottom: 30px;
             left: 50%;
@@ -1902,6 +1901,13 @@
 
         .employees-search-page .bulk-bar.show{
             transform: translateX(-50%) translateY(0);
+        }
+
+        /* Lower prominence when only one device is selected */
+        .employees-search-page .bulk-bar.is-single{
+            opacity: 0.92;
+            box-shadow: 0 16px 46px rgba(105, 47, 57, 0.35);
+            transform: translateX(-50%) translateY(0) scale(0.98);
         }
 
         .employees-search-page .bulk-info{
@@ -1947,6 +1953,34 @@
             gap: 12px;
         }
 
+        .employees-search-page .bulk-actions--controls{
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .employees-search-page .bulk-select{
+            appearance: none;
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--maroon);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-weight: 900;
+            min-width: 190px;
+            cursor: pointer;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+        }
+
+        .employees-search-page .bulk-dates{
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .employees-search-page .bulk-dates.is-hidden{
+            display: none;
+        }
+
         .employees-search-page .btn-bulk{
             padding: 14px 32px;
             border: none;
@@ -1958,6 +1992,14 @@
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+
+        .employees-search-page .btn-bulk.is-disabled,
+        .employees-search-page .btn-bulk:disabled{
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
         }
 
         .employees-search-page .btn-bulk .icon{
@@ -2493,4 +2535,173 @@
 
 
 
+/* SweetAlert2 helpers (meta/notes) */
+.c-swal-meta {
+  margin-top: 12px;
+  text-align: right;
+  display: grid;
+  gap: 6px;
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+.c-swal-note {
+  margin-top: 12px;
+  color: var(--gray-600);
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+/* Employees/Search - Admin tools (secondary, admin-only) */
+.employees-search-page .c-admin-tools{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.employees-search-page .c-admin-tools-toggle{
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.employees-search-page .c-admin-tools-panel{
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(520px, 92vw);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.12);
+  z-index: 20;
+}
+
+.employees-search-page .c-admin-tools-panel.is-hidden{
+  display: none;
+}
+
+.employees-search-page .c-admin-tools-panelTitle{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  color: var(--maroon);
+  margin-bottom: 12px;
+}
+
+.employees-search-page .c-admin-tools-item{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed var(--gray-200);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff, #fff7ed);
+}
+
+.employees-search-page .c-admin-tools-itemName{
+  font-weight: 900;
+  color: var(--gray-900);
+  margin-bottom: 6px;
+}
+
+.employees-search-page .c-admin-tools-itemHint{
+  color: var(--gray-600);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* Employees/Search - Card simplification */
+.employees-search-page .region-card.is-hidden{
+  display: none !important;
+}
+
+.employees-search-page .c-employee-device-head{
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.employees-search-page .c-employee-device-main{
+  flex: 1;
+  min-width: 0;
+}
+
+.employees-search-page .c-employee-device-titleRow{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.employees-search-page .c-employee-device-state{
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 0.85em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-100);
+  color: var(--gray-800);
+}
+
+.employees-search-page .c-employee-device-state.is-assigned{
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #065f46;
+}
+
+.employees-search-page .c-employee-device-state.is-unassigned{
+  background: rgba(107, 114, 128, 0.12);
+  border-color: rgba(107, 114, 128, 0.28);
+  color: var(--gray-700);
+}
+
+.employees-search-page .c-employee-device-state.is-delegated-active{
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #92400e;
+}
+
+.employees-search-page .c-employee-device-state.is-delegated-scheduled{
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #1e40af;
+}
+
+.employees-search-page .c-employee-device-meta{
+  margin-top: 6px;
+  color: var(--gray-600);
+  font-size: 0.86em;
+  font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.employees-search-page .c-employee-device-metaSep{
+  opacity: 0.7;
+}
+
+.employees-search-page .c-employee-device-submeta{
+  margin-top: 6px;
+  font-weight: 600;
+  font-size: 0.86em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.employees-search-page .c-employee-device-actions--compact{
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 

@@ -16,7 +16,7 @@
             </button>
             <button id="btnAutoAssign" class="btn btn-outline btn-sm">
                 <span>⚡</span>
-                <span>توزيع تلقائي</span>
+                <span>إعادة توزيع الأجهزة تلقائيًا</span>
             </button>
         </div>
     </div>
@@ -65,8 +65,7 @@
 
                 <div class="terminals-filterbar">
                     <input id="filterSearch" class="form-control form-control-compact terminals-search" placeholder="بحث بالاسم أو DeviceId" />
-                  `
-                    
+
                     <label class="form-check terminals-filter-check">
                         <input id="filterUnassigned" type="checkbox" />
                         <span>غير مرتبطة بمنطقة فقط</span>
@@ -528,7 +527,7 @@
     }
 
     async function autoAssign() {
-        if (!confirm("تشغيل التوزيع التلقائي قد يعدّل ربط أجهزة موجود. هل تريد المتابعة؟")) return;
+        if (!confirm("هذا الإجراء سيعيد توزيع الأجهزة على المناطق وقد يغيّر ربط أجهزة موجودة. استخدمه فقط عند فقدان أو تلف بيانات التوزيع.\n\nهل تريد المتابعة؟")) return;
 
         const data = await fetchJson(api.autoAssign, { method: "POST" });
         showAlert(
