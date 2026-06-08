@@ -556,6 +556,83 @@
 .regionRow { cursor: pointer; }
 .regionRow.is-selected { background: var(--gray-50); }
 
+/* Terminals page — UX improvements (scoped under trm-) */
+.trm-regions-panel,
+.trm-devices-panel { min-width: 0; }
+
+.trm-region-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.trm-region-card {
+  background: white;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: border-color 0.15s;
+}
+
+.trm-region-card:hover { border-color: var(--gray-400); }
+
+.trm-region-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.trm-region-name {
+  font-weight: 900;
+  color: var(--gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trm-region-count {
+  font-size: 0.82em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.trm-rename-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.trm-rename-input { flex: 1; min-width: 0; }
+
+.trm-devices-summary {
+  font-size: 0.88em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.trm-device-meta {
+  font-size: 0.82em;
+  margin-top: 2px;
+}
+
+.trm-device-region {
+  margin-top: 4px;
+  font-size: 0.82em;
+  font-weight: 700;
+  color: var(--maroon);
+}
+
+.trm-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
 
 /* ============================== */
 /* Employees/Search.cshtml (moved from view) */
