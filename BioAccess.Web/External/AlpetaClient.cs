@@ -17,7 +17,14 @@ public class AlpetaClient
 
     // Session UUID بعد Login
     private string? _uuid;
-    private const string UuidCacheKey = "alpeta:uuid";
+    private const string UuidCacheKey   = "alpeta:uuid";
+    private const string DeviceCacheKey = "alpeta:devices:snapshot";
+
+    /// <summary>
+    /// True when the last GetAllDevicesAsync call returned data from the local fallback
+    /// cache because the live API response was empty or failed.
+    /// </summary>
+    public bool LastCallUsedFallback { get; private set; }
 
     public AlpetaClient(HttpClient http, IConfiguration config, IMemoryCache cache)
     {
@@ -118,38 +125,76 @@ public class AlpetaClient
 
     public async Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default)
     {
-        await EnsureLoggedInAsync(ct);
+        LastCallUsedFallback = false;
 
-        var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=200", ct);
-        res.EnsureSuccessStatusCode();
+        // CancellationToken cancellations must always propagate — don't catch them.
+        ct.ThrowIfCancellationRequested();
 
-        var json = await res.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(json);
-
-        var list = new List<DeviceDto>();
-
-        if (doc.RootElement.TryGetProperty("TerminalList", out var terminals) &&
-            terminals.ValueKind == JsonValueKind.Array)
+        try
         {
-            foreach (var t in terminals.EnumerateArray())
+            await EnsureLoggedInAsync(ct);
+
+            var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
+
+            // Stale UUID: clear it, re-authenticate once, and retry the request.
+            if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
-                var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
-                var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
-                var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
-
-                if (string.IsNullOrWhiteSpace(id))
-                    continue;
-
-                list.Add(new DeviceDto
-                {
-                    DeviceId = id.Trim(),
-                    DeviceName = name,
-                    Location = location
-                });
+                _cache.Remove(UuidCacheKey);
+                _uuid = null;
+                await EnsureLoggedInAsync(ct);
+                res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
             }
+
+            res.EnsureSuccessStatusCode();
+
+            var json = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+
+            var list = new List<DeviceDto>();
+
+            if (doc.RootElement.TryGetProperty("TerminalList", out var terminals) &&
+                terminals.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var t in terminals.EnumerateArray())
+                {
+                    var id       = t.TryGetProperty("ID",       out var idEl) ? idEl.ToString()        : "";
+                    var name     = t.TryGetProperty("Name",     out var nEl)  ? (nEl.GetString()  ?? "") : "";
+                    var location = t.TryGetProperty("Location", out var lEl)  ? (lEl.GetString()  ?? "") : "";
+
+                    if (string.IsNullOrWhiteSpace(id))
+                        continue;
+
+                    list.Add(new DeviceDto { DeviceId = id.Trim(), DeviceName = name, Location = location });
+                }
+            }
+
+            // A non-empty result is the new authoritative snapshot.
+            if (list.Count > 0)
+            {
+                _cache.Set(DeviceCacheKey, list, TimeSpan.FromMinutes(10));
+                return list;
+            }
+
+            // Alpeta returned 200 with zero devices — treat as a transient API issue
+            // and fall through to the last-known-good snapshot below.
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // Network error, auth failure, JSON error — fall through to cache.
         }
 
-        return list;
+        // Return the most recent snapshot we trust.
+        if (_cache.TryGetValue<List<DeviceDto>>(DeviceCacheKey, out var snapshot) && snapshot?.Count > 0)
+        {
+            LastCallUsedFallback = true;
+            return snapshot;
+        }
+
+        return new List<DeviceDto>(); // no snapshot yet (first run, never had a good response)
     }
 
     // ✅ يجيب الأجهزة المرتبطة بالموظف (بشكل robust لأي naming يرجّعه Alpeta)

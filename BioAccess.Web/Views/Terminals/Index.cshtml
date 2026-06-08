@@ -20,6 +20,16 @@
         </div>
     }
 
+    @if (Model.ApiUnavailable)
+    {
+        <div class="alert alert-warning">
+            <span>
+                تعذّر الاتصال بـ Alpeta — البيانات المعروضة من آخر نسخة محفوظة.
+                حاول تحديث الصفحة، وإذا استمرت المشكلة تحقق من اتصال الخادم بـ Alpeta.
+            </span>
+        </div>
+    }
+
     @if (Model.StaleMappingsCount > 0)
     {
         <div class="alert alert-warning">

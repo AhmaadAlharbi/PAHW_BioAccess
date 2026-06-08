@@ -42,9 +42,10 @@ public sealed class TerminalService
 
         return new TerminalsViewModel
         {
-            Regions = await GetRegionsAsync(ct),
-            Devices = await BuildTerminalsAsync(devices, ct),
-            StaleMappingsCount = await GetStaleMappingsCountAsync(devices, ct)
+            Regions          = await GetRegionsAsync(ct),
+            Devices          = await BuildTerminalsAsync(devices, ct),
+            StaleMappingsCount = await GetStaleMappingsCountAsync(devices, ct),
+            ApiUnavailable   = _alpeta.LastCallUsedFallback
         };
     }
 

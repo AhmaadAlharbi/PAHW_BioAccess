@@ -63,8 +63,7 @@ builder.Services.AddScoped<EmployeeSoapClient>();
 // -------------------------
 builder.Services.AddHttpClient<AlpetaClient>(http =>
 {
-    // إذا تحتاج Timeout من config:
-    // http.Timeout = TimeSpan.FromSeconds(10);
+    http.Timeout = TimeSpan.FromSeconds(15);
 });
 
 // -------------------------

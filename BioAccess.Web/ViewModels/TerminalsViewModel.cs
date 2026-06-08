@@ -5,6 +5,8 @@ public sealed class TerminalsViewModel
     public List<TerminalRegionViewModel> Regions { get; set; } = new();
     public List<TerminalDeviceViewModel> Devices { get; set; } = new();
     public int StaleMappingsCount { get; set; }
+    // True when the device list came from the local fallback cache rather than a live Alpeta response.
+    public bool ApiUnavailable { get; set; }
 }
 
 public sealed class TerminalRegionViewModel
