@@ -1,0 +1,158 @@
+@model TerminalsViewModel
+
+@{
+    ViewData["Title"] = "المناطق والأجهزة";
+}
+
+<div class="content-card fade-in">
+    <div class="page-header">
+        <h1 class="page-title">
+            <span class="page-title-icon">🗺️</span>
+            <span>المناطق والأجهزة</span>
+        </h1>
+    </div>
+
+    @if (TempData["ToastMsg"] is string toastMessage)
+    {
+        var toastType = TempData["ToastType"] as string == "success" ? "alert-success" : "alert-error";
+        <div class="alert @toastType">
+            <span>@toastMessage</span>
+        </div>
+    }
+
+    @if (Model.StaleMappingsCount > 0)
+    {
+        <div class="alert alert-warning">
+            <span>يوجد @Model.StaleMappingsCount ربط قديم لأجهزة غير موجودة حالياً في Alpeta.</span>
+        </div>
+    }
+
+    <div class="terminals-layout">
+        <section>
+            <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
+                <h2 class="c-section-title">المناطق</h2>
+                <a asp-controller="Terminals" asp-action="CreateRegion" class="btn btn-primary btn-sm u-nowrap">
+                    <span>إضافة منطقة</span>
+                </a>
+            </div>
+
+            <div class="table-container terminals-regions-table">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>المنطقة</th>
+                            <th class="u-w-92">الأجهزة</th>
+                            <th class="u-w-220 u-text-center">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var region in Model.Regions)
+                    {
+                        <tr>
+                            <td class="u-fw-900">@region.Name</td>
+                            <td>
+                                <span class="badge badge-info">
+                                    <span>@region.DeviceCount</span>
+                                </span>
+                            </td>
+                            <td class="u-text-center">
+                                <form asp-controller="Terminals" asp-action="RenameRegion" method="post" class="u-flex u-gap-8 u-mb-8">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="regionId" value="@region.Id" />
+                                    <input name="name" value="@region.Name" class="form-control form-control-compact" />
+                                    <button type="submit" class="btn btn-sm btn-secondary">
+                                        <span>تعديل</span>
+                                    </button>
+                                </form>
+                                <form asp-controller="Terminals" asp-action="DeleteRegion" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="regionId" value="@region.Id" />
+                                    <button type="submit" class="btn btn-sm btn-danger" disabled="@(region.DeviceCount > 0)">
+                                        <span>حذف</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <div class="terminals-toolbar">
+                <div class="terminals-titlebar">
+                    <h2 class="c-section-title">الأجهزة</h2>
+                </div>
+            </div>
+
+            <div class="terminals-statusbar">
+                <div class="terminals-devices-status">
+                    إجمالي الأجهزة: @Model.Devices.Count
+                </div>
+            </div>
+
+            <div class="table-container terminals-devices-table">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th class="u-w-110">DeviceId</th>
+                            <th>DeviceName</th>
+                            <th class="u-w-180">Location</th>
+                            <th class="u-w-220">Current Region</th>
+                            <th class="u-w-120">Status</th>
+                            <th class="u-w-220 u-text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var device in Model.Devices)
+                    {
+                        <tr>
+                            <td class="u-fw-900">@device.DeviceId</td>
+                            <td>@device.DeviceName</td>
+                            <td>@device.Location</td>
+                            <td>
+                                <form asp-controller="Terminals" asp-action="AssignRegion" method="post" class="u-flex u-gap-8">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="terminalId" value="@device.DeviceId" />
+                                    <select name="regionId" class="form-control form-control-compact">
+                                        <option value="">اختر منطقة</option>
+                                        @foreach (var region in Model.Regions)
+                                        {
+                                            <option value="@region.Id" selected="@(device.RegionId == region.Id)">
+                                                @region.Name
+                                            </option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-success">
+                                        <span>حفظ</span>
+                                    </button>
+                                </form>
+                            </td>
+                            <td>
+                                @if (device.Status == "Assigned")
+                                {
+                                    <span class="badge badge-success">Assigned</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warning">Unassigned</span>
+                                }
+                            </td>
+                            <td class="u-text-center">
+                                <form asp-controller="Terminals" asp-action="ClearRegion" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="terminalId" value="@device.DeviceId" />
+                                    <button type="submit" class="btn btn-sm btn-secondary" disabled="@(device.RegionId is null)">
+                                        <span>فك الربط</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>

@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "إضافة منطقة";
+}
+
+<div class="content-card fade-in">
+    <div class="page-header">
+        <h1 class="page-title">
+            <span>إضافة منطقة</span>
+        </h1>
+    </div>
+
+    <form asp-controller="Terminals" asp-action="CreateRegion" method="post" class="u-flex u-gap-12">
+        @Html.AntiForgeryToken()
+
+        <div class="form-group u-minw-320">
+            <label class="form-label" for="name">اسم المنطقة</label>
+            <input id="name" name="name" class="form-control" />
+            <div asp-validation-summary="All" class="text-danger"></div>
+        </div>
+
+        <div class="u-flex u-gap-8 u-items-end">
+            <button type="submit" class="btn btn-primary">
+                <span>حفظ</span>
+            </button>
+            <a asp-controller="Terminals" asp-action="Index" class="btn btn-secondary">
+                <span>رجوع</span>
+            </a>
+        </div>
+    </form>
+</div>

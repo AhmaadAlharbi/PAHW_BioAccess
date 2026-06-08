@@ -1,0 +1,260 @@
+@model List<BioAccess.Web.DTOs.AllowedUserListItemDto>
+@{
+    ViewData["Title"] = "إدارة المستخدمين";
+    var currentEmpId = Context.Session.GetString("EmpId") ?? "";
+}
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body>
+    <!-- جزيئات الخلفية المتحركة -->
+    <div class="bg-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- شريط التنقل -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <div class="navbar-logo">
+                🔐
+            </div>
+            <span class="navbar-title">نظام إدارة البصمات - PAHW</span>
+        </div>
+        
+        <div class="navbar-nav">
+            <a href="/employees/search" class="nav-link">
+                <span>🔍</span>
+                <span>بحث موظف</span>
+            </a>
+            <a href="/allowlist" class="nav-link active">
+                <span>👥</span>
+                <span>قائمة الصلاحيات</span>
+            </a>
+        </div>
+
+        <div class="navbar-user">
+            <div class="user-avatar">
+                @(currentEmpId.Length > 0 ? currentEmpId.Substring(0, 1) : "U")
+            </div>
+            <span>@currentEmpId</span>
+        </div>
+    </nav>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="main-container">
+        <div class="content-card fade-in">
+            <!-- رسائل التنبيه -->
+            @if (TempData["ErrorMsg"] != null)
+            {
+                <div class="alert alert-error">
+                    <span class="alert-icon">⚠️</span>
+                    <span>@TempData["ErrorMsg"]</span>
+                </div>
+            }
+            @if (TempData["SuccessMsg"] != null)
+            {
+                <div class="alert alert-success">
+                    <span class="alert-icon">✅</span>
+                    <span>@TempData["SuccessMsg"]</span>
+                </div>
+            }
+
+            <!-- رأس الصفحة -->
+            <div class="page-header">
+                <h1 class="page-title">
+                    <span class="page-title-icon">👥</span>
+                    <span>إدارة المستخدمين</span>
+                </h1>
+                <a asp-action="Create" class="btn btn-primary">
+                    <span>➕</span>
+                    <span>إضافة مستخدم</span>
+                </a>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- إحصائيات سريعة -->
+            <div class="c-stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">@Model.Count</div>
+                    <div class="stat-label">إجمالي المستخدمين</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value text-emerald">@Model.Count(u => u.IsActive)</div>
+                    <div class="stat-label">الحسابات النشطة</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value text-rose">@Model.Count(u => !u.IsActive)</div>
+                    <div class="stat-label">الحسابات المعطّلة</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value text-blue">@Model.Count(u => u.IsAdmin)</div>
+                    <div class="stat-label">المدراء</div>
+                </div>
+            </div>
+
+            <!-- الجدول -->
+            @if (Model.Any())
+            {
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>اسم المستخدم</th>
+                                <th>الاسم الكامل</th>
+                                <th>البريد الإلكتروني</th>
+                                <th>القسم</th>
+                                <th>صلاحية مدير</th>
+                                <th>الحالة</th>
+                                <th>صالح حتى</th>
+                                <th class="u-text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var u in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong class="text-maroon">@u.EmployeeId</strong>
+                                    </td>
+                                    <td>
+                                        <strong>@u.FullName</strong>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted">@u.Email</span>
+                                    </td>
+                                    <td>@u.Department</td>
+                                    <td>
+                                        @if (u.IsAdmin)
+                                        {
+                                            <span class="badge badge-info">
+                                                <span>⭐</span>
+                                                <span>مدير</span>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-muted">
+                                                <span>👤</span>
+                                                <span>مستخدم</span>
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (u.IsActive)
+                                        {
+                                            <span class="badge badge-success">
+                                                <span>✓</span>
+                                                <span>فعال</span>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-danger">
+                                                <span>✕</span>
+                                                <span>معطل</span>
+                                            </span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (u.ValidUntil.HasValue)
+                                        {
+                                            <span class="text-amber u-fw-700">
+                                                @u.ValidUntil.Value.ToString("yyyy-MM-dd")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-gray-400">دائم</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="c-actions-row">
+                                            @if (u.EmployeeId.ToString() != currentEmpId)
+                                            {
+                                                <!-- زر التفعيل/التعطيل -->
+                                                <form method="post" asp-action="Toggle" class="u-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="employeeId" value="@u.EmployeeId" />
+                                                    <input type="hidden" name="makeActive" value="@(u.IsActive ? "false" : "true")" />
+                                                    <button type="submit" class="btn btn-sm @(u.IsActive ? "btn-secondary" : "btn-success")">
+                                                        @if (u.IsActive)
+                                                        {
+                                                            <span>⏸️ تعطيل</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>▶️ تفعيل</span>
+                                                        }
+                                                    </button>
+                                                </form>
+
+                                                <!-- زر الحذف -->
+                                                <form method="post" asp-action="Delete" class="u-inline"
+                                            onsubmit="return confirm('⚠️ هل أنت متأكد من الحذف النهائي لهذا المستخدم؟');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="employeeId" value="@u.EmployeeId" />
+                                                    <button type="submit" class="btn btn-sm btn-danger">
+                                                        <span>🗑️ حذف</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge badge-copper">
+                                                    <span>🔒</span>
+                                                    <span>حسابك</span>
+                                                </span>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <div class="empty-state-text">لا يوجد مستخدمون في القائمة حالياً</div>
+                    <div class="u-mt-24">
+                        <a asp-action="Create" class="btn btn-primary">
+                            <span>➕</span>
+                            <span>إضافة مستخدم</span>
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <script>
+        // إضافة تأثيرات حركية عند التحميل
+        document.addEventListener('DOMContentLoaded', function() {
+            const rows = document.querySelectorAll('.data-table tbody tr');
+            rows.forEach((row, index) => {
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(() => {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateX(0)';
+                }, index * 50);
+            });
+        });
+    </script>
+</body>
+</html>

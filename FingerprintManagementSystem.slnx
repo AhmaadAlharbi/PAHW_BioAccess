@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="FingerprintManagementSystem.ApiAdapter/FingerprintManagementSystem.ApiAdapter.csproj" />
-  <Project Path="FingerprintManagementSystem.Contracts/FingerprintManagementSystem.Contracts.csproj" />
-  <Project Path="FingerprintManagementSystem.Web/FingerprintManagementSystem.Web.csproj" />
-</Solution>

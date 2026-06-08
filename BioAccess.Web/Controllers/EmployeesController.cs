@@ -1,0 +1,199 @@
+using BioAccess.Web.Contracts;
+using BioAccess.Web.Services.Activity;
+using BioAccess.Web.Services.Employees;
+using Microsoft.AspNetCore.Mvc;
+
+namespace BioAccess.Web.Controllers;
+
+[Route("employees")]
+public sealed class EmployeesController : Controller
+{
+    private readonly EmployeeDevicesApi _employees;
+    private readonly IDelegationService _delegations;
+    private readonly IActivityLogService _activityLog;
+
+    public EmployeesController(EmployeeDevicesApi employees, IDelegationService delegations, IActivityLogService activityLog)
+    {
+        _employees = employees;
+        _delegations = delegations;
+        _activityLog = activityLog;
+    }
+
+    [HttpGet("")]
+    public async Task<IActionResult> Index(int? employeeId, CancellationToken ct)
+    {
+        if (!employeeId.HasValue || employeeId.Value <= 0)
+            return View("Search", null);
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId.Value, ct);
+        return View("Search", screen);
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(int employeeId, CancellationToken ct)
+    {
+        if (employeeId <= 0) return View("Search");
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        TempData["LastEmployeeId"] = employeeId.ToString();
+        return View("Search", screen);
+    }
+
+    [HttpPost("search")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SearchPost([FromForm] int employeeId, CancellationToken ct)
+    {
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        TempData["LastEmployeeId"] = employeeId.ToString();
+
+        if (screen?.Employee is null)
+        {
+            TempData["ToastType"] = "danger";
+            TempData["ToastMsg"] = $"لا يوجد موظف بالرقم الوظيفي: {employeeId}";
+            return View("Search");
+        }
+
+        return View("Search", screen);
+    }
+
+    [HttpPost("assign")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Assign(int employeeId, string terminalId, CancellationToken ct)
+    {
+        var ok = await _employees.AssignOneAsync(employeeId, terminalId, ct);
+        TempData["ToastType"] = ok ? "success" : "danger";
+        TempData["ToastMsg"] = ok ? "✅ تم الربط" : "❌ فشل الربط";
+        TempData["LastEmployeeId"] = employeeId.ToString();
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        if (ok)
+        {
+            await _activityLog.LogAsync(
+                "EmployeeTerminal.Assigned",
+                "EmployeeTerminal",
+                terminalId,
+                $"تم ربط الموظف {employeeId} بالجهاز {terminalId}.");
+        }
+        return View("Search", screen);
+    }
+
+    [HttpPost("unassign")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Unassign(int employeeId, string terminalId, CancellationToken ct)
+    {
+        var ok = await _employees.UnassignOneAsync(employeeId, terminalId, ct);
+        TempData["ToastType"] = ok ? "success" : "danger";
+        TempData["ToastMsg"] = ok ? "✅ تم فك الارتباط" : "❌ فشل فك الارتباط";
+        TempData["LastEmployeeId"] = employeeId.ToString();
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        if (ok)
+        {
+            await _activityLog.LogAsync(
+                "EmployeeTerminal.Unassigned",
+                "EmployeeTerminal",
+                terminalId,
+                $"تم فك ربط الموظف {employeeId} من الجهاز {terminalId}.");
+        }
+        return View("Search", screen);
+    }
+
+    [HttpPost("AssignBulk")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
+    {
+        var successCount = 0;
+        foreach (var terminalId in terminalIds)
+        {
+            if (await _employees.AssignOneAsync(employeeId, terminalId, ct)) successCount++;
+        }
+
+        TempData["ToastType"] = "success";
+        TempData["ToastMsg"] = $"✅ تم ربط {successCount} جهاز";
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        if (successCount > 0)
+        {
+            await _activityLog.LogAsync(
+                "EmployeeTerminal.BulkAssigned",
+                "EmployeeTerminal",
+                null,
+                $"تم ربط الموظف {employeeId} بعدد {successCount} أجهزة.");
+        }
+        return View("Search", screen);
+    }
+
+    [HttpPost("UnassignBulk")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UnassignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
+    {
+        var successCount = 0;
+        foreach (var terminalId in terminalIds)
+        {
+            if (await _employees.UnassignOneAsync(employeeId, terminalId, ct)) successCount++;
+        }
+
+        TempData["ToastType"] = "success";
+        TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {successCount} جهاز";
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        if (successCount > 0)
+        {
+            await _activityLog.LogAsync(
+                "EmployeeTerminal.BulkUnassigned",
+                "EmployeeTerminal",
+                null,
+                $"تم فك ربط الموظف {employeeId} عن {successCount} أجهزة.");
+        }
+        return View("Search", screen);
+    }
+
+    [HttpPost("DelegateRegion")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DelegateRegion(
+        int employeeId,
+        List<string> terminalIds,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken ct)
+    {
+        var result = await _delegations.SaveDelegationAsync(employeeId, terminalIds, startDate, endDate, ct);
+        if (result == "Invalid")
+        {
+            TempData["ToastType"] = "danger";
+            TempData["ToastMsg"] = "❌ فشل في حفظ الانتداب، تحقق من التواريخ";
+        }
+        else
+        {
+            TempData["ToastType"] = "success";
+            TempData["ToastMsg"] = "✅ تم جدولة الانتداب بنجاح";
+        }
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        return View("Search", screen);
+    }
+
+    [HttpPost("end-delegation")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EndDelegation(int employeeId, int delegationId, CancellationToken ct)
+    {
+        var ok = await _delegations.EndActiveDelegationAsync(delegationId, ct);
+        TempData["ToastType"] = ok ? "success" : "danger";
+        TempData["ToastMsg"] = ok ? "✅ تم إنهاء الندب بنجاح" : "❌ تعذر إنهاء الندب";
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        return View("Search", screen);
+    }
+
+    [HttpPost("cancel-delegation")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelDelegation(int employeeId, int delegationId, CancellationToken ct)
+    {
+        var ok = await _delegations.CancelScheduledDelegationAsync(delegationId, ct);
+        TempData["ToastType"] = ok ? "success" : "danger";
+        TempData["ToastMsg"] = ok ? "✅ تم إلغاء الندب بنجاح" : "❌ تعذر إلغاء الندب";
+
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        return View("Search", screen);
+    }
+}

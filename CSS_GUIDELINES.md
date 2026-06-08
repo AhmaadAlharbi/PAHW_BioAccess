@@ -1,11 +1,11 @@
-﻿# CSS Guidelines
+# CSS Guidelines
 
 ## 1) الهدف
 
 المشروع يستخدم طبقتين CSS:
 
-- `FingerprintManagementSystem.Web/wwwroot/css/app.css` كنظام CSS منظم (طبقة قابلة لإعادة الاستخدام).
-- `FingerprintManagementSystem.Web/wwwroot/css/site.css` كملف legacy/base (لا نضيف عليه CSS جديد).
+- `BioAccess.Web/wwwroot/css/app.css` كنظام CSS منظم (طبقة قابلة لإعادة الاستخدام).
+- `BioAccess.Web/wwwroot/css/site.css` كملف legacy/base (لا نضيف عليه CSS جديد).
 
 ---
 
@@ -34,10 +34,10 @@
 ## 4) أين نضيف CSS الجديد؟
 
 - كل CSS جديد يجب أن يضاف إلى:
-  - `FingerprintManagementSystem.Web/wwwroot/css/app.css`
+  - `BioAccess.Web/wwwroot/css/app.css`
 
 - لا نضيف CSS إلى:
-  - `FingerprintManagementSystem.Web/wwwroot/css/site.css`
+  - `BioAccess.Web/wwwroot/css/site.css`
 
 ---
 
