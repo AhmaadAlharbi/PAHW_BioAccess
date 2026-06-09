@@ -42,6 +42,8 @@ public class DelegationWorker : BackgroundService
                     var terminals = del.Terminals
                         .Select(t => t.TerminalId)
                         .ToList();
+                    var employeeText = FormatEmployeeText(null, del.EmployeeId);
+                    var actorText = FormatActorText("DelegationWorker", null);
 
                     foreach (var terminalId in terminals)
                     {
@@ -62,7 +64,7 @@ public class DelegationWorker : BackgroundService
                         action: "Delegation.Activated",
                         entityType: "Delegation",
                         entityId: del.Id.ToString(),
-                        summary: $"تم تفعيل انتداب للموظف {del.EmployeeId} ({terminals.Count} أجهزة).",
+                        summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({terminals.Count}) أجهزة\nبواسطة: {actorText}",
                         details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
                         ct: stoppingToken
                     );
@@ -79,6 +81,8 @@ public class DelegationWorker : BackgroundService
                     var terminals = del.Terminals
                         .Select(t => t.TerminalId)
                         .ToList();
+                    var employeeText = FormatEmployeeText(null, del.EmployeeId);
+                    var actorText = FormatActorText("DelegationWorker", null);
 
                     foreach (var terminalId in terminals)
                     {
@@ -99,7 +103,7 @@ public class DelegationWorker : BackgroundService
                         action: "Delegation.Expired",
                         entityType: "Delegation",
                         entityId: del.Id.ToString(),
-                        summary: $"تم إنهاء انتداب للموظف {del.EmployeeId} ({terminals.Count} أجهزة).",
+                        summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
                         details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
                         ct: stoppingToken
                     );
@@ -115,5 +119,17 @@ public class DelegationWorker : BackgroundService
 
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
         }
+    }
+
+    private static string FormatEmployeeText(string? employeeName, int employeeId)
+        => string.IsNullOrWhiteSpace(employeeName)
+            ? $"غير معروف ({employeeId})"
+            : $"{employeeName.Trim()} ({employeeId})";
+
+    private static string FormatActorText(string? actorName, string? actorId)
+    {
+        var name = string.IsNullOrWhiteSpace(actorName) ? "غير معروف" : actorName.Trim();
+        var id = string.IsNullOrWhiteSpace(actorId) ? "غير معروف" : actorId.Trim();
+        return $"{name} ({id})";
     }
 }

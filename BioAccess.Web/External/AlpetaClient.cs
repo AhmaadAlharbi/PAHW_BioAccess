@@ -13,6 +13,7 @@ public class AlpetaClient
     private readonly IConfiguration _config;
     private readonly IMemoryCache _cache;
     private readonly SemaphoreSlim _loginLock = new(1, 1);
+    private static readonly object _devicesLock = new();
 
 
     // Session UUID بعد Login
@@ -168,15 +169,33 @@ public class AlpetaClient
                 }
             }
 
-            // A non-empty result is the new authoritative snapshot.
-            if (list.Count > 0)
+            lock (_devicesLock)
             {
-                _cache.Set(DeviceCacheKey, list, TimeSpan.FromMinutes(10));
+                var previous = _cache.Get<List<DeviceDto>>(DeviceCacheKey);
+
+                var isValid =
+                    list.Count > 0 &&
+                    (
+                        previous is null
+                            ? list.Count > 20
+                            : list.Count >= previous.Count * 0.7
+                    );
+
+                if (isValid)
+                {
+                    _cache.Set(DeviceCacheKey, list, TimeSpan.FromMinutes(10));
+                    LastCallUsedFallback = false;
+                    return list;
+                }
+
+                if (previous is { Count: > 0 })
+                {
+                    LastCallUsedFallback = true;
+                    return previous;
+                }
+
                 return list;
             }
-
-            // Alpeta returned 200 with zero devices — treat as a transient API issue
-            // and fall through to the last-known-good snapshot below.
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

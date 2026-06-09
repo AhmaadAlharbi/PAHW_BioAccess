@@ -1,276 +1,215 @@
 @model BioAccess.Web.DTOs.EmployeeDevicesScreenDto?
 @{
-ViewData["Title"] = "بحث موظف";
-var toastType = TempData["ToastType"] as string;
-var toastMsg = TempData["ToastMsg"] as string;
-var lastEmployeeId = TempData["LastEmployeeId"]?.ToString();
-var devices = Model?.Devices ?? new List<BioAccess.Web.DTOs.DeviceRowDto>();
-var assigned = devices.Where(x => x.IsEffectivelyAssigned).ToList();
-var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
+    ViewData["Title"] = "بحث موظف";
+    var toastType      = TempData["ToastType"] as string;
+    var toastMsg       = TempData["ToastMsg"]  as string;
+    var lastEmployeeId = TempData["LastEmployeeId"]?.ToString();
+    var isAdmin        = Context.Session.GetString("IsAdmin") == "1";
+    var devices        = Model?.Devices ?? new List<BioAccess.Web.DTOs.DeviceRowDto>();
+    var assigned       = devices.Where(x => x.IsEffectivelyAssigned).ToList();
+    var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 }
 
 @section Styles {
-    <!-- Font Awesome for professional icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <!-- Flatpickr for date formatting -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
-    <!-- أنماط خاصة بصفحة البحث فقط -->
 }
 
 <div class="employees-search-page"
      data-employee-id="@(Model?.Employee?.EmployeeId ?? 0)"
      data-employee-name="@(Model?.Employee?.FullNameAr ?? "")">
-<!-- جزيئات الخلفية من site.css -->
-<div class="bg-particles">
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-</div>
 
-
-<!-- المحتوى الرئيسي - باقي الكود كما هو -->
-<div class="main-content">
-    @{
-    var isAdmin = Context.Session.GetString("IsAdmin") == "1";
-    }
-
-    <div class="page-header">
-        <h1><i class="fa-solid fa-magnifying-glass icon"></i> بحث عن موظف</h1>
-        @if (isAdmin)
-        {
-            <div class="c-admin-tools">
-                <button type="button" class="btn btn-muted btn-sm u-nowrap c-admin-tools-toggle" onclick="toggleAdminTools()">
-                    <i class="fa-solid fa-screwdriver-wrench icon"></i>
-                    <span>أدوات إدارية</span>
-                </button>
-
-                <div id="adminToolsPanel" class="c-admin-tools-panel is-hidden" aria-hidden="true">
-                    <div class="c-admin-tools-panelTitle">
-                        <i class="fa-solid fa-triangle-exclamation icon"></i>
-                        <span>إجراءات عامة (لا تخص موظفًا واحدًا)</span>
-                    </div>
-
-                    <div class="c-admin-tools-item">
-                        <div class="c-admin-tools-itemText">
-                            <div class="c-admin-tools-itemName">إعادة توزيع الأجهزة تلقائيًا</div>
-                            <div class="c-admin-tools-itemHint">
-                                قد يغيّر توزيع أجهزة كثيرة على المناطق. استخدمه فقط عند فقدان/تلف بيانات التوزيع.
-                            </div>
-                        </div>
-                        <button id="autoAssignBtn" type="button" class="btn btn-outline btn-sm u-nowrap">
-                            <i class="fa-solid fa-rotate icon"></i>
-                            <span>تشغيل</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
-
+    @* ── Toast ─────────────────────────────────────────── *@
     @if (!string.IsNullOrWhiteSpace(toastMsg))
     {
-        var alertClass = "alert-info";
-        var alertIcon = "fa-circle-info";
-        var alertTitle = "معلومة";
-
-        if (toastType == "success")
-        {
-            alertClass = "alert-success";
-            alertIcon = "fa-circle-check";
-            alertTitle = "نجح";
-        }
-        else if (toastType == "danger")
-        {
-            alertClass = "alert-danger";
-            alertIcon = "fa-circle-xmark";
-            alertTitle = "خطأ";
-        }
-        else if (toastType == "warning")
-        {
-            alertClass = "alert-warning";
-            alertIcon = "fa-triangle-exclamation";
-            alertTitle = "تحذير";
-        }
-
-        <div class="alert @alertClass">
-            <div class="alert-icon"><i class="fa-solid @alertIcon"></i></div>
-            <div class="alert-content">
-                <div class="alert-title">@alertTitle</div>
-                <div class="alert-message">@toastMsg</div>
-            </div>
+        var alertClass = toastType switch {
+            "success" => "alert-success",
+            "danger"  => "alert-danger",
+            "warning" => "alert-warning",
+            _         => "alert-info"
+        };
+        <div class="alert @alertClass d-flex align-items-center gap-2 mb-3" role="alert">
+            @if (toastType == "success") { <i class="fa-solid fa-circle-check"></i> }
+            else if (toastType == "danger") { <i class="fa-solid fa-circle-xmark"></i> }
+            else if (toastType == "warning") { <i class="fa-solid fa-triangle-exclamation"></i> }
+            else { <i class="fa-solid fa-circle-info"></i> }
+            <span>@toastMsg</span>
         </div>
     }
 
-    <div class="premium-card">
-        <div class="section-header">
-            <div class="section-number">1</div>
-            <h3 class="section-title">البحث عن الموظف</h3>
+    @* ── Card 1: Search ────────────────────────────────── *@
+    <div class="content-card mb-3">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+            <h2 class="c-section-title">البحث عن موظف</h2>
+            @if (isAdmin)
+            {
+                <div class="c-admin-tools">
+                    <button type="button" class="btn btn-muted btn-sm c-admin-tools-toggle u-nowrap" onclick="toggleAdminTools()">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                        <span>أدوات إدارية</span>
+                    </button>
+                    <div id="adminToolsPanel" class="c-admin-tools-panel is-hidden" aria-hidden="true">
+                        <div class="d-flex align-items-center gap-2 fw-bold text-maroon mb-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>إجراءات عامة (لا تخص موظفًا واحدًا)</span>
+                        </div>
+                        <div class="d-flex align-items-start justify-content-between gap-3 p-3 border rounded">
+                            <div>
+                                <div class="fw-bold mb-1">إعادة توزيع الأجهزة تلقائيًا</div>
+                                <div class="text-muted small">قد يغيّر توزيع أجهزة كثيرة على المناطق. استخدمه فقط عند فقدان/تلف بيانات التوزيع.</div>
+                            </div>
+                            <button id="autoAssignBtn" type="button" class="btn btn-outline btn-sm u-nowrap">
+                                <i class="fa-solid fa-rotate"></i>
+                                <span>تشغيل</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
 
         <form method="post" action="/employees/search">
             @Html.AntiForgeryToken()
-            <div class="form-field">
-                <label class="form-label">
-                    <i class="fa-solid fa-id-card icon"></i>
-                    الرقم الوظيفي للموظف
-                </label>
-                <input type="number" name="employeeId" class="form-input"
-                       placeholder="أدخل الرقم الوظيفي للبحث..."
-                       value="@(Model?.Employee?.EmployeeId.ToString() ?? lastEmployeeId ?? "")"
-                       required/>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-magnifying-glass icon"></i>
+            <div class="d-flex gap-2 align-items-end">
+                <div class="flex-grow-1">
+                    <label class="form-label fw-bold">الرقم الوظيفي للموظف</label>
+                    <input type="number" name="employeeId" class="form-control"
+                           placeholder="مثال: 7300"
+                           value="@(Model?.Employee?.EmployeeId.ToString() ?? lastEmployeeId ?? "")"
+                           required />
+                </div>
+                <button type="submit" class="btn btn-primary u-nowrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
                     <span>بحث</span>
                 </button>
             </div>
         </form>
     </div>
 
+    @* ── Card 2: Employee info ──────────────────────────── *@
     @if (Model?.Employee != null)
     {
-        <div class="premium-card">
-            <div class="section-header">
-                <div class="section-number">2</div>
-                <h3 class="section-title">معلومات الموظف</h3>
+        <div class="content-card mb-3">
+            <h2 class="c-section-title mb-3">معلومات الموظف</h2>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="text-muted small mb-1">الاسم الكامل</div>
+                    <div class="fw-bold">@Model.Employee.FullNameAr</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="text-muted small mb-1">الإدارة / القسم</div>
+                    <div class="fw-bold">@Model.Employee.Department</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="text-muted small mb-1">المسمى الوظيفي</div>
+                    <div class="fw-bold">@Model.Employee.JobTitle</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="text-muted small mb-1">الرقم الوظيفي</div>
+                    <div class="fw-bold text-maroon">@Model.Employee.EmployeeId</div>
+                </div>
             </div>
 
-            <div class="employee-card">
-                <div class="employee-grid">
-                    <div class="employee-item">
-                        <span class="employee-label"><i class="fa-solid fa-user icon"></i> الاسم الكامل</span>
-                        <span class="employee-value">@Model.Employee.FullNameAr</span>
-                    </div>
-                    <div class="employee-item">
-                        <span class="employee-label"><i class="fa-solid fa-building icon"></i> الإدارة / القسم</span>
-                        <span class="employee-value">@Model.Employee.Department</span>
-                    </div>
-                    <div class="employee-item">
-                        <span class="employee-label"><i class="fa-solid fa-briefcase icon"></i> المسمى الوظيفي</span>
-                        <span class="employee-value">@Model.Employee.JobTitle</span>
-                    </div>
-                    <div class="employee-item">
-                        <span class="employee-label"><i class="fa-solid fa-chart-pie icon"></i> إحصائيات الأجهزة</span>
-                        <div class="stats-badges">
-                            <span onclick="setRegionFilter('all')" class="stat-badge stat-badge-primary">
-                                <i class="fa-solid fa-desktop icon"></i>
-                                <span>@devices.Count إجمالي</span>
-                            </span>
-                            <span onclick="setRegionFilter('assigned')" class="stat-badge stat-badge-success">
-                                <i class="fa-solid fa-circle-check icon"></i>
-                                <span>@assigned.Count مرتبطة</span>
-                            </span>
-                            <span onclick="setRegionFilter('unassigned')" class="stat-badge stat-badge-info">
-                                <i class="fa-solid fa-circle-minus icon"></i>
-                                <span>@unassigned.Count غير مرتبطة</span>
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            @* Filter pills — also act as device stats *@
+            <div class="region-filters d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline filter-pill active" data-filter="all"
+                        onclick="setRegionFilter('all')">
+                    <i class="fa-solid fa-desktop"></i> @devices.Count إجمالي
+                </button>
+                <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="assigned"
+                        onclick="setRegionFilter('assigned')">
+                    <i class="fa-solid fa-circle-check"></i> @assigned.Count مرتبطة
+                </button>
+                <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="unassigned"
+                        onclick="setRegionFilter('unassigned')">
+                    <i class="fa-solid fa-circle-minus"></i> @unassigned.Count غير مرتبطة
+                </button>
             </div>
         </div>
 
+        @* ── Card 3: Regions & Devices ──────────────────── *@
         @if (Model.RegionGroups != null && Model.RegionGroups.Any())
         {
-            <div class="premium-card">
-                <div class="section-header">
-                    <div class="section-number">3</div>
-                    <h3 class="section-title">إدارة أجهزة البصمة</h3>
-                </div>
-
-
+            <div class="content-card">
+                <h2 class="c-section-title mb-3">إدارة أجهزة البصمة</h2>
 
                 <div class="regions-container">
                     @for (int i = 0; i < Model.RegionGroups.Count; i++)
                     {
-                        var g = Model.RegionGroups[i];
+                        var g          = Model.RegionGroups[i];
                         var collapseId = $"collapse_{i}";
-                        var regionKey = "reg_" + i;
-                        var hasAssigned = g.AssignedDevices > 0;
+                        var regionKey  = "reg_" + i;
+                        var hasAssigned   = g.AssignedDevices > 0;
                         var hasUnassigned = (g.TotalDevices - g.AssignedDevices) > 0;
+                        var assignedCount = g.Devices.Count(x => x.IsEffectivelyAssigned);
+                        var delegatedCount = g.Devices.Count(x => x.IsDelegated);
 
-                        <div class="region-card"
+                        <div class="region-card mb-3 border rounded"
                              data-has-assigned="@(hasAssigned ? "1" : "0")"
                              data-has-unassigned="@(hasUnassigned ? "1" : "0")">
 
-                            <div class="region-header">
-                                <div class="region-top">
-                                    <div class="region-left">
-                                        <div class="region-icon-wrapper"><i class="fa-solid fa-location-dot"></i></div>
-                                        <div class="region-info" onclick="toggleRegionCollapse('@collapseId')">
-                                            <h4>@g.RegionName</h4>
-                                            <div class="region-meta">
-                                                <span class="meta-badge">
-                                                    <i class="fa-solid fa-desktop icon"></i>
-                                                    <span>@g.TotalDevices أجهزة</span>
-                                                </span>
-                                                @{
-                                                    var assignedCount = g.Devices.Count(x => x.IsEffectivelyAssigned);
-                                                    var delegatedCount = g.Devices.Count(x => x.IsDelegated);
-                                                }
-                                                @if (assignedCount > 0)
-                                                {
-                                                    <span class="meta-badge success">
-                                                        <i class="fa-solid fa-circle-check icon"></i>
-                                                        <span>@assignedCount مرتبطة</span>
-                                                    </span>
-                                                }
-                                                @if (delegatedCount > 0)
-                                                {
-                                                    <span class="meta-badge delegated">
-                                                        <i class="fa-solid fa-clock-rotate-left icon"></i>
-                                                        <span>@delegatedCount ندب</span>
-                                                    </span>
-                                                }
-                                            </div>
+                            @* Region header (clickable) *@
+                            <div class="region-header d-flex align-items-center justify-content-between p-3 bg-light rounded-top"
+                                 onclick="toggleRegionCollapse('@collapseId')" style="cursor:pointer">
+                                <div class="d-flex align-items-center gap-3">
+                                    <i class="fa-solid fa-location-dot text-maroon fs-5"></i>
+                                    <div>
+                                        <div class="fw-bold">@g.RegionName</div>
+                                        <div class="d-flex gap-1 flex-wrap mt-1">
+                                            <span class="badge bg-secondary">@g.TotalDevices أجهزة</span>
+                                            @if (assignedCount > 0)
+                                            {
+                                                <span class="badge bg-success">@assignedCount مرتبطة</span>
+                                            }
+                                            @if (delegatedCount > 0)
+                                            {
+                                                <span class="badge bg-warning text-dark">@delegatedCount ندب</span>
+                                            }
                                         </div>
                                     </div>
-                                    <button type="button" class="btn-icon-toggle" onclick="toggleRegionCollapse('@collapseId')">
-                                        <i class="fa-solid fa-chevron-down icon"></i>
-                                    </button>
                                 </div>
+                                <i class="fa-solid fa-chevron-down text-muted region-chevron"></i>
                             </div>
 
-                            <div id="@collapseId" class="collapse">
-                                <div class="devices-section">
-                                    <div class="devices-section-title"><i class="fa-solid fa-fingerprint icon"></i> حدد الأجهزة</div>
+                            @* Collapse body *@
+                            <div id="@collapseId" class="rgn-collapse p-3">
 
-                                    <div class="select-all-box">
-                                        <input type="checkbox" id="check-@regionKey" class="select-all-region">
-                                        <label for="check-@regionKey" class="select-all-label">تحديد جميع أجهزة المنطقة</label>
-                                    </div>
+                                @* Select all *@
+                                <div class="form-check bg-light border rounded p-3 mb-3">
+                                    <input class="form-check-input select-all-region" type="checkbox"
+                                           id="check-@regionKey" />
+                                    <label class="form-check-label fw-semibold" for="check-@regionKey">
+                                        تحديد جميع أجهزة المنطقة
+                                    </label>
+                                </div>
 
-                                    <div class="devices-grid">
-                                        @foreach (var d in g.Devices)
-                                        {
-                                            var terminalId = (d.DeviceId ?? "").Trim();
-                                            var regionName = string.IsNullOrWhiteSpace(d.RegionName) ? "أجهزة غير مصنفة" : d.RegionName;
+                                @* Device grid *@
+                                <div class="row g-2 devices-grid">
+                                    @foreach (var d in g.Devices)
+                                    {
+                                        var terminalId = (d.DeviceId ?? "").Trim();
+                                        var regionName = string.IsNullOrWhiteSpace(d.RegionName) ? "أجهزة غير مصنفة" : d.RegionName;
 
-                                            var delegationDevicesCount = d.DelegationId.HasValue
-                                                ? devices.Count(x => x.DelegationId.HasValue && x.DelegationId.Value == d.DelegationId.Value)
-                                                : 0;
+                                        var stateText =
+                                            d.IsDelegatedActive ? "مرتبط عبر ندب"
+                                            : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "ندب مجدول"
+                                            : d.IsAssigned ? "مرتبط فعليًا"
+                                            : "غير مرتبط";
 
-                                            var stateText =
-                                                d.IsDelegatedActive ? "مرتبط عبر ندب"
-                                                : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "ندب مجدول"
-                                                : d.IsAssigned ? "مرتبط فعليًا"
-                                                : "غير مرتبط";
+                                        var stateClass =
+                                            d.IsDelegatedActive ? "is-delegated-active"
+                                            : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "is-delegated-scheduled"
+                                            : d.IsAssigned ? "is-assigned"
+                                            : "is-unassigned";
 
-                                            var stateClass =
-                                                d.IsDelegatedActive ? "is-delegated-active"
-                                                : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "is-delegated-scheduled"
-                                                : d.IsAssigned ? "is-assigned"
-                                                : "is-unassigned";
+                                        var stateKey =
+                                            d.IsDelegatedActive ? "delegated_active"
+                                            : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "delegated_scheduled"
+                                            : d.IsAssigned ? "assigned"
+                                            : "unassigned";
 
-                                            var stateKey =
-                                                d.IsDelegatedActive ? "delegated_active"
-                                                : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "delegated_scheduled"
-                                                : d.IsAssigned ? "assigned"
-                                                : "unassigned";
-
+                                        <div class="col-md-6 col-xl-4">
                                             <div class="device-card"
                                                  data-is-assigned="@(d.IsEffectivelyAssigned ? "1" : "0")"
                                                  data-state="@stateText"
@@ -282,129 +221,119 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
                                                  data-delegation-start="@(d.DelegationStartDate?.ToString("dd/MM/yyyy") ?? "")"
                                                  data-delegation-end="@(d.DelegationEndDate?.ToString("dd/MM/yyyy") ?? "")">
 
-                                                <div class="device-checkbox" onclick="event.stopPropagation();">
+                                                <div class="d-flex align-items-start gap-2">
                                                     <input type="checkbox"
-                                                           class="device-chk"
+                                                           class="form-check-input device-chk flex-shrink-0 mt-1"
                                                            value="@terminalId"
                                                            id="chk-@terminalId"
                                                            onclick="event.stopPropagation();"
-                                                           onchange="updateDeviceSelection(this)"/>
-                                                </div>
+                                                           onchange="updateDeviceSelection(this)" />
 
-                                                <div class="c-employee-device-content">
-                                                    <div class="c-employee-device-head">
-                                                        <div class="device-icon"><i class="fa-solid fa-fingerprint"></i></div>
-
-                                                        <div class="c-employee-device-main">
-                                                            <div class="c-employee-device-titleRow">
-                                                                <div class="device-name">@d.DeviceName</div>
-                                                                <span class="c-employee-device-state @stateClass">@stateText</span>
-                                                            </div>
-
-                                                            <div class="c-employee-device-meta">
-                                                                <span class="c-employee-device-metaItem">
-                                                                    <i class="fa-solid fa-map-pin icon"></i>
-                                                                    <span>@regionName</span>
-                                                                </span>
-                                                                <span class="c-employee-device-metaSep">&bull;</span>
-                                                                <span class="c-employee-device-metaItem u-nowrap">
-                                                                    <i class="fa-solid fa-hashtag icon"></i>
-                                                                    <span>@terminalId</span>
-                                                                </span>
-                                                            </div>
-
-                                                            @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
-                                                            {
-                                                                <div class="c-employee-device-submeta text-muted">
-                                                                    <i class="fa-regular fa-calendar icon-sm"></i>
-                                                                    <span class="u-nowrap">من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")</span>
-                                                                    <span class="u-mx-8">→</span>
-                                                                    <span class="u-nowrap">إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")</span>
-                                                                </div>
-                                                            }
+                                                    <div class="flex-grow-1" style="min-width:0">
+                                                        <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+                                                            <div class="fw-bold text-truncate">@d.DeviceName</div>
+                                                            <span class="c-employee-device-state @stateClass">@stateText</span>
                                                         </div>
+
+                                                        <div class="text-muted small mb-1">
+                                                            <i class="fa-solid fa-map-pin"></i> @regionName
+                                                            &bull;
+                                                            <i class="fa-solid fa-hashtag"></i> @terminalId
+                                                        </div>
+
+                                                        @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
+                                                        {
+                                                            <div class="text-muted small">
+                                                                <i class="fa-regular fa-calendar"></i>
+                                                                من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
+                                                                &rarr;
+                                                                إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
+                                                            </div>
+                                                        }
+
+                                                        @* Per-device delegation actions *@
+                                                        @if (d.IsDelegatedActive && d.DelegationId.HasValue)
+                                                        {
+                                                            <div class="mt-2 pt-2 border-top" onclick="event.stopPropagation();">
+                                                                <form method="post" action="/employees/end-delegation" class="d-inline">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                                    <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                    <button type="button" class="btn btn-danger btn-sm u-nowrap"
+                                                                            onclick="confirmDelegationCardAction(this, 'end')">
+                                                                        إنهاء الندب
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        }
+                                                        else if (d.IsDelegated && d.DelegationStatus == "Scheduled" && d.DelegationId.HasValue)
+                                                        {
+                                                            <div class="mt-2 pt-2 border-top" onclick="event.stopPropagation();">
+                                                                <form method="post" action="/employees/cancel-delegation" class="d-inline">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                                    <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                    <button type="button" class="btn btn-outline btn-sm u-nowrap"
+                                                                            onclick="confirmDelegationCardAction(this, 'cancel')">
+                                                                        إلغاء الندب
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        }
                                                     </div>
-
-                                                    @* Hybrid: delegation actions only (individual, sensitive). *@
-                                                    @if (d.IsDelegatedActive && d.DelegationId.HasValue)
-                                                    {
-                                                        <div class="c-employee-device-actions c-employee-device-actions--compact" onclick="event.stopPropagation();">
-                                                            <form method="post" action="/employees/end-delegation" class="u-inline">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
-                                                                <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
-                                                                <button type="button" class="btn btn-danger btn-sm u-nowrap"
-                                                                        onclick="confirmDelegationCardAction(this, 'end')">
-                                                                    إنهاء الندب
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    }
-                                                    else if (d.IsDelegated && d.DelegationStatus == "Scheduled" && d.DelegationId.HasValue)
-                                                    {
-                                                        <div class="c-employee-device-actions c-employee-device-actions--compact" onclick="event.stopPropagation();">
-                                                            <form method="post" action="/employees/cancel-delegation" class="u-inline">
-                                                                @Html.AntiForgeryToken()
-                                                                <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
-                                                                <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
-                                                                <button type="button" class="btn btn-outline btn-sm u-nowrap"
-                                                                        onclick="confirmDelegationCardAction(this, 'cancel')">
-                                                                    إلغاء الندب
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    }
                                                 </div>
+
                                             </div>
-                                        }
-                                        
-                                    </div>
+                                        </div>
+                                    }
                                 </div>
                             </div>
+
                         </div>
                     }
                 </div>
             </div>
         }
     }
-</div>
 
-<div class="bulk-bar" id="bulkBar">
-    <div class="bulk-info">
-        <span class="pulse-indicator"></span>
-        <div>
-            <div class="bulk-count"><span id="selectedCount">0</span></div>
-            <div class="bulk-label" id="selectedLabel">تم تحديد 0 جهاز</div>
+    @* ── Bulk action bar (fixed floating) ──────────────── *@
+    <div class="bulk-bar" id="bulkBar">
+        <div class="bulk-info">
+            <span class="pulse-indicator"></span>
+            <div>
+                <div class="bulk-count"><span id="selectedCount">0</span></div>
+                <div class="bulk-label" id="selectedLabel">تم تحديد 0 جهاز</div>
+            </div>
+        </div>
+        <div class="bulk-actions bulk-actions--controls">
+            <select id="bulkOperation" class="bulk-select" onchange="onBulkOperationChange()">
+                <option value="assign">ربط دائم</option>
+                <option value="unassign">فك الربط</option>
+                <option value="delegate">إنشاء ندب</option>
+            </select>
+            <div id="bulkDates" class="bulk-dates d-flex gap-2 is-hidden" aria-hidden="true">
+                <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
+                <input id="bulkEndDate"   type="text" class="date-input datepicker" placeholder="تاريخ النهاية"  autocomplete="off" />
+            </div>
+            <button id="bulkExecuteBtn" type="button" class="btn-bulk btn-bulk-success" onclick="bulkExecute()">
+                <i class="fa-solid fa-check"></i>
+                <span>تنفيذ</span>
+            </button>
+            <button id="bulkClearSelectionBtn" type="button" class="btn-bulk btn-bulk-danger" onclick="clearSelection()">
+                <i class="fa-solid fa-xmark"></i>
+                <span>إلغاء</span>
+            </button>
         </div>
     </div>
-    <div class="bulk-actions bulk-actions--controls">
-        <select id="bulkOperation" class="bulk-select" onchange="onBulkOperationChange()">
-            <option value="assign">ربط دائم</option>
-            <option value="unassign">فك الربط</option>
-            <option value="delegate">إنشاء ندب</option>
-        </select>
 
-        <div id="bulkDates" class="bulk-dates is-hidden" aria-hidden="true">
-            <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
-            <input id="bulkEndDate" type="text" class="date-input datepicker" placeholder="تاريخ النهاية" autocomplete="off" />
-        </div>
+    @* Hidden bulk submit form *@
+    <form id="bulkForm" method="post" class="is-hidden">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="employeeId" value="@(Model?.Employee?.EmployeeId ?? 0)" />
+        <div id="bulkInputsContainer"></div>
+    </form>
 
-        <button id="bulkExecuteBtn" type="button" class="btn-bulk btn-bulk-success" onclick="bulkExecute()">
-            <i class="fa-solid fa-check icon"></i>
-            <span>تنفيذ</span>
-        </button>
-        <button id="bulkClearSelectionBtn" type="button" class="btn-bulk btn-bulk-danger" onclick="clearSelection()">
-            <i class="fa-solid fa-xmark icon"></i>
-            <span>إلغاء التحديد</span>
-        </button>
-    </div>
 </div>
-
-<form id="bulkForm" method="post" class="is-hidden">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="employeeId" value="@(Model?.Employee?.EmployeeId ?? 0)" />
-    <div id="bulkInputsContainer"></div>
-</form>
 
 @section Scripts {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -483,7 +412,6 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         updateBulkBar();
         onBulkOperationChange();
 
-        // Initialize flatpickr for all date inputs with DD/MM/yyyy format
         flatpickr('.datepicker', {
             dateFormat: 'd/m/Y',
             altInput: true,
@@ -497,7 +425,6 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
             checkbox.addEventListener('change', function() {
                 const regionCard = this.closest('.region-card');
                 const deviceCheckboxes = regionCard.querySelectorAll('.device-chk');
-
                 deviceCheckboxes.forEach(cb => {
                     cb.checked = this.checked;
                     updateDeviceSelection(cb);
@@ -509,13 +436,10 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         document.getElementById('bulkEndDate')?.addEventListener('change', updateBulkControls);
     });
 
-    // Helper function to convert DD/MM/YYYY to YYYY-MM-DD for server
     function convertDateFormat(dateStr) {
         if (!dateStr) return '';
         const parts = dateStr.split('/');
-        if (parts.length === 3) {
-            return `${parts[2]}-${parts[1]}-${parts[0]}`;
-        }
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
         return dateStr;
     }
 
@@ -550,7 +474,6 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         const stateKeys = getSelectedStateKeys();
         const uniqueStates = getUnique(stateKeys);
 
-        // Mixed-selection guard for bulk ops.
         if (canRun && uniqueStates.length > 1) canRun = false;
 
         if (op === 'delegate') {
@@ -561,7 +484,7 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 
         if (canRun && uniqueStates.length === 1) {
             const s = uniqueStates[0];
-            if (op === 'assign') canRun = (s === 'unassigned');
+            if (op === 'assign')   canRun = (s === 'unassigned');
             if (op === 'unassign') canRun = (s === 'assigned');
             if (op === 'delegate') canRun = (s === 'unassigned' || s === 'assigned');
         }
@@ -591,35 +514,22 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         const op = (document.getElementById('bulkOperation')?.value || '').trim();
         const selectedIds = getSelectedTerminalIds();
         if (selectedIds.length === 0) {
-            await Swal.fire({
-                icon: 'warning',
-                title: 'تنبيه',
-                text: 'يرجى تحديد جهاز واحد على الأقل',
-                confirmButtonColor: '#692f39',
-                confirmButtonText: 'حسناً'
-            });
+            await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد جهاز واحد على الأقل', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
             return;
         }
 
         const stateKeys = getSelectedStateKeys();
         const uniqueStates = getUnique(stateKeys);
         if (uniqueStates.length > 1) {
-            await Swal.fire({
-                icon: 'warning',
-                title: 'لا يمكن التنفيذ',
-                text: 'الأجهزة المحددة ليست بنفس الحالة ولا يمكن تنفيذ العملية عليها معًا.',
-                confirmButtonColor: '#692f39',
-                confirmButtonText: 'حسناً'
-            });
+            await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'الأجهزة المحددة ليست بنفس الحالة ولا يمكن تنفيذ العملية عليها معًا.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
             return;
         }
 
         const selectionState = uniqueStates[0] || '';
         const employeeText = getEmployeeText();
         const count = selectedIds.length;
-
         const startDisplay = (document.getElementById('bulkStartDate')?.value || '').trim();
-        const endDisplay = (document.getElementById('bulkEndDate')?.value || '').trim();
+        const endDisplay   = (document.getElementById('bulkEndDate')?.value   || '').trim();
 
         let title = 'مراجعة قبل التنفيذ';
         let opText = '';
@@ -631,13 +541,7 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 
         if (op === 'assign') {
             if (selectionState !== 'unassigned') {
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'لا يمكن التنفيذ',
-                    text: 'عملية الربط الدائم متاحة فقط للأجهزة غير المرتبطة.',
-                    confirmButtonColor: '#692f39',
-                    confirmButtonText: 'حسناً'
-                });
+                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'عملية الربط الدائم متاحة فقط للأجهزة غير المرتبطة.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
                 return;
             }
             opText = 'ربط دائم';
@@ -645,13 +549,7 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
         } else if (op === 'unassign') {
             if (selectionState !== 'assigned') {
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'لا يمكن التنفيذ',
-                    text: 'عملية فك الربط متاحة فقط للأجهزة المرتبطة فعليًا.',
-                    confirmButtonColor: '#692f39',
-                    confirmButtonText: 'حسناً'
-                });
+                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'عملية فك الربط متاحة فقط للأجهزة المرتبطة فعليًا.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
                 return;
             }
             opText = 'فك الربط';
@@ -660,44 +558,25 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
             iconHtml = '<i class="fa-solid fa-link-slash text-red-500"></i>';
         } else if (op === 'delegate') {
             if (!(selectionState === 'unassigned' || selectionState === 'assigned')) {
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'لا يمكن التنفيذ',
-                    text: 'إنشاء الندب متاح فقط للأجهزة غير المرتبطة أو المرتبطة فعليًا (بدون ندب).',
-                    confirmButtonColor: '#692f39',
-                    confirmButtonText: 'حسناً'
-                });
+                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'إنشاء الندب متاح فقط للأجهزة غير المرتبطة أو المرتبطة فعليًا (بدون ندب).', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
                 return;
             }
             opText = 'إنشاء ندب';
             actionUrl = '/employees/DelegateRegion';
             if (!startDisplay || !endDisplay) {
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'تنبيه',
-                    text: 'يرجى تحديد تاريخ البداية والنهاية للندب',
-                    confirmButtonColor: '#692f39',
-                    confirmButtonText: 'حسناً'
-                });
+                await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد تاريخ البداية والنهاية للندب', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
                 return;
             }
-
             const start = convertDateFormat(startDisplay);
-            const end = convertDateFormat(endDisplay);
+            const end   = convertDateFormat(endDisplay);
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
             fields.push({ name: 'startDate', value: start });
-            fields.push({ name: 'endDate', value: end });
+            fields.push({ name: 'endDate',   value: end });
             extraMeta = `<div>الفترة: <strong>${startDisplay} → ${endDisplay}</strong></div>`;
             iconHtml = '<i class="fa-solid fa-calendar-days text-sky"></i>';
             note = 'ملاحظة: سيتم إنهاء الندب تلقائيًا في تاريخ النهاية.';
         } else {
-            await Swal.fire({
-                icon: 'warning',
-                title: 'تنبيه',
-                text: 'يرجى اختيار العملية.',
-                confirmButtonColor: '#692f39',
-                confirmButtonText: 'حسناً'
-            });
+            await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى اختيار العملية.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
             return;
         }
 
@@ -718,11 +597,10 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
             confirmButtonText: '<i class="fa-solid fa-check"></i> تنفيذ',
-            cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
+            cancelButtonText:  '<i class="fa-solid fa-xmark"></i> إلغاء'
         });
 
         if (!confirmResult.isConfirmed) return;
-
         fillAndSubmitBulkForm(actionUrl, fields);
     }
 
@@ -732,14 +610,13 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 
         const card = button.closest('.device-card');
         const employeeText = getEmployeeText();
-
-        const deviceName = (card?.dataset?.deviceName || '').trim();
-        const terminalId = (card?.dataset?.terminalId || '').trim();
-        const start = (card?.dataset?.delegationStart || '').trim();
-        const end = (card?.dataset?.delegationEnd || '').trim();
+        const deviceName  = (card?.dataset?.deviceName   || '').trim();
+        const terminalId  = (card?.dataset?.terminalId   || '').trim();
+        const start       = (card?.dataset?.delegationStart || '').trim();
+        const end         = (card?.dataset?.delegationEnd   || '').trim();
 
         const actionText = action === 'cancel' ? 'إلغاء الندب' : 'إنهاء الندب';
-        const datesText = (start && end) ? `${start} → ${end}` : '';
+        const datesText  = (start && end) ? `${start} → ${end}` : '';
 
         const confirmResult = await Swal.fire({
             title: 'تأكيد العملية',
@@ -750,7 +627,7 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
                     <div class="c-swal-meta">
                         <div>الجهاز: <strong>${deviceName || terminalId || '-'}</strong></div>
                         ${terminalId ? `<div>TerminalId: <strong>${terminalId}</strong></div>` : ''}
-                        ${datesText ? `<div>الفترة: <strong>${datesText}</strong></div>` : ''}
+                        ${datesText  ? `<div>الفترة: <strong>${datesText}</strong></div>` : ''}
                     </div>
                 </div>`,
             icon: 'warning',
@@ -758,7 +635,7 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'نعم',
-            cancelButtonText: 'إلغاء'
+            cancelButtonText:  'إلغاء'
         });
 
         if (confirmResult.isConfirmed) form.submit();
@@ -774,20 +651,20 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         const regionCards = document.querySelectorAll('.regions-container .region-card');
 
         regionCards.forEach(region => {
-            const hasAssigned = region.getAttribute('data-has-assigned') === '1';
+            const hasAssigned   = region.getAttribute('data-has-assigned')   === '1';
             const hasUnassigned = region.getAttribute('data-has-unassigned') === '1';
 
             let showRegion = true;
-            if (mode === 'assigned') showRegion = hasAssigned;
+            if (mode === 'assigned')   showRegion = hasAssigned;
             if (mode === 'unassigned') showRegion = hasUnassigned;
 
             region.classList.toggle('is-hidden', !showRegion);
 
-            const devices = region.querySelectorAll('.device-card');
-            devices.forEach(dev => {
+            const devCards = region.querySelectorAll('.device-card');
+            devCards.forEach(dev => {
                 const isAssigned = dev.getAttribute('data-is-assigned') === '1';
                 let showDevice = true;
-                if (mode === 'assigned') showDevice = isAssigned;
+                if (mode === 'assigned')   showDevice = isAssigned;
                 if (mode === 'unassigned') showDevice = !isAssigned;
                 dev.classList.toggle('is-hidden', !showDevice);
             });
@@ -805,13 +682,10 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 
     document.addEventListener('change', function (e) {
         if (!e.target.classList.contains('select-all-region')) return;
-
-        const selectAll = e.target;
+        const selectAll  = e.target;
         const regionCard = selectAll.closest('.region-card');
         if (!regionCard) return;
-
         const deviceCheckboxes = regionCard.querySelectorAll('.device-card:not(.is-hidden) .device-chk');
-
         deviceCheckboxes.forEach(chk => {
             chk.checked = selectAll.checked;
             if (typeof updateDeviceSelection === 'function') {
@@ -821,7 +695,6 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
                 if (devCard) devCard.classList.toggle('selected', chk.checked);
             }
         });
-
         updateBulkBar();
     });
 
@@ -839,7 +712,7 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'تشغيل',
-            cancelButtonText: 'إلغاء'
+            cancelButtonText:  'إلغاء'
         });
 
         if (!confirmResult.isConfirmed) return;
@@ -874,8 +747,5 @@ var unassigned = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         panel.classList.toggle('is-hidden', !isHidden);
         panel.setAttribute('aria-hidden', String(!isHidden));
     }
-
 </script>
 }
-</div>
-

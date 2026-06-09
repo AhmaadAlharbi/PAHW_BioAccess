@@ -150,8 +150,8 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
 
         var groups = rows
             .GroupBy(x => new { x.RegionId, RegionName = string.IsNullOrWhiteSpace(x.RegionName) ? "أجهزة غير مصنفة" : x.RegionName })
-            .OrderBy(g => g.Key.RegionName == "أجهزة غير مصنفة" ? 1 : 0)
-            .ThenByDescending(g => g.Any(x => x.IsAssigned))
+            .OrderByDescending(g => g.Any(x => x.IsEffectivelyAssigned))
+            .ThenBy(g => g.Key.RegionName == "أجهزة غير مصنفة" ? 1 : 0)
             .ThenBy(g => g.Key.RegionName)
             .Select(g => new RegionGroupDto
             {

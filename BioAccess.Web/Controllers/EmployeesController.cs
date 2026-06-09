@@ -1,4 +1,5 @@
 using BioAccess.Web.Contracts;
+using BioAccess.Web.DTOs;
 using BioAccess.Web.Services.Activity;
 using BioAccess.Web.Services.Employees;
 using Microsoft.AspNetCore.Mvc;
@@ -68,11 +69,14 @@ public sealed class EmployeesController : Controller
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (ok)
         {
+            var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
+            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var regionLine = FormatRegionLine(screen?.Devices, new[] { terminalId });
             await _activityLog.LogAsync(
                 "EmployeeTerminal.Assigned",
                 "EmployeeTerminal",
                 terminalId,
-                $"تم ربط الموظف {employeeId} بالجهاز {terminalId}.");
+                $"تم ربط أجهزة عددها (1) للموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
         }
         return View("Search", screen);
     }
@@ -89,11 +93,14 @@ public sealed class EmployeesController : Controller
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (ok)
         {
+            var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
+            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var regionLine = FormatRegionLine(screen?.Devices, new[] { terminalId });
             await _activityLog.LogAsync(
                 "EmployeeTerminal.Unassigned",
                 "EmployeeTerminal",
                 terminalId,
-                $"تم فك ربط الموظف {employeeId} من الجهاز {terminalId}.");
+                $"تم فك ربط أجهزة عددها (1) عن الموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
         }
         return View("Search", screen);
     }
@@ -103,9 +110,14 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> AssignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
         var successCount = 0;
+        var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
         {
-            if (await _employees.AssignOneAsync(employeeId, terminalId, ct)) successCount++;
+            if (await _employees.AssignOneAsync(employeeId, terminalId, ct))
+            {
+                successCount++;
+                successfulTerminalIds.Add(terminalId);
+            }
         }
 
         TempData["ToastType"] = "success";
@@ -114,11 +126,14 @@ public sealed class EmployeesController : Controller
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (successCount > 0)
         {
+            var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
+            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var regionLine = FormatRegionLine(screen?.Devices, successfulTerminalIds);
             await _activityLog.LogAsync(
                 "EmployeeTerminal.BulkAssigned",
                 "EmployeeTerminal",
                 null,
-                $"تم ربط الموظف {employeeId} بعدد {successCount} أجهزة.");
+                $"تم ربط أجهزة عددها ({successCount}) للموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
         }
         return View("Search", screen);
     }
@@ -128,9 +143,14 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> UnassignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
         var successCount = 0;
+        var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
         {
-            if (await _employees.UnassignOneAsync(employeeId, terminalId, ct)) successCount++;
+            if (await _employees.UnassignOneAsync(employeeId, terminalId, ct))
+            {
+                successCount++;
+                successfulTerminalIds.Add(terminalId);
+            }
         }
 
         TempData["ToastType"] = "success";
@@ -139,11 +159,14 @@ public sealed class EmployeesController : Controller
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (successCount > 0)
         {
+            var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
+            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var regionLine = FormatRegionLine(screen?.Devices, successfulTerminalIds);
             await _activityLog.LogAsync(
                 "EmployeeTerminal.BulkUnassigned",
                 "EmployeeTerminal",
                 null,
-                $"تم فك ربط الموظف {employeeId} عن {successCount} أجهزة.");
+                $"تم فك ربط أجهزة عددها ({successCount}) عن الموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
         }
         return View("Search", screen);
     }
@@ -195,5 +218,40 @@ public sealed class EmployeesController : Controller
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         return View("Search", screen);
+    }
+
+    private static string FormatEmployeeText(string? employeeName, int employeeId)
+        => string.IsNullOrWhiteSpace(employeeName)
+            ? $"غير معروف ({employeeId})"
+            : $"{employeeName.Trim()} ({employeeId})";
+
+    private static string FormatActorText(string? actorName, string? actorId)
+    {
+        var name = string.IsNullOrWhiteSpace(actorName) ? "غير معروف" : actorName.Trim();
+        var id = string.IsNullOrWhiteSpace(actorId) ? "غير معروف" : actorId.Trim();
+        return $"{name} ({id})";
+    }
+
+    private static string FormatRegionLine(IEnumerable<DeviceRowDto>? devices, IEnumerable<string> terminalIds)
+    {
+        var selectedIds = terminalIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (selectedIds.Count == 0 || devices is null)
+            return "";
+
+        var regionNames = devices
+            .Where(d => selectedIds.Contains((d.DeviceId ?? "").Trim()))
+            .Select(d => d.RegionName)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return regionNames.Count == 0
+            ? ""
+            : $"\nفي المناطق: {string.Join("، ", regionNames)}";
     }
 }

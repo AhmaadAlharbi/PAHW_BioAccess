@@ -4,6 +4,16 @@
     ViewData["Title"] = "المناطق والأجهزة";
 }
 
+<style>
+    .trm-rename-form {
+        display: none;
+    }
+
+    .trm-region-card.is-editing .trm-rename-form {
+        display: flex;
+    }
+</style>
+
 <div class="content-card fade-in">
     <div class="page-header">
         <h1 class="page-title">
@@ -43,9 +53,10 @@
         <section class="trm-regions-panel">
             <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
                 <h2 class="c-section-title">المناطق</h2>
-                <a asp-controller="Terminals" asp-action="CreateRegion" class="btn btn-primary btn-sm u-nowrap">
+                <button type="button" class="btn btn-primary btn-sm u-nowrap"
+                        onclick="document.getElementById('create-region-form').classList.toggle('d-none')">
                     + إضافة منطقة
-                </a>
+                </button>
             </div>
 
             @if (!Model.Regions.Any())
@@ -65,6 +76,10 @@
                             <div class="trm-region-header">
                                 <span class="trm-region-name">@region.Name</span>
                                 <span class="text-muted trm-region-count">@region.DeviceCount جهاز</span>
+                                <button type="button" class="btn btn-sm btn-secondary u-nowrap"
+                                        onclick="this.closest('.trm-region-card').classList.toggle('is-editing')">
+                                    تعديل
+                                </button>
                             </div>
 
                             <form asp-controller="Terminals" asp-action="RenameRegion" method="post"
@@ -90,13 +105,14 @@
                                 @if (region.DeviceCount > 0)
                                 {
                                     <button type="button" class="btn btn-sm btn-danger u-w-100" disabled
-                                            title="فك ربط الأجهزة أولاً قبل الحذف">
+                                            title="حذف المنطقة نهائياً - فك ربط الأجهزة أولاً قبل الحذف">
                                         حذف
                                     </button>
                                 }
                                 else
                                 {
                                     <button type="submit" class="btn btn-sm btn-danger u-w-100"
+                                            title="حذف المنطقة نهائياً"
                                             onclick="return confirm('هل أنت متأكد من حذف منطقة &quot;@region.Name&quot;؟')">
                                         حذف
                                     </button>
@@ -106,6 +122,13 @@
                     }
                 </div>
             }
+
+            <form id="create-region-form" asp-controller="Terminals" asp-action="CreateRegion" method="post"
+                  class="d-none mt-2">
+                @Html.AntiForgeryToken()
+                <input type="text" name="name" class="form-control mb-2" placeholder="اسم المنطقة" required />
+                <button type="submit" class="btn btn-primary btn-sm">حفظ</button>
+            </form>
         </section>
 
         @* Right: Devices *@
@@ -194,13 +217,15 @@
                                             <input type="hidden" name="terminalId" value="@device.DeviceId" />
                                             @if (device.RegionId is null)
                                             {
-                                                <button type="button" class="btn btn-sm btn-secondary" disabled>
+                                                <button type="button" class="btn btn-sm btn-secondary" disabled
+                                                        title="إزالة ربط الجهاز من المنطقة (لن يتم حذف الجهاز)">
                                                     فك الربط
                                                 </button>
                                             }
                                             else
                                             {
                                                 <button type="submit" class="btn btn-sm btn-secondary"
+                                                        title="إزالة ربط الجهاز من المنطقة (لن يتم حذف الجهاز)"
                                                         onclick="return confirm('فك ربط الجهاز من منطقته؟')">
                                                     فك الربط
                                                 </button>

@@ -1,6 +1,5 @@
 using BioAccess.Web.Contracts;
 using BioAccess.Web.Models;
-using BioAccess.Web.Services.Activity;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 
@@ -10,13 +9,11 @@ namespace BioAccess.Web.Controllers
     {
         private readonly ILoginApi _login;
         private readonly IAllowedUsersStore _allowedUsers;
-        private readonly IActivityLogService _activityLog;
 
-        public HomeController(ILoginApi login, IAllowedUsersStore allowedUsers, IActivityLogService activityLog)
+        public HomeController(ILoginApi login, IAllowedUsersStore allowedUsers)
         {
             _login = login;
             _allowedUsers = allowedUsers;
-            _activityLog = activityLog;
         }
         public IActionResult Index()
         {
@@ -67,11 +64,6 @@ namespace BioAccess.Web.Controllers
             HttpContext.Session.SetString("SessionKey", result.SessionKey);
             HttpContext.Session.SetString("EmpName", result.EmployeeName);
             HttpContext.Session.SetString("EmpId", empId);
-            await _activityLog.LogAsync(
-                "Auth.LoginSuccess",
-                "Authentication",
-                empId,
-                $"تم تسجيل دخول المستخدم {result.EmployeeName} ({empId}).");
             // TempData["SuccessMsg"] = $"Welcome {result.EmployeeName}";
 
             return Redirect("/dashboard");
@@ -79,13 +71,8 @@ namespace BioAccess.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
         {
-            await _activityLog.LogAsync(
-                "Auth.Logout",
-                "Authentication",
-                HttpContext.Session.GetString("EmpId"),
-                $"تم تسجيل خروج المستخدم {HttpContext.Session.GetString("EmpName") ?? HttpContext.Session.GetString("EmpId") ?? "unknown"}.");
             HttpContext.Session.Clear();
             TempData["SuccessMsg"] = "تم تسجيل الخروج بنجاح";
             return RedirectToAction("Index", "Home");

@@ -18,6 +18,7 @@ public sealed class DashboardService
         var recentActivities = await _db.ActivityLogs
             .AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
+            .ThenByDescending(x => x.Id)
             .Take(10)
             .Select(x => new ActivityLogDto
             {

@@ -2,6 +2,7 @@ using BioAccess.Web.Contracts;
 using BioAccess.Web.Persistence;
 using BioAccess.Web.Persistence.Entities;
 using BioAccess.Web.Services.Activity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace BioAccess.Web.Services.Delegations;
@@ -11,12 +12,14 @@ public class DelegationService : IDelegationService
     private readonly LocalAppDbContext _db;
     private readonly IActivityLogService _activity;
     private readonly IEmployeeDevicesApi _api;
+    private readonly IHttpContextAccessor _http;
 
-    public DelegationService(LocalAppDbContext db, IActivityLogService activity, IEmployeeDevicesApi api)
+    public DelegationService(LocalAppDbContext db, IActivityLogService activity, IEmployeeDevicesApi api, IHttpContextAccessor http)
     {
         _db = db;
         _activity = activity;
         _api = api;
+        _http = http;
     }
 
     public async Task<string> SaveDelegationAsync(
@@ -60,15 +63,31 @@ public class DelegationService : IDelegationService
             .Select(x => x.FullName)
             .FirstOrDefaultAsync(ct);
 
-        var employeeText = string.IsNullOrWhiteSpace(employeeName)
-            ? $"الموظف رقم {employeeId}"
-            : $"{employeeName} ({employeeId})";
+        var employeeText = FormatEmployeeText(employeeName, employeeId);
+        var actorText = GetActorText();
+        var delegatedTerminalIds = terminalIds
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var regionNames = await _db.TerminalRegionMaps
+            .AsNoTracking()
+            .Where(x => delegatedTerminalIds.Contains(x.TerminalId))
+            .Select(x => x.Region != null ? x.Region.Name : null)
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .ToListAsync(ct);
+
+        var regionsLine = regionNames.Count > 0
+            ? "\nفي المناطق: " + string.Join("، ", regionNames)
+            : "";
 
         await _activity.LogAsync(
             action: "Delegation.Created",
             entityType: "Delegation",
             entityId: d.Id.ToString(),
-            summary: $"تم إنشاء انتداب لـ {employeeText} ({terminalIds.Count} أجهزة) من {startDate:yyyy-MM-dd} إلى {endDate:yyyy-MM-dd}.",
+            summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({terminalIds.Count}) أجهزة{regionsLine}\nمن {startDate:yyyy-MM-dd} إلى {endDate:yyyy-MM-dd}\nبواسطة: {actorText}",
             details: new { employeeId, employeeName, terminalCount = terminalIds.Count, startDate, endDate, status },
             ct: ct
         );
@@ -116,9 +135,8 @@ public class DelegationService : IDelegationService
             .Select(x => x.FullName)
             .FirstOrDefaultAsync(ct);
 
-        var employeeText = string.IsNullOrWhiteSpace(employeeName)
-            ? $"الموظف رقم {delegation.EmployeeId}"
-            : $"{employeeName.Trim()} ({delegation.EmployeeId})";
+        var employeeText = FormatEmployeeText(employeeName, delegation.EmployeeId);
+        var actorText = GetActorText();
 
         await _db.SaveChangesAsync(ct);
 
@@ -126,7 +144,7 @@ public class DelegationService : IDelegationService
             action: "Delegation.ManuallyEnded",
             entityType: "Delegation",
             entityId: delegation.Id.ToString(),
-            summary: $"تم إنهاء الندب للموظف {employeeText}.",
+            summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
             details: new { delegationId = delegation.Id, employeeId = delegation.EmployeeId, employeeName, terminalCount = terminals.Count, unassigned = successCount },
             ct: ct
         );
@@ -155,19 +173,33 @@ public class DelegationService : IDelegationService
             .Select(x => x.FullName)
             .FirstOrDefaultAsync(ct);
 
-        var employeeText = string.IsNullOrWhiteSpace(employeeName)
-            ? $"الموظف رقم {delegation.EmployeeId}"
-            : $"{employeeName.Trim()} ({delegation.EmployeeId})";
+        var employeeText = FormatEmployeeText(employeeName, delegation.EmployeeId);
+        var actorText = GetActorText();
 
         await _activity.LogAsync(
             action: "Delegation.Cancelled",
             entityType: "Delegation",
             entityId: delegation.Id.ToString(),
-            summary: $"تم إلغاء الندب المجدول للموظف {employeeText}.",
+            summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
             details: new { delegationId = delegation.Id, employeeId = delegation.EmployeeId, employeeName },
             ct: ct
         );
 
         return true;
+    }
+
+    private string GetActorText()
+        => FormatActorText(_http.HttpContext?.Session.GetString("EmpName"), _http.HttpContext?.Session.GetString("EmpId"));
+
+    private static string FormatEmployeeText(string? employeeName, int employeeId)
+        => string.IsNullOrWhiteSpace(employeeName)
+            ? $"غير معروف ({employeeId})"
+            : $"{employeeName.Trim()} ({employeeId})";
+
+    private static string FormatActorText(string? actorName, string? actorId)
+    {
+        var name = string.IsNullOrWhiteSpace(actorName) ? "غير معروف" : actorName.Trim();
+        var id = string.IsNullOrWhiteSpace(actorId) ? "غير معروف" : actorId.Trim();
+        return $"{name} ({id})";
     }
 }
