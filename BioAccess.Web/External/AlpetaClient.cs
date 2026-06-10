@@ -7,6 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace BioAccess.Web.External;
 
+// Low-level client for Alpeta login, device list, and user-terminal assignment.
 public class AlpetaClient
 {
     private readonly HttpClient _http;
@@ -15,16 +16,12 @@ public class AlpetaClient
     private readonly SemaphoreSlim _loginLock = new(1, 1);
     private static readonly object _devicesLock = new();
 
-
-    // Session UUID بعد Login
+    // Alpeta uses a UUID token after login for later requests.
     private string? _uuid;
     private const string UuidCacheKey   = "alpeta:uuid";
     private const string DeviceCacheKey = "alpeta:devices:snapshot";
 
-    /// <summary>
-    /// True when the last GetAllDevicesAsync call returned data from the local fallback
-    /// cache because the live API response was empty or failed.
-    /// </summary>
+    // True when the device list came from local cache instead of live Alpeta data.
     public bool LastCallUsedFallback { get; private set; }
 
     public AlpetaClient(HttpClient http, IConfiguration config, IMemoryCache cache)
@@ -45,6 +42,7 @@ public class AlpetaClient
 
     private async Task EnsureLoggedInAsync(CancellationToken ct)
     {
+        // Reuse cached login info to avoid logging in before every request.
         if (_cache.TryGetValue<string>(UuidCacheKey, out var cached) &&
             !string.IsNullOrWhiteSpace(cached))
         {
@@ -62,7 +60,7 @@ public class AlpetaClient
         await _loginLock.WaitAsync(ct);
         try
         {
-            // double-check بعد ما أخذنا lock
+            // Check again inside the lock so only one request does the login.
             if (_cache.TryGetValue<string>(UuidCacheKey, out cached) &&
                 !string.IsNullOrWhiteSpace(cached))
             {
@@ -74,7 +72,7 @@ public class AlpetaClient
                 return;
             }
 
-            // double-check بعد ما أخذنا lock
+            // Another request may have already filled the token.
             if (!string.IsNullOrWhiteSpace(_uuid))
                 return;
 
@@ -112,6 +110,7 @@ public class AlpetaClient
 
     public async Task<bool> PingAsync(CancellationToken ct = default)
     {
+        // Simple health check used to see if Alpeta is reachable.
         try
         {
             await EnsureLoggedInAsync(ct);
@@ -126,9 +125,11 @@ public class AlpetaClient
 
     public async Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default)
     {
+        // === Device list with fallback cache ===
+        // Use the last good snapshot if Alpeta returns bad or empty data.
         LastCallUsedFallback = false;
 
-        // CancellationToken cancellations must always propagate — don't catch them.
+        // Cancellation should stop the request immediately.
         ct.ThrowIfCancellationRequested();
 
         try
@@ -137,7 +138,7 @@ public class AlpetaClient
 
             var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
 
-            // Stale UUID: clear it, re-authenticate once, and retry the request.
+            // Old tokens can expire. Clear and retry once.
             if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
             {
                 _cache.Remove(UuidCacheKey);
@@ -153,6 +154,7 @@ public class AlpetaClient
 
             var list = new List<DeviceDto>();
 
+            // Parse Alpeta terminals into the app device model.
             if (doc.RootElement.TryGetProperty("TerminalList", out var terminals) &&
                 terminals.ValueKind == JsonValueKind.Array)
             {
@@ -173,6 +175,7 @@ public class AlpetaClient
             {
                 var previous = _cache.Get<List<DeviceDto>>(DeviceCacheKey);
 
+                // Ignore clearly bad responses so the UI does not lose the device list.
                 var isValid =
                     list.Count > 0 &&
                     (
@@ -206,17 +209,17 @@ public class AlpetaClient
             // Network error, auth failure, JSON error — fall through to cache.
         }
 
-        // Return the most recent snapshot we trust.
+        // If live loading fails, use the last good device snapshot.
         if (_cache.TryGetValue<List<DeviceDto>>(DeviceCacheKey, out var snapshot) && snapshot?.Count > 0)
         {
             LastCallUsedFallback = true;
             return snapshot;
         }
 
-        return new List<DeviceDto>(); // no snapshot yet (first run, never had a good response)
+        return new List<DeviceDto>(); // No good snapshot exists yet.
     }
 
-    // ✅ يجيب الأجهزة المرتبطة بالموظف (بشكل robust لأي naming يرجّعه Alpeta)
+    // Load the terminals linked to one employee from Alpeta.
     public async Task<List<DeviceDto>> GetEmployeeDevicesAsync(
         int employeeId,
         IReadOnlyCollection<DeviceDto>? allDevices = null,
@@ -229,7 +232,7 @@ public class AlpetaClient
 
         using var res = await _http.GetAsync(url, ct);
 
-        // الموظف غير موجود في Alpeta = لا أجهزة مرتبطة
+        // Missing user in Alpeta means no linked terminals.
         if (res.StatusCode == HttpStatusCode.NotFound)
             return new List<DeviceDto>();
 
@@ -244,14 +247,14 @@ public class AlpetaClient
         {
             using var doc = JsonDocument.Parse(json);
 
-            // 1) جهّز dict للأجهزة الكاملة عشان نرجّع الاسم/الموقع الصحيحين
+            // Match returned terminal IDs with the full device list for names and location.
             var all = allDevices ?? await GetAllDevicesAsync(ct);
             var byId = all
                 .Where(d => !string.IsNullOrWhiteSpace(d.DeviceId))
                 .GroupBy(d => d.DeviceId!.Trim(), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-            // 2) استخرج Terminal IDs من أي شكل يرجّعه Alpeta
+            // Alpeta response names are not stable, so terminal IDs are extracted loosely.
             var ids = ExtractTerminalIds(doc.RootElement)
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
@@ -268,7 +271,7 @@ public class AlpetaClient
                 }
                 else
                 {
-                    // احتياط لو ما وجدناه في AllDevices
+                    // Keep the terminal visible even if it was not in the main device list.
                     list.Add(new DeviceDto
                     {
                         DeviceId = id,
@@ -286,7 +289,7 @@ public class AlpetaClient
         }
     }
 
-    // ✅ Assign user to terminal: POST /terminals/{terminalID}/users/{userID}
+    // Assign one employee to one terminal in Alpeta.
     public async Task<bool> AssignUserToTerminalAsync(string terminalId, int employeeId, CancellationToken ct = default)
     {
         await EnsureLoggedInAsync(ct);
@@ -297,18 +300,18 @@ public class AlpetaClient
         var userId = FormatUserId(employeeId);
         var url = $"{BaseUrl.TrimEnd('/')}/terminals/{terminalId.Trim()}/users/{userId}";
 
-        // بعض الإصدارات تحتاج body حتى لو فاضي
+        // Some Alpeta versions expect a JSON body even when empty.
         using var content = new StringContent("{}", Encoding.UTF8, "application/json");
         using var res = await _http.PostAsync(url, content, ct);
 
-        // 409 أحيانًا معناها Already exists
+        // Treat "already assigned" as success for idempotent behavior.
         if (res.StatusCode == HttpStatusCode.Conflict)
             return true;
 
         return res.IsSuccessStatusCode;
     }
 
-    // ✅ Unassign: DELETE /terminals/{terminalID}/users/{userID}
+    // Remove one employee from one terminal in Alpeta.
     public async Task<bool> UnassignUserFromTerminalAsync(string terminalId, int employeeId, CancellationToken ct = default)
     {
         await EnsureLoggedInAsync(ct);
@@ -321,25 +324,22 @@ public class AlpetaClient
 
         using var res = await _http.DeleteAsync(url, ct);
 
-        // إذا أصلاً مو مربوط، اعتبرها OK
+        // Treat "not linked" as success so repeated calls stay safe.
         if (res.StatusCode == HttpStatusCode.NotFound)
             return true;
 
         return res.IsSuccessStatusCode;
     }
 
-    // ===== Helpers =====
+    // === Response parsing helpers ===
 
     private static IEnumerable<string> ExtractTerminalIds(JsonElement root)
     {
-        // أشكال شائعة:
-        // - { TerminalTinyList: [ { TerminalID / TerminalId / ID ... } ] }
-        // - { Rows: [ { TerminalId ... } ] }
-        // - أحيانًا List تحت مفاتيح أخرى
+        // Alpeta can return terminal IDs under different property names and shapes.
 
         if (root.ValueKind == JsonValueKind.Object)
         {
-            // جرّب TerminalTinyList
+            // Common list shape used by some Alpeta endpoints.
             if (root.TryGetProperty("TerminalTinyList", out var tiny) && tiny.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in tiny.EnumerateArray())
@@ -349,7 +349,7 @@ public class AlpetaClient
                 }
             }
 
-            // جرّب Rows
+            // Another common list shape.
             if (root.TryGetProperty("Rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
                 foreach (var row in rows.EnumerateArray())
@@ -359,7 +359,7 @@ public class AlpetaClient
                 }
             }
 
-            // fallback: دور داخل أي خصائص أخرى (عشان لو Alpeta غيّر الشكل)
+            // Search nested objects too so small API shape changes do not break parsing.
             foreach (var prop in root.EnumerateObject())
             {
                 if (prop.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
@@ -389,7 +389,7 @@ public class AlpetaClient
 
         JsonElement p;
 
-        // أكثر أسماء شفتها
+        // Accept the common key names used by different Alpeta responses.
         if (obj.TryGetProperty("TerminalID", out p) ||
             obj.TryGetProperty("TerminalId", out p) ||
             obj.TryGetProperty("terminalId", out p) ||

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BioAccess.Web.Controllers;
 
 [Route("employees")]
+// Handles employee search, device assignment, and delegation actions.
 public sealed class EmployeesController : Controller
 {
     private readonly EmployeeDevicesApi _employees;
@@ -23,6 +24,7 @@ public sealed class EmployeesController : Controller
     [HttpGet("")]
     public async Task<IActionResult> Index(int? employeeId, CancellationToken ct)
     {
+        // Show the search page first when no employee is selected.
         if (!employeeId.HasValue || employeeId.Value <= 0)
             return View("Search", null);
 
@@ -33,6 +35,7 @@ public sealed class EmployeesController : Controller
     [HttpGet("search")]
     public async Task<IActionResult> Search(int employeeId, CancellationToken ct)
     {
+        // Load the full employee screen for a direct search request.
         if (employeeId <= 0) return View("Search");
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
@@ -44,11 +47,13 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SearchPost([FromForm] int employeeId, CancellationToken ct)
     {
+        // POST version used by the search form on the page.
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         if (screen?.Employee is null)
         {
+            // Keep the user on the same page and show a clear message.
             TempData["ToastType"] = "danger";
             TempData["ToastMsg"] = $"لا يوجد موظف بالرقم الوظيفي: {employeeId}";
             return View("Search");
@@ -61,6 +66,7 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Assign(int employeeId, string terminalId, CancellationToken ct)
     {
+        // Assign one terminal to the employee in Alpeta.
         var ok = await _employees.AssignOneAsync(employeeId, terminalId, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم الربط" : "❌ فشل الربط";
@@ -69,6 +75,7 @@ public sealed class EmployeesController : Controller
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (ok)
         {
+            // Log only after reloading the screen so the log can include region info.
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
             var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
             var regionLine = FormatRegionLine(screen?.Devices, new[] { terminalId });
@@ -85,6 +92,7 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Unassign(int employeeId, string terminalId, CancellationToken ct)
     {
+        // Remove one terminal from the employee in Alpeta.
         var ok = await _employees.UnassignOneAsync(employeeId, terminalId, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم فك الارتباط" : "❌ فشل فك الارتباط";
@@ -109,6 +117,7 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AssignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
+        // Run bulk assignment one terminal at a time.
         var successCount = 0;
         var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
@@ -142,6 +151,7 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UnassignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
+        // Run bulk unassignment one terminal at a time.
         var successCount = 0;
         var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
@@ -180,6 +190,7 @@ public sealed class EmployeesController : Controller
         DateTime endDate,
         CancellationToken ct)
     {
+        // Save a temporary device delegation for later worker processing.
         var result = await _delegations.SaveDelegationAsync(employeeId, terminalIds, startDate, endDate, ct);
         if (result == "Invalid")
         {
@@ -200,6 +211,7 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EndDelegation(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
+        // End active delegations for the selected terminals.
         var ok = await _delegations.EndActiveDelegationAsync(employeeId, terminalIds, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم إنهاء الندب بنجاح" : "❌ تعذر إنهاء الندب";
@@ -212,6 +224,7 @@ public sealed class EmployeesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CancelDelegation(int employeeId, int delegationId, CancellationToken ct)
     {
+        // Cancel a delegation that has not started yet.
         var ok = await _delegations.CancelScheduledDelegationAsync(delegationId, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم إلغاء الندب بنجاح" : "❌ تعذر إلغاء الندب";
@@ -234,6 +247,7 @@ public sealed class EmployeesController : Controller
 
     private static string FormatRegionLine(IEnumerable<DeviceRowDto>? devices, IEnumerable<string> terminalIds)
     {
+        // Build one region line for logs so bulk actions stay readable.
         var selectedIds = terminalIds
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim())

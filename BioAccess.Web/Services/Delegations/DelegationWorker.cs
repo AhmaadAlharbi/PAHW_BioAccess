@@ -7,6 +7,7 @@ using BioAccess.Web.Services.Activity;
 
 namespace BioAccess.Web.Services.Delegations;
 
+// Runs in the background and applies scheduled delegation changes in Alpeta.
 public class DelegationWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -20,6 +21,7 @@ public class DelegationWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Check delegations every minute so start and end dates are applied automatically.
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -31,7 +33,7 @@ public class DelegationWorker : BackgroundService
 
                 var now = DateTime.Now;
 
-                // 1) التحقق من الانتدابات الجاهزة للبدء
+                // Start delegations whose time has arrived.
                 var toStart = await db.Delegations
                     .Include(x => x.Terminals)
                     .Where(x => x.Status == "Scheduled" && x.StartDate <= now)
@@ -47,7 +49,7 @@ public class DelegationWorker : BackgroundService
 
                     foreach (var terminalId in terminals)
                     {
-                        // نحاول 3 مرات قبل الفشل
+                        // Retry a few times because Alpeta can fail temporarily.
                         var success = false;
                         for (var i = 1; i <= 3 && !success; i++)
                         {
@@ -70,7 +72,7 @@ public class DelegationWorker : BackgroundService
                     );
                 }
 
-                // 2) التحقق من الانتدابات المنتهية
+                // End delegations whose end date has passed.
                 var toExpire = await db.Delegations
                     .Include(x => x.Terminals)
                     .Where(x => x.Status == "Active" && x.EndDate <= now)
@@ -86,7 +88,7 @@ public class DelegationWorker : BackgroundService
 
                     foreach (var terminalId in terminals)
                     {
-                        // نحاول 3 مرات قبل الفشل
+                        // Retry a few times because Alpeta can fail temporarily.
                         var success = false;
                         for (var i = 1; i <= 3 && !success; i++)
                         {
@@ -113,7 +115,7 @@ public class DelegationWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                // نسجل الخطأ بدل الصمت
+                // Keep the worker alive even if one cycle fails.
                 _logger.LogError(ex, "Something went wrong while processing delegations.");
             }
 

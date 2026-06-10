@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BioAccess.Web.Services.Delegations;
 
+// Handles saving, ending, and canceling local delegation records.
 public class DelegationService : IDelegationService
 {
     private readonly LocalAppDbContext _db;
@@ -29,18 +30,22 @@ public class DelegationService : IDelegationService
         DateTime endDate,
         CancellationToken ct = default)
     {
+        // Basic validation before saving the delegation.
         if (terminalIds == null || terminalIds.Count == 0)
             return "Invalid";
 
         if (endDate < startDate)
             return "Invalid";
 
+        // Store whole-day ranges so the delegation stays active until end of day.
         startDate = startDate.Date;
         endDate = endDate.Date.AddDays(1);
 
         var now = DateTime.Now;
+        // If the start date is now or earlier, the worker should treat it as active.
         var status = (startDate <= now && endDate > now) ? "Active" : "Scheduled";
 
+        // Save terminal rows under one delegation header.
         var d = new Delegation
         {
             EmployeeId = employeeId,
@@ -71,6 +76,7 @@ public class DelegationService : IDelegationService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // Region names are loaded only for the activity log text.
         var regionNames = await _db.TerminalRegionMaps
             .AsNoTracking()
             .Where(x => delegatedTerminalIds.Contains(x.TerminalId))
@@ -97,6 +103,8 @@ public class DelegationService : IDelegationService
 
     public async Task<bool> EndActiveDelegationAsync(int employeeId, List<string> terminalIds, CancellationToken ct = default)
     {
+        // === Manual delegation end ===
+        // Unassign the selected delegated terminals and close empty delegation records.
         var selectedTerminalIds = (terminalIds ?? new())
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Select(t => t.Trim())
@@ -105,6 +113,7 @@ public class DelegationService : IDelegationService
 
         if (employeeId <= 0 || selectedTerminalIds.Count == 0) return false;
 
+        // Load only active delegations for this employee.
         var delegations = await _db.Delegations
             .Include(x => x.Terminals)
             .Where(x => x.EmployeeId == employeeId && x.Status == "Active")
@@ -112,6 +121,7 @@ public class DelegationService : IDelegationService
 
         if (delegations.Count == 0) return false;
 
+        // Match only the terminal rows the user selected on the page.
         var matchedRows = delegations
             .SelectMany(d => (d.Terminals ?? new())
                 .Where(t => selectedTerminalIds.Contains((t.TerminalId ?? "").Trim()))
@@ -125,6 +135,7 @@ public class DelegationService : IDelegationService
         {
             var terminalId = (row.Terminal.TerminalId ?? "").Trim();
             var success = false;
+            // Retry because Alpeta calls may fail for short network or session issues.
             for (var i = 1; i <= 3 && !success; i++)
             {
                 success = await _api.UnassignOneAsync(employeeId, terminalId, ct);
@@ -140,6 +151,7 @@ public class DelegationService : IDelegationService
 
         if (successCount == 0) return false;
 
+        // If a delegation no longer has terminals, mark it as ended.
         var now = DateTime.Now;
         foreach (var delegation in delegations)
         {
@@ -187,6 +199,7 @@ public class DelegationService : IDelegationService
 
     public async Task<bool> CancelScheduledDelegationAsync(int delegationId, CancellationToken ct = default)
     {
+        // Only future delegations can be canceled here.
         if (delegationId <= 0) return false;
 
         var delegation = await _db.Delegations
@@ -222,6 +235,7 @@ public class DelegationService : IDelegationService
     }
 
     private string GetActorText()
+        // Read the current user from session for audit logs.
         => FormatActorText(_http.HttpContext?.Session.GetString("EmpName"), _http.HttpContext?.Session.GetString("EmpId"));
 
     private static string FormatEmployeeText(string? employeeName, int employeeId)

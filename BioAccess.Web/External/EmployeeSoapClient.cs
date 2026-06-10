@@ -9,13 +9,14 @@ using Microsoft.Extensions.Logging;
 
 namespace BioAccess.Web.External
 {
+    // Reads employee details from the SOAP service and parses the returned XML.
     public class EmployeeSoapClient
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _config;
         private readonly ILogger<EmployeeSoapClient> _logger;
 
-        // يقرأ الرابط من appsettings.json
+        // SOAP endpoint comes from app settings.
         private string ServiceUrl => _config["SoapService:Url"] ?? "";
 
         public EmployeeSoapClient(
@@ -28,7 +29,7 @@ namespace BioAccess.Web.External
             _logger = logger;
         }
 
-        // 1) جلب Raw XML
+        // Send the SOAP request and return the raw XML for later parsing.
         public async Task<string> GetEmployeeByIdRawAsync(int employeeId, CancellationToken ct = default)
         {
             if (employeeId <= 0)
@@ -47,7 +48,7 @@ namespace BioAccess.Web.External
                 Content = content
             };
 
-            // بعض الخدمات تتطلب SOAPAction — خليناه فاضي مثل اللي اشتغل معاكم
+            // Some SOAP services require this header even when it is empty.
             request.Headers.Add("SOAPAction", "\"\"");
 
             HttpResponseMessage response;
@@ -64,41 +65,39 @@ namespace BioAccess.Web.External
                 throw;
             }
 
-            // Debug XML (اختياري)
+            // Optional raw XML logging helps when the SOAP shape changes.
             var debugXml = _config.GetValue<bool>("SoapService:DebugXml", false);
             if (debugXml)
             {
                 _logger.LogInformation("SOAP raw xml (employeeId={EmployeeId}): {Xml}", employeeId, rawXml);
             }
 
-            // فحص HTTP Status
+            // Return the raw body even on HTTP errors to help debugging.
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning(
                     "SOAP non-success status {StatusCode} for employeeId={EmployeeId}",
                     (int)response.StatusCode, employeeId);
 
-                // نرجّعه عشان تشوفه وقت Debug
                 return rawXml;
             }
 
-            // فحص SOAP Fault (حتى لو status 200)
+            // SOAP faults can still come back with HTTP 200.
             if (rawXml.Contains("<Fault>", StringComparison.OrdinalIgnoreCase) ||
                 rawXml.Contains(":Fault", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("SOAP Fault returned for employeeId={EmployeeId}", employeeId);
-                // نرجّعه كذلك
                 return rawXml;
             }
 
             return rawXml;
         }
 
-        // 2) Parse اسم الموظف فقط (للتوافق مع شغلك السابق)
+        // Simple helper when only the employee name is needed.
         public string? ParseEmployeeName(string rawXml)
             => ParseField(rawXml, "name");
 
-        // 3) Parse ملخص (Name + Department + JobTitle)
+        // Read the main employee fields used by the UI.
         public (string? Name, string? Department, string? JobTitle) ParseEmployeeSummary(string rawXml)
         {
             var name = ParseField(rawXml, "name");
@@ -112,7 +111,7 @@ namespace BioAccess.Web.External
             return (name, dept, title);
         }
 
-        // 4) Dump كل الحقول داخل employeePhoneDetail (عشان تعرف شنو يرجع SOAP بدون تعديل كود كل شوي)
+        // Return all fields so new SOAP properties can be inspected without new parsing code.
         public Dictionary<string, string> DumpEmployeeDetailFields(string rawXml)
         {
             var detail = GetEmployeePhoneDetail(rawXml);
@@ -132,7 +131,7 @@ namespace BioAccess.Web.External
             return result;
         }
 
-        // ===== Helpers =====
+        // === XML parsing helpers ===
 
         private XElement? GetEmployeePhoneDetail(string rawXml)
         {
@@ -149,7 +148,7 @@ namespace BioAccess.Web.External
                 return null;
             }
 
-            // نبحث بالـ LocalName عشان الـ namespaces تختلف (ns2 / ws / ... إلخ)
+            // Match by LocalName because SOAP namespaces can change.
             var detail = doc
                 .Descendants()
                 .FirstOrDefault(e => e.Name.LocalName.Equals("employeePhoneDetail", StringComparison.OrdinalIgnoreCase));
@@ -170,7 +169,7 @@ namespace BioAccess.Web.External
             return string.IsNullOrWhiteSpace(val) ? null : val;
         }
 
-        // SOAP Envelope
+        // Build the SOAP body for employee lookup.
         private string BuildGetEmployeeByIdSoap(int employeeId) => $@"
 <soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:ws=""http://ws.pahw.gov.kw/"">
   <soapenv:Header/>

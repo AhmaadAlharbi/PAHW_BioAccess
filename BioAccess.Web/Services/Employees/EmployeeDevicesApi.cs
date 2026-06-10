@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BioAccess.Web.Services.Employees;
 
+// Builds the employee device screen from SOAP, Alpeta, and local DB data.
 public class EmployeeDevicesApi : IEmployeeDevicesApi
 {
     private readonly EmployeeSoapClient _soap;
@@ -28,6 +29,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
 
     public async Task<EmployeeDevicesDto?> GetEmployeeWithDevicesAsync(int employeeId, CancellationToken ct = default)
     {
+        // Read employee info from SOAP and current terminal links from Alpeta.
         if (employeeId <= 0) return null;
 
         var raw = await _soap.GetEmployeeByIdRawAsync(employeeId, ct);
@@ -55,8 +57,11 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
 
     public async Task<EmployeeDevicesScreenDto?> GetEmployeeDevicesScreenAsync(int employeeId, CancellationToken ct = default)
     {
+        // === Employee screen state ===
+        // This combines permanent links, active delegations, and region mapping.
         var now = DateTime.Now;
 
+        // Active delegations act like temporary assignments on the screen.
         var activeDelegatedTerminalIds = await _db.Delegations
             .Where(d =>
                 d.EmployeeId == employeeId &&
@@ -66,6 +71,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             .SelectMany(d => d.Terminals.Select(t => t.TerminalId))
             .ToHashSetAsync(ct);
 
+        // Load scheduled and active delegation rows so the UI can show status and dates.
         var delegatedRowsList = await _db.Delegations
             .Where(d => d.EmployeeId == employeeId &&
                         (d.Status == "Active" || d.Status == "Scheduled"))
@@ -79,6 +85,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             }))
             .ToListAsync(ct);
 
+        // Keep one delegation row per terminal. Active rows win over scheduled rows.
         var delegatedRowsByTerminal = delegatedRowsList
             .Where(x => !string.IsNullOrWhiteSpace(x.TerminalId))
             .Select(x => new
@@ -106,10 +113,12 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         var all = baseDto.AllDevices ?? new();
         var assigned = baseDto.AssignedDevices ?? new();
 
+        // Use a set because the screen checks assignment state for each terminal.
         var assignedSet = new HashSet<string>(
             assigned.Where(x => !string.IsNullOrWhiteSpace(x.DeviceId)).Select(x => x.DeviceId!.Trim()),
             StringComparer.OrdinalIgnoreCase);
 
+        // Region mapping is local business data. Alpeta only gives the terminals.
         var regions = await _regions.GetRegionsAsync(ct);
         var regionNameById = regions.ToDictionary(
             x => x.Id,
@@ -124,6 +133,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             var id = d.DeviceId?.Trim();
             if (string.IsNullOrWhiteSpace(id)) continue;
 
+            // Build one row with all states the page needs for actions and badges.
             mappings.TryGetValue(id, out var regId);
             regionNameById.TryGetValue(regId, out var regName);
             var isAssigned = assignedSet.Contains(id);
@@ -148,6 +158,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             });
         }
 
+        // Group devices by region so the page can show them as region sections.
         var groups = rows
             .GroupBy(x => new { x.RegionId, RegionName = string.IsNullOrWhiteSpace(x.RegionName) ? "أجهزة غير مصنفة" : x.RegionName })
             .OrderByDescending(g => g.Any(x => x.IsEffectivelyAssigned))
@@ -176,8 +187,10 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
     }
 
     public Task<bool> AssignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
+        // Permanent assignment goes straight to Alpeta.
        => _alpeta.AssignUserToTerminalAsync(terminalId, employeeId, ct);
 
     public Task<bool> UnassignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
+        // Permanent unassignment goes straight to Alpeta.
         => _alpeta.UnassignUserFromTerminalAsync(terminalId, employeeId, ct);
 }

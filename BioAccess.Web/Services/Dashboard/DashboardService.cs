@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BioAccess.Web.Services.Dashboard;
 
+// Builds dashboard numbers and recent activity from local DB data.
 public sealed class DashboardService
 {
     private readonly LocalAppDbContext _db;
@@ -15,9 +16,11 @@ public sealed class DashboardService
 
     public async Task<DashboardDto> GetDashboardData(string? delegationsFilter = null, CancellationToken ct = default)
     {
+        // Normalize the filter first so the rest of the query logic stays simple.
         var filter = NormalizeFilter(delegationsFilter);
         var now = DateTime.Now;
 
+        // Latest activity is shown as a simple dashboard feed.
         var recentActivities = await _db.ActivityLogs
             .AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
@@ -36,6 +39,7 @@ public sealed class DashboardService
             })
             .ToListAsync(ct);
 
+        // Load raw delegations first, then compute the display status in code.
         var rawDelegations = await _db.Delegations
             .AsNoTracking()
             .Include(d => d.Terminals)
@@ -47,6 +51,7 @@ public sealed class DashboardService
             .Distinct()
             .ToList();
 
+        // AllowedUsers is used here only to show friendly employee names.
         var employeeNameById = await _db.AllowedUsers
             .AsNoTracking()
             .Where(x => employeeIds.Contains(x.EmployeeId))
@@ -58,6 +63,7 @@ public sealed class DashboardService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // Region names are derived from terminal mappings, not from the delegation table.
         var regionNamesByTerminalId = await _db.TerminalRegionMaps
             .AsNoTracking()
             .Where(x => terminalIds.Contains(x.TerminalId))
@@ -69,6 +75,7 @@ public sealed class DashboardService
             .Where(x => !string.IsNullOrWhiteSpace(x.RegionName))
             .ToDictionaryAsync(x => x.TerminalId, x => x.RegionName!, StringComparer.OrdinalIgnoreCase, ct);
 
+        // Build the dashboard list after joining employee names and region names.
         var delegations = rawDelegations
             .Select(d =>
             {
@@ -116,6 +123,7 @@ public sealed class DashboardService
     }
 
     private static string NormalizeFilter(string? filter)
+        // Default to active delegations because that is the main dashboard view.
         => (filter ?? "").Trim().ToLowerInvariant() switch
         {
             "scheduled" => "Scheduled",
@@ -125,6 +133,7 @@ public sealed class DashboardService
 
     private static string GetComputedStatus(Persistence.Entities.Delegation delegation, DateTime now)
     {
+        // Use computed status so the dashboard reflects time even before the worker runs.
         if (string.Equals(delegation.Status, "Cancelled", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(delegation.Status, "ManuallyEnded", StringComparison.OrdinalIgnoreCase))
         {

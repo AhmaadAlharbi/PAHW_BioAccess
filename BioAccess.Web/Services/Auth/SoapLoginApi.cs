@@ -8,13 +8,14 @@ using System.Xml.Linq;
 
 namespace BioAccess.Web.Services.Auth;
 
+// Handles login against the SOAP service and cleans old stuck sessions when needed.
 public class SoapLoginApi : ILoginApi
 {
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _config;
     private readonly ILogger<SoapLoginApi> _logger;
 
-    // Config with fallbacks (يفضل تحطهم في appsettings.json)
+    // Read SOAP settings from config, with safe fallback values.
     private string ServiceUrl => _config["SoapService:Url"] ?? "http://192.168.120.52:8080/PAHWService/service";
     private string ApplicationId => _config["SoapService:ApplicationId"] ?? "6";
     private string UserType => _config["SoapService:UserType"] ?? "1";
@@ -30,6 +31,7 @@ public class SoapLoginApi : ILoginApi
 
     public async Task<LoginResponseDto> LoginAsync(string empId, string password, CancellationToken ct = default)
     {
+        // Validate simple input first before calling SOAP.
         if (string.IsNullOrWhiteSpace(empId))
             return Fail("Please enter employee ID.");
         if (string.IsNullOrWhiteSpace(password))
@@ -37,6 +39,7 @@ public class SoapLoginApi : ILoginApi
 
         try
         {
+            // First try the normal login path.
             var firstAttempt = await ExecuteLoginAsync(empId, password, ct);
             if (firstAttempt.ResultCode == 1)
             {
@@ -44,6 +47,7 @@ public class SoapLoginApi : ILoginApi
                 return firstAttempt;
             }
 
+            // ORA-00001 usually means an old session must be cleared first.
             if (!IsStuckSession(firstAttempt.Message))
                 return firstAttempt;
 
@@ -64,6 +68,7 @@ public class SoapLoginApi : ILoginApi
         {
             if (IsStuckSession(ex.Message))
             {
+                // Some stuck-session cases come as thrown errors instead of normal responses.
                 _logger.LogWarning(ex, "Login threw ORA-00001 because an old SOAP/Oracle session exists for employee {EmpId}.", empId);
                 await CleanupSessionAsync(empId, ct);
 
@@ -79,7 +84,7 @@ public class SoapLoginApi : ILoginApi
         }
     }
 
-    // =================== Core login once ===================
+    // Try one SOAP login request and parse the result.
     private async Task<LoginResponseDto> ExecuteLoginAsync(string empId, string password, CancellationToken ct)
     {
         var xml = BuildLoginSoap(empId, password);
@@ -91,7 +96,7 @@ public class SoapLoginApi : ILoginApi
         return ParseLoginResponse(raw);
     }
 
-    // =================== Session cleanup ===================
+    // Clear old login rows so the next SOAP login can succeed.
     public async Task CleanupSessionAsync(string empId, CancellationToken ct)
     {
         _logger.LogInformation("Cleaning up old SOAP session for employee {EmpId}.", empId);
@@ -117,7 +122,7 @@ public class SoapLoginApi : ILoginApi
         _logger.LogInformation("Oracle SQL session cleanup completed for employee {EmpId}. Deleted rows: {DeletedRows}.", empId, deletedRows);
     }
 
-    // =================== Best-effort logout ===================
+    // Ask SOAP to logout, but do not fail cleanup if this step fails.
     private async Task TryLogoutAsync(string empId, CancellationToken ct)
     {
         try
@@ -131,7 +136,7 @@ public class SoapLoginApi : ILoginApi
         }
     }
 
-    // =================== Fetch name (optional) ===================
+    // Load the employee name after login so the UI can store it in session.
     private async Task<string?> TryGetEmployeeNameAsync(string empId, CancellationToken ct)
     {
         try
@@ -160,7 +165,7 @@ public class SoapLoginApi : ILoginApi
         }
     }
 
-    // =================== HTTP helper ===================
+    // Send one SOAP request and return the raw XML.
     private async Task<string> PostSoapAsync(string soapXml, CancellationToken ct)
     {
         var content = new StringContent(soapXml, Encoding.UTF8, "text/xml");
@@ -173,7 +178,7 @@ public class SoapLoginApi : ILoginApi
         return await res.Content.ReadAsStringAsync(ct);
     }
 
-    // =================== XML builders ===================
+    // Build the SOAP XML bodies used by login and cleanup.
     private string BuildLoginSoap(string empId, string password) => $@"
 <soapenv:Envelope xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:ws=""http://ws.pahw.gov.kw/"">
   <soapenv:Header/>
@@ -213,7 +218,7 @@ public class SoapLoginApi : ILoginApi
   </soapenv:Body>
 </soapenv:Envelope>";
 
-    // =================== Parsers ===================
+    // Parse SOAP XML into app-friendly login results.
     private bool IsSoapFault(string xml) => xml.Contains("<Fault") || xml.Contains("<faultcode");
 
     private LoginResponseDto ParseSoapFault(string xml)
@@ -269,7 +274,7 @@ public class SoapLoginApi : ILoginApi
         }
     }
 
-    // =================== utilities ===================
+    // Detect the known Oracle error used by the old-session problem.
     private static bool IsStuckSession(string message) =>
         !string.IsNullOrWhiteSpace(message) &&
         message.Contains("ORA-00001", StringComparison.OrdinalIgnoreCase);
