@@ -95,57 +95,90 @@ public class DelegationService : IDelegationService
         return status;
     }
 
-    public async Task<bool> EndActiveDelegationAsync(int delegationId, CancellationToken ct = default)
+    public async Task<bool> EndActiveDelegationAsync(int employeeId, List<string> terminalIds, CancellationToken ct = default)
     {
-        if (delegationId <= 0) return false;
-
-        var delegation = await _db.Delegations
-            .Include(x => x.Terminals)
-            .FirstOrDefaultAsync(x => x.Id == delegationId, ct);
-
-        if (delegation is null) return false;
-        if (delegation.Status != "Active") return false;
-
-        var terminals = (delegation.Terminals ?? new())
-            .Select(t => (t.TerminalId ?? "").Trim())
+        var selectedTerminalIds = (terminalIds ?? new())
             .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        if (employeeId <= 0 || selectedTerminalIds.Count == 0) return false;
+
+        var delegations = await _db.Delegations
+            .Include(x => x.Terminals)
+            .Where(x => x.EmployeeId == employeeId && x.Status == "Active")
+            .ToListAsync(ct);
+
+        if (delegations.Count == 0) return false;
+
+        var matchedRows = delegations
+            .SelectMany(d => (d.Terminals ?? new())
+                .Where(t => selectedTerminalIds.Contains((t.TerminalId ?? "").Trim()))
+                .Select(t => new { Delegation = d, Terminal = t }))
+            .ToList();
+
+        if (matchedRows.Count == 0) return false;
+
         var successCount = 0;
-        foreach (var terminalId in terminals)
+        foreach (var row in matchedRows)
         {
+            var terminalId = (row.Terminal.TerminalId ?? "").Trim();
             var success = false;
             for (var i = 1; i <= 3 && !success; i++)
             {
-                success = await _api.UnassignOneAsync(delegation.EmployeeId, terminalId, ct);
+                success = await _api.UnassignOneAsync(employeeId, terminalId, ct);
                 if (!success) await Task.Delay(500, ct);
             }
 
-            if (success) successCount++;
+            if (!success) continue;
+
+            successCount++;
+            row.Delegation.Terminals.Remove(row.Terminal);
+            _db.DelegationTerminals.Remove(row.Terminal);
         }
 
+        if (successCount == 0) return false;
+
         var now = DateTime.Now;
-        delegation.Status = "Expired";
-        delegation.ExpiredAt = now;
+        foreach (var delegation in delegations)
+        {
+            if ((delegation.Terminals?.Count ?? 0) == 0)
+            {
+                delegation.Status = "ManuallyEnded";
+                delegation.ExpiredAt = now;
+            }
+        }
 
         var employeeName = await _db.AllowedUsers
             .AsNoTracking()
-            .Where(x => x.EmployeeId == delegation.EmployeeId)
+            .Where(x => x.EmployeeId == employeeId)
             .Select(x => x.FullName)
             .FirstOrDefaultAsync(ct);
 
-        var employeeText = FormatEmployeeText(employeeName, delegation.EmployeeId);
+        var employeeText = FormatEmployeeText(employeeName, employeeId);
         var actorText = GetActorText();
 
         await _db.SaveChangesAsync(ct);
 
+        var regionNames = await _db.TerminalRegionMaps
+            .AsNoTracking()
+            .Where(x => selectedTerminalIds.Contains(x.TerminalId))
+            .Select(x => x.Region != null ? x.Region.Name : null)
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .ToListAsync(ct);
+
+        var regionsLine = regionNames.Count > 0
+            ? "\nفي المناطق: " + string.Join("، ", regionNames)
+            : "";
+
         await _activity.LogAsync(
             action: "Delegation.ManuallyEnded",
             entityType: "Delegation",
-            entityId: delegation.Id.ToString(),
-            summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
-            details: new { delegationId = delegation.Id, employeeId = delegation.EmployeeId, employeeName, terminalCount = terminals.Count, unassigned = successCount },
+            entityId: null,
+            summary: $"تم إنهاء انتداب الموظف {employeeText} لعدد ({successCount}) أجهزة{regionsLine}\nبواسطة: {actorText}",
+            details: new { employeeId, employeeName, terminalCount = successCount, terminalIds = selectedTerminalIds, unassigned = successCount },
             ct: ct
         );
 

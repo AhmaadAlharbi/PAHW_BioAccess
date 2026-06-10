@@ -937,6 +937,24 @@
 .rgn-collapse { display: none; }
 .rgn-collapse.show { display: block; }
 
+.employees-search-page .region-select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.employees-search-page .region-select-all .form-check-input {
+  float: none;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.employees-search-page .region-select-all .form-check-label {
+  margin: 0;
+  cursor: pointer;
+  flex: 1;
+}
+
 /* Chevron rotation on region expand */
 .region-chevron { transition: transform 0.2s ease; }
 .region-header.active .region-chevron { transform: rotate(180deg); }
@@ -1444,4 +1462,3 @@
   font-size: 0.95em;
   line-height: 1.6;
 }
-

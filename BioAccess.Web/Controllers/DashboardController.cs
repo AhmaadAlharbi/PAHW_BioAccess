@@ -14,7 +14,7 @@ public sealed class DashboardController : Controller
     }
 
     [HttpGet("/dashboard")]
-    public async Task<IActionResult> Index(CancellationToken ct)
+    public async Task<IActionResult> Index(string? delegations, CancellationToken ct)
     {
         var isAdmin = HttpContext.Session.GetString("IsAdmin") == "1";
         if (!isAdmin)
@@ -22,7 +22,7 @@ public sealed class DashboardController : Controller
             return View(new DashboardViewModel { IsAdmin = false });
         }
 
-        var dto = await _dashboardService.GetDashboardData(ct);
+        var dto = await _dashboardService.GetDashboardData(delegations, ct);
 
         return View(new DashboardViewModel
         {
@@ -30,6 +30,20 @@ public sealed class DashboardController : Controller
             RegionsCount = dto.RegionsCount,
             MappingsCount = dto.MappingsCount,
             ActiveDelegationsCount = dto.ActiveDelegationsCount,
+            DelegationsFilter = dto.DelegationsFilter,
+            LatestDelegations = dto.LatestDelegations.Select(x => new DelegationRowViewModel
+            {
+                EmployeeText = string.IsNullOrWhiteSpace(x.EmployeeName)
+                    ? $"الموظف رقم {x.EmployeeId}"
+                    : $"{x.EmployeeName} ({x.EmployeeId})",
+                RegionText = x.RegionText,
+                StatusText = DashboardViewModel.ToArabicDelegationStatus(x.Status),
+                StatusBadgeClass = DashboardViewModel.ToDelegationStatusBadgeClass(x.Status),
+                StartDateText = x.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDateText = x.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                TerminalsCount = x.TerminalsCount,
+                TerminalsCountText = x.TerminalsCount.ToString()
+            }).ToList(),
             LatestActivity = dto.RecentActivities.Select(x => new ActivityLogRowViewModel
             {
                 TimeText = x.CreatedAt.ToString("yyyy-MM-dd HH:mm"),

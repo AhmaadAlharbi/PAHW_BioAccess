@@ -144,6 +144,11 @@
                         var hasUnassigned = (g.TotalDevices - g.AssignedDevices) > 0;
                         var assignedCount = g.Devices.Count(x => x.IsEffectivelyAssigned);
                         var delegatedCount = g.Devices.Count(x => x.IsDelegated);
+                        var delegatedActiveTerminalIds = g.Devices
+                            .Where(x => x.IsDelegatedActive && !string.IsNullOrWhiteSpace(x.DeviceId))
+                            .Select(x => x.DeviceId!.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList();
 
                         <div class="region-card mb-3 border rounded"
                              data-has-assigned="@(hasAssigned ? "1" : "0")"
@@ -169,17 +174,34 @@
                                         </div>
                                     </div>
                                 </div>
-                                <i class="fa-solid fa-chevron-down text-muted region-chevron"></i>
+                                <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
+                                    @if (delegatedActiveTerminalIds.Count > 0)
+                                    {
+                                        <form method="post" action="/employees/end-delegation" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                            @foreach (var terminalId in delegatedActiveTerminalIds)
+                                            {
+                                                <input type="hidden" name="terminalIds" value="@terminalId" />
+                                            }
+                                            <button type="button" class="btn btn-danger btn-sm u-nowrap"
+                                                    onclick="confirmDelegationScopeAction(this, 'region')">
+                                                إنهاء الندب لكل أجهزة المنطقة
+                                            </button>
+                                        </form>
+                                    }
+                                    <i class="fa-solid fa-chevron-down text-muted region-chevron"></i>
+                                </div>
                             </div>
 
                             @* Collapse body *@
                             <div id="@collapseId" class="rgn-collapse p-3">
 
                                 @* Select all *@
-                                <div class="form-check bg-light border rounded p-3 mb-3">
+                                <div class="form-check bg-light border rounded p-3 mb-3 region-select-all">
                                     <input class="form-check-input select-all-region" type="checkbox"
-                                           id="check-@regionKey" />
-                                    <label class="form-check-label fw-semibold" for="check-@regionKey">
+                                           id="selectAllRegion_@regionKey" />
+                                    <label class="form-check-label fw-semibold" for="selectAllRegion_@regionKey">
                                         تحديد جميع أجهزة المنطقة
                                     </label>
                                 </div>
@@ -258,9 +280,9 @@
                                                                 <form method="post" action="/employees/end-delegation" class="d-inline">
                                                                     @Html.AntiForgeryToken()
                                                                     <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
-                                                                    <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
+                                                                    <input type="hidden" name="terminalIds" value="@terminalId" />
                                                                     <button type="button" class="btn btn-danger btn-sm u-nowrap"
-                                                                            onclick="confirmDelegationCardAction(this, 'end')">
+                                                                            onclick="confirmDelegationScopeAction(this, 'device')">
                                                                         إنهاء الندب
                                                                     </button>
                                                                 </form>
@@ -310,6 +332,7 @@
                 <option value="assign">ربط دائم</option>
                 <option value="unassign">فك الربط</option>
                 <option value="delegate">إنشاء ندب</option>
+                <option value="endDelegation">إنهاء الندب</option>
             </select>
             <div id="bulkDates" class="bulk-dates d-flex gap-2 is-hidden" aria-hidden="true">
                 <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
@@ -421,17 +444,6 @@
             disableMobile: true
         });
 
-        document.querySelectorAll('.select-all-region').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const regionCard = this.closest('.region-card');
-                const deviceCheckboxes = regionCard.querySelectorAll('.device-chk');
-                deviceCheckboxes.forEach(cb => {
-                    cb.checked = this.checked;
-                    updateDeviceSelection(cb);
-                });
-            });
-        });
-
         document.getElementById('bulkStartDate')?.addEventListener('change', updateBulkControls);
         document.getElementById('bulkEndDate')?.addEventListener('change', updateBulkControls);
     });
@@ -485,12 +497,17 @@
         if (canRun && uniqueStates.length === 1) {
             const s = uniqueStates[0];
             if (op === 'assign')   canRun = (s === 'unassigned');
-            if (op === 'unassign') canRun = (s === 'assigned');
+            if (op === 'unassign') canRun = (s === 'assigned' || s === 'delegated_active');
             if (op === 'delegate') canRun = (s === 'unassigned' || s === 'assigned');
+            if (op === 'endDelegation') canRun = (s === 'delegated_active');
         }
 
         btn.disabled = !canRun;
         btn.classList.toggle('is-disabled', !canRun);
+        const label = btn.querySelector('span');
+        if (label) {
+            label.textContent = op === 'endDelegation' ? `إنهاء الندب لـ (${count}) جهاز` : 'تنفيذ';
+        }
     }
 
     function fillAndSubmitBulkForm(actionUrl, fields) {
@@ -548,8 +565,8 @@
             actionUrl = '/employees/AssignBulk';
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
         } else if (op === 'unassign') {
-            if (selectionState !== 'assigned') {
-                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'عملية فك الربط متاحة فقط للأجهزة المرتبطة فعليًا.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+            if (!(selectionState === 'assigned' || selectionState === 'delegated_active')) {
+                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'عملية فك الربط متاحة فقط للأجهزة المرتبطة فعليًا أو المرتبطة عبر ندب.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
                 return;
             }
             opText = 'فك الربط';
@@ -575,6 +592,16 @@
             extraMeta = `<div>الفترة: <strong>${startDisplay} → ${endDisplay}</strong></div>`;
             iconHtml = '<i class="fa-solid fa-calendar-days text-sky"></i>';
             note = 'ملاحظة: سيتم إنهاء الندب تلقائيًا في تاريخ النهاية.';
+        } else if (op === 'endDelegation') {
+            if (selectionState !== 'delegated_active') {
+                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'إنهاء الندب متاح فقط للأجهزة المرتبطة عبر ندب نشط.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+                return;
+            }
+            opText = 'إنهاء الندب';
+            actionUrl = '/employees/end-delegation';
+            fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
+            iconHtml = '<i class="fa-solid fa-ban text-red-500"></i>';
+            note = 'سيتم إنهاء الندب فقط للأجهزة المحددة.';
         } else {
             await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى اختيار العملية.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
             return;
@@ -604,7 +631,63 @@
         fillAndSubmitBulkForm(actionUrl, fields);
     }
 
+    async function confirmDelegationScopeAction(button, scope) {
+        const form = button.closest('form');
+        if (!form) return;
+
+        const employeeText = getEmployeeText();
+        const terminalIds = Array.from(form.querySelectorAll('input[name="terminalIds"]'))
+            .map(input => (input.value || '').trim())
+            .filter(Boolean);
+        const card = button.closest('.device-card');
+        const regionCard = button.closest('.region-card');
+        const deviceName  = (card?.dataset?.deviceName   || '').trim();
+        const terminalId  = (card?.dataset?.terminalId   || '').trim();
+        const start       = (card?.dataset?.delegationStart || '').trim();
+        const end         = (card?.dataset?.delegationEnd   || '').trim();
+        const regionName  = (regionCard?.querySelector('.fw-bold')?.textContent || '').trim();
+        const datesText  = (start && end) ? `${start} → ${end}` : '';
+        const count = terminalIds.length;
+
+        let metaHtml = '';
+        if (scope === 'device') {
+            metaHtml = `
+                <div>الجهاز: <strong>${deviceName || terminalId || '-'}</strong></div>
+                ${terminalId ? `<div>TerminalId: <strong>${terminalId}</strong></div>` : ''}
+                ${datesText  ? `<div>الفترة: <strong>${datesText}</strong></div>` : ''}
+            `;
+        } else {
+            metaHtml = `
+                <div>عدد الأجهزة: <strong>${count}</strong></div>
+                ${regionName ? `<div>المنطقة: <strong>${regionName}</strong></div>` : ''}
+            `;
+        }
+
+        const confirmResult = await Swal.fire({
+            title: 'تأكيد العملية',
+            html: `<div class="c-swal-body">
+                    <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
+                    <p class="c-swal-lead c-swal-lead--sm">إنهاء الندب</p>
+                    <p class="c-swal-title">${employeeText}</p>
+                    <div class="c-swal-meta">${metaHtml}</div>
+                </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#692f39',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'نعم',
+            cancelButtonText:  'إلغاء'
+        });
+
+        if (confirmResult.isConfirmed) form.submit();
+    }
+
     async function confirmDelegationCardAction(button, action) {
+        if (action !== 'cancel') {
+            await confirmDelegationScopeAction(button, 'device');
+            return;
+        }
+
         const form = button.closest('form');
         if (!form) return;
 
@@ -614,15 +697,13 @@
         const terminalId  = (card?.dataset?.terminalId   || '').trim();
         const start       = (card?.dataset?.delegationStart || '').trim();
         const end         = (card?.dataset?.delegationEnd   || '').trim();
-
-        const actionText = action === 'cancel' ? 'إلغاء الندب' : 'إنهاء الندب';
         const datesText  = (start && end) ? `${start} → ${end}` : '';
 
         const confirmResult = await Swal.fire({
             title: 'تأكيد العملية',
             html: `<div class="c-swal-body">
                     <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
-                    <p class="c-swal-lead c-swal-lead--sm">${actionText}</p>
+                    <p class="c-swal-lead c-swal-lead--sm">إلغاء الندب</p>
                     <p class="c-swal-title">${employeeText}</p>
                     <div class="c-swal-meta">
                         <div>الجهاز: <strong>${deviceName || terminalId || '-'}</strong></div>

@@ -198,9 +198,9 @@ public sealed class EmployeesController : Controller
 
     [HttpPost("end-delegation")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EndDelegation(int employeeId, int delegationId, CancellationToken ct)
+    public async Task<IActionResult> EndDelegation(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
-        var ok = await _delegations.EndActiveDelegationAsync(delegationId, ct);
+        var ok = await _delegations.EndActiveDelegationAsync(employeeId, terminalIds, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم إنهاء الندب بنجاح" : "❌ تعذر إنهاء الندب";
 

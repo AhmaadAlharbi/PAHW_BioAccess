@@ -131,7 +131,13 @@ else
                                 @foreach (var d in Model.LatestDelegations)
                                 {
                                     <tr>
-                                        <td class="u-nowrap">@d.EmployeeText</td>
+                                        <td>
+                                            <div class="u-nowrap">@d.EmployeeText</div>
+                                            @if (!string.IsNullOrWhiteSpace(d.RegionText))
+                                            {
+                                                <div class="text-muted small">@d.RegionText</div>
+                                            }
+                                        </td>
                                         <td class="u-nowrap"><span class="@d.StatusBadgeClass">@d.StatusText</span></td>
                                         <td class="u-nowrap">@d.StartDateText</td>
                                         <td class="u-nowrap">@d.EndDateText</td>

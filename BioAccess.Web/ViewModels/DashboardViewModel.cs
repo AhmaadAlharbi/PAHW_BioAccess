@@ -11,6 +11,7 @@ public sealed class ActivityLogRowViewModel
 public sealed class DelegationRowViewModel
 {
     public string EmployeeText { get; set; } = "";
+    public string? RegionText { get; set; }
 
     public string StatusText { get; set; } = "";
     public string StatusBadgeClass { get; set; } = "badge badge-muted";
@@ -46,6 +47,7 @@ public sealed class DashboardViewModel
             "Scheduled" => "مجدول",
             "Expired" => "منتهي",
             "Cancelled" => "ملغي",
+            "ManuallyEnded" => "ملغي",
             _ => "—"
         };
 
@@ -56,6 +58,7 @@ public sealed class DashboardViewModel
             "Scheduled" => "badge badge-info",
             "Expired" => "badge badge-muted",
             "Cancelled" => "badge badge-muted",
+            "ManuallyEnded" => "badge badge-muted",
             _ => "badge badge-muted"
         };
 

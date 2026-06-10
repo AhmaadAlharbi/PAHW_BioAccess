@@ -9,6 +9,6 @@ public interface IDelegationService
         DateTime endDate,
         CancellationToken ct = default);
 
-    Task<bool> EndActiveDelegationAsync(int delegationId, CancellationToken ct = default);
+    Task<bool> EndActiveDelegationAsync(int employeeId, List<string> terminalIds, CancellationToken ct = default);
     Task<bool> CancelScheduledDelegationAsync(int delegationId, CancellationToken ct = default);
 }
