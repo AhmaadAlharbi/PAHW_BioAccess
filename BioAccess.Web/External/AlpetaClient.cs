@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using BioAccess.Web.DTOs;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace BioAccess.Web.External;
 
@@ -12,23 +11,18 @@ public class AlpetaClient
 {
     private readonly HttpClient _http;
     private readonly IConfiguration _config;
-    private readonly IMemoryCache _cache;
     private readonly SemaphoreSlim _loginLock = new(1, 1);
-    private static readonly object _devicesLock = new();
 
     // Alpeta uses a UUID token after login for later requests.
     private string? _uuid;
-    private const string UuidCacheKey   = "alpeta:uuid";
-    private const string DeviceCacheKey = "alpeta:devices:snapshot";
 
     // True when the device list came from local cache instead of live Alpeta data.
     public bool LastCallUsedFallback { get; private set; }
 
-    public AlpetaClient(HttpClient http, IConfiguration config, IMemoryCache cache)
+    public AlpetaClient(HttpClient http, IConfiguration config)
     {
         _http = http;
         _config = config;
-        _cache = cache;
     }
 
     private string BaseUrl => _config["Alpeta:BaseUrl"] ?? "http://192.168.120.56:9004/v1";
@@ -42,36 +36,15 @@ public class AlpetaClient
 
     private async Task EnsureLoggedInAsync(CancellationToken ct)
     {
-        // Reuse cached login info to avoid logging in before every request.
-        if (_cache.TryGetValue<string>(UuidCacheKey, out var cached) &&
-            !string.IsNullOrWhiteSpace(cached))
+        if (!string.IsNullOrWhiteSpace(_uuid))
         {
-            _uuid = cached;
-            _http.DefaultRequestHeaders.Remove("Uuid");
-            _http.DefaultRequestHeaders.Remove("UUID");
-            _http.DefaultRequestHeaders.Add("Uuid", _uuid);
-            _http.DefaultRequestHeaders.Add("UUID", _uuid);
+            ApplyUuidHeaders(_uuid);
             return;
         }
-
-        if (!string.IsNullOrWhiteSpace(_uuid))
-            return;
 
         await _loginLock.WaitAsync(ct);
         try
         {
-            // Check again inside the lock so only one request does the login.
-            if (_cache.TryGetValue<string>(UuidCacheKey, out cached) &&
-                !string.IsNullOrWhiteSpace(cached))
-            {
-                _uuid = cached;
-                _http.DefaultRequestHeaders.Remove("Uuid");
-                _http.DefaultRequestHeaders.Remove("UUID");
-                _http.DefaultRequestHeaders.Add("Uuid", _uuid);
-                _http.DefaultRequestHeaders.Add("UUID", _uuid);
-                return;
-            }
-
             // Another request may have already filled the token.
             if (!string.IsNullOrWhiteSpace(_uuid))
                 return;
@@ -95,12 +68,7 @@ public class AlpetaClient
             if (string.IsNullOrWhiteSpace(_uuid))
                 throw new Exception("Login succeeded but AccountInfo.Uuid is empty.");
 
-            _http.DefaultRequestHeaders.Remove("Uuid");
-            _http.DefaultRequestHeaders.Remove("UUID");
-            _http.DefaultRequestHeaders.Add("Uuid", _uuid);
-            _http.DefaultRequestHeaders.Add("UUID", _uuid);
-
-            _cache.Set(UuidCacheKey, _uuid, TimeSpan.FromMinutes(20));
+            ApplyUuidHeaders(_uuid);
         }
         finally
         {
@@ -125,98 +93,32 @@ public class AlpetaClient
 
     public async Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default)
     {
-        // === Device list with fallback cache ===
-        // Use the last good snapshot if Alpeta returns bad or empty data.
         LastCallUsedFallback = false;
 
-        // Cancellation should stop the request immediately.
         ct.ThrowIfCancellationRequested();
 
-        try
+        await EnsureLoggedInAsync(ct);
+
+        using var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
+
+        if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
+            _uuid = null;
             await EnsureLoggedInAsync(ct);
 
-            var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
+            using var retryRes = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
+            retryRes.EnsureSuccessStatusCode();
 
-            // Old tokens can expire. Clear and retry once.
-            if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-            {
-                _cache.Remove(UuidCacheKey);
-                _uuid = null;
-                await EnsureLoggedInAsync(ct);
-                res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
-            }
-
-            res.EnsureSuccessStatusCode();
-
-            var json = await res.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(json);
-
-            var list = new List<DeviceDto>();
-
-            // Parse Alpeta terminals into the app device model.
-            if (doc.RootElement.TryGetProperty("TerminalList", out var terminals) &&
-                terminals.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var t in terminals.EnumerateArray())
-                {
-                    var id       = t.TryGetProperty("ID",       out var idEl) ? idEl.ToString()        : "";
-                    var name     = t.TryGetProperty("Name",     out var nEl)  ? (nEl.GetString()  ?? "") : "";
-                    var location = t.TryGetProperty("Location", out var lEl)  ? (lEl.GetString()  ?? "") : "";
-
-                    if (string.IsNullOrWhiteSpace(id))
-                        continue;
-
-                    list.Add(new DeviceDto { DeviceId = id.Trim(), DeviceName = name, Location = location });
-                }
-            }
-
-            lock (_devicesLock)
-            {
-                var previous = _cache.Get<List<DeviceDto>>(DeviceCacheKey);
-
-                // Ignore clearly bad responses so the UI does not lose the device list.
-                var isValid =
-                    list.Count > 0 &&
-                    (
-                        previous is null
-                            ? list.Count > 20
-                            : list.Count >= previous.Count * 0.7
-                    );
-
-                if (isValid)
-                {
-                    _cache.Set(DeviceCacheKey, list, TimeSpan.FromMinutes(10));
-                    LastCallUsedFallback = false;
-                    return list;
-                }
-
-                if (previous is { Count: > 0 })
-                {
-                    LastCallUsedFallback = true;
-                    return previous;
-                }
-
-                return list;
-            }
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch
-        {
-            // Network error, auth failure, JSON error — fall through to cache.
+            var retryJson = await retryRes.Content.ReadAsStringAsync(ct);
+            using var retryDoc = JsonDocument.Parse(retryJson);
+            return ParseDevices(retryDoc.RootElement);
         }
 
-        // If live loading fails, use the last good device snapshot.
-        if (_cache.TryGetValue<List<DeviceDto>>(DeviceCacheKey, out var snapshot) && snapshot?.Count > 0)
-        {
-            LastCallUsedFallback = true;
-            return snapshot;
-        }
+        res.EnsureSuccessStatusCode();
 
-        return new List<DeviceDto>(); // No good snapshot exists yet.
+        var json = await res.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+        return ParseDevices(doc.RootElement);
     }
 
     // Load the terminals linked to one employee from Alpeta.
@@ -276,7 +178,7 @@ public class AlpetaClient
                     {
                         DeviceId = id,
                         DeviceName = $"Terminal {id}",
-                        Location = null
+                        Location = ""
                     });
                 }
             }
@@ -406,6 +308,37 @@ public class AlpetaClient
         }
 
         return null;
+    }
+
+    private static List<DeviceDto> ParseDevices(JsonElement root)
+    {
+        var list = new List<DeviceDto>();
+
+        if (root.TryGetProperty("TerminalList", out var terminals) &&
+            terminals.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var t in terminals.EnumerateArray())
+            {
+                var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
+                var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
+                var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
+
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
+
+                list.Add(new DeviceDto { DeviceId = id.Trim(), DeviceName = name, Location = location });
+            }
+        }
+
+        return list;
+    }
+
+    private void ApplyUuidHeaders(string uuid)
+    {
+        _http.DefaultRequestHeaders.Remove("Uuid");
+        _http.DefaultRequestHeaders.Remove("UUID");
+        _http.DefaultRequestHeaders.Add("Uuid", uuid);
+        _http.DefaultRequestHeaders.Add("UUID", uuid);
     }
 
 }
