@@ -127,67 +127,48 @@ public class AlpetaClient
         IReadOnlyCollection<DeviceDto>? allDevices = null,
         CancellationToken ct = default)
     {
-        await EnsureLoggedInAsync(ct);
+        var result = await TryGetEmployeeDevicesAsync(employeeId, allDevices, ct);
+        return result.Devices;
+    }
 
-        var userId = FormatUserId(employeeId);
-        var url = $"{BaseUrl.TrimEnd('/')}/users/{userId}/terminaluser";
-
-        using var res = await _http.GetAsync(url, ct);
-
-        // Missing user in Alpeta means no linked terminals.
-        if (res.StatusCode == HttpStatusCode.NotFound)
-            return new List<DeviceDto>();
-
-        if (!res.IsSuccessStatusCode)
-            return new List<DeviceDto>();
-
-        var json = await res.Content.ReadAsStringAsync(ct);
-        if (string.IsNullOrWhiteSpace(json))
-            return new List<DeviceDto>();
-
+    public async Task<(bool Success, List<DeviceDto> Devices)> TryGetEmployeeDevicesAsync(
+        int employeeId,
+        IReadOnlyCollection<DeviceDto>? allDevices = null,
+        CancellationToken ct = default)
+    {
         try
         {
+            await EnsureLoggedInAsync(ct);
+
+            var userId = FormatUserId(employeeId);
+            var url = $"{BaseUrl.TrimEnd('/')}/users/{userId}/terminaluser";
+
+            using var res = await _http.GetAsync(url, ct);
+
+            // Missing user in Alpeta means no linked terminals.
+            if (res.StatusCode == HttpStatusCode.NotFound)
+                return (true, new List<DeviceDto>());
+
+            if (!res.IsSuccessStatusCode)
+                return (false, new List<DeviceDto>());
+
+            var json = await res.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(json))
+                return (false, new List<DeviceDto>());
+
             using var doc = JsonDocument.Parse(json);
 
             // Match returned terminal IDs with the full device list for names and location.
             var all = allDevices ?? await GetAllDevicesAsync(ct);
-            var byId = all
-                .Where(d => !string.IsNullOrWhiteSpace(d.DeviceId))
-                .GroupBy(d => d.DeviceId!.Trim(), StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-            // Alpeta response names are not stable, so terminal IDs are extracted loosely.
-            var ids = ExtractTerminalIds(doc.RootElement)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Select(x => x.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var list = new List<DeviceDto>();
-
-            foreach (var id in ids)
-            {
-                if (byId.TryGetValue(id, out var dev))
-                {
-                    list.Add(dev);
-                }
-                else
-                {
-                    // Keep the terminal visible even if it was not in the main device list.
-                    list.Add(new DeviceDto
-                    {
-                        DeviceId = id,
-                        DeviceName = $"Terminal {id}",
-                        Location = ""
-                    });
-                }
-            }
-
-            return list;
+            return (true, BuildEmployeeDevices(doc.RootElement, all));
         }
         catch (JsonException)
         {
-            return new List<DeviceDto>();
+            return (false, new List<DeviceDto>());
+        }
+        catch
+        {
+            return (false, new List<DeviceDto>());
         }
     }
 
@@ -308,6 +289,43 @@ public class AlpetaClient
         }
 
         return null;
+    }
+
+    private static List<DeviceDto> BuildEmployeeDevices(JsonElement root, IReadOnlyCollection<DeviceDto> allDevices)
+    {
+        var byId = allDevices
+            .Where(d => !string.IsNullOrWhiteSpace(d.DeviceId))
+            .GroupBy(d => d.DeviceId!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // Alpeta response names are not stable, so terminal IDs are extracted loosely.
+        var ids = ExtractTerminalIds(root)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var list = new List<DeviceDto>();
+
+        foreach (var id in ids)
+        {
+            if (byId.TryGetValue(id, out var dev))
+            {
+                list.Add(dev);
+            }
+            else
+            {
+                // Keep the terminal visible even if it was not in the main device list.
+                list.Add(new DeviceDto
+                {
+                    DeviceId = id,
+                    DeviceName = $"Terminal {id}",
+                    Location = ""
+                });
+            }
+        }
+
+        return list;
     }
 
     private static List<DeviceDto> ParseDevices(JsonElement root)

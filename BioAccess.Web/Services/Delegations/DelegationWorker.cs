@@ -1,8 +1,8 @@
 using BioAccess.Web.Persistence;
+using BioAccess.Web.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using BioAccess.Web.Contracts;
 using BioAccess.Web.Services.Activity;
 
 namespace BioAccess.Web.Services.Delegations;
@@ -28,87 +28,40 @@ public class DelegationWorker : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<LocalAppDbContext>();
-                var api = scope.ServiceProvider.GetRequiredService<IEmployeeDevicesApi>();
                 var activity = scope.ServiceProvider.GetRequiredService<IActivityLogService>();
+                var alpetaSync = scope.ServiceProvider.GetRequiredService<DelegationAlpetaSyncService>();
 
                 var now = DateTime.Now;
 
-                // Start delegations whose time has arrived.
-                var toStart = await db.Delegations
+                var delegations = await db.Delegations
                     .Include(x => x.Terminals)
-                    .Where(x => x.Status == "Scheduled" && x.StartDate <= now)
+                    .Where(x => x.Status == "Scheduled" || x.Status == "Active")
                     .ToListAsync(stoppingToken);
 
-                foreach (var del in toStart)
+                foreach (var del in delegations)
                 {
-                    var terminals = del.Terminals
-                        .Select(t => t.TerminalId)
-                        .ToList();
-                    var employeeText = FormatEmployeeText(null, del.EmployeeId);
-                    var actorText = FormatActorText("DelegationWorker", null);
-
-                    foreach (var terminalId in terminals)
+                    if (del.Status == "Scheduled" && del.EndDate <= now)
                     {
-                        // Retry a few times because Alpeta can fail temporarily.
-                        var success = false;
-                        for (var i = 1; i <= 3 && !success; i++)
-                        {
-                            success = await api.AssignOneAsync(del.EmployeeId, terminalId, stoppingToken);
-                            if (!success) await Task.Delay(500, stoppingToken);
-                        }
+                        del.Status = "Expired";
+                        del.ExpiredAt = now;
+                        continue;
                     }
 
-                    del.Status = "Active";
-                    del.ActivatedAt = now;
-
-                    await activity.LogSystemAsync(
-                        actorName: "DelegationWorker",
-                        action: "Delegation.Activated",
-                        entityType: "Delegation",
-                        entityId: del.Id.ToString(),
-                        summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({terminals.Count}) أجهزة\nبواسطة: {actorText}",
-                        details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
-                        ct: stoppingToken
-                    );
-                }
-
-                // End delegations whose end date has passed.
-                var toExpire = await db.Delegations
-                    .Include(x => x.Terminals)
-                    .Where(x => x.Status == "Active" && x.EndDate <= now)
-                    .ToListAsync(stoppingToken);
-
-                foreach (var del in toExpire)
-                {
-                    var terminals = del.Terminals
-                        .Select(t => t.TerminalId)
-                        .ToList();
-                    var employeeText = FormatEmployeeText(null, del.EmployeeId);
-                    var actorText = FormatActorText("DelegationWorker", null);
-
-                    foreach (var terminalId in terminals)
+                    if (del.Status == "Scheduled" && del.StartDate <= now && del.EndDate > now)
                     {
-                        // Retry a few times because Alpeta can fail temporarily.
-                        var success = false;
-                        for (var i = 1; i <= 3 && !success; i++)
-                        {
-                            success = await api.UnassignOneAsync(del.EmployeeId, terminalId, stoppingToken);
-                            if (!success) await Task.Delay(500, stoppingToken);
-                        }
+                        del.Status = "Active";
                     }
 
-                    del.Status = "Expired";
-                    del.ExpiredAt = now;
+                    if (del.Status != "Active")
+                        continue;
 
-                    await activity.LogSystemAsync(
-                        actorName: "DelegationWorker",
-                        action: "Delegation.Expired",
-                        entityType: "Delegation",
-                        entityId: del.Id.ToString(),
-                        summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
-                        details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
-                        ct: stoppingToken
-                    );
+                    if (del.EndDate <= now)
+                    {
+                        await ExpireDelegationAsync(db, activity, alpetaSync, del, now, stoppingToken);
+                        continue;
+                    }
+
+                    await EnsureActiveDelegationAsync(activity, alpetaSync, del, now, stoppingToken);
                 }
 
                 await db.SaveChangesAsync(stoppingToken);
@@ -133,5 +86,97 @@ public class DelegationWorker : BackgroundService
         var name = string.IsNullOrWhiteSpace(actorName) ? "غير معروف" : actorName.Trim();
         var id = string.IsNullOrWhiteSpace(actorId) ? "غير معروف" : actorId.Trim();
         return $"{name} ({id})";
+    }
+
+    private static async Task EnsureActiveDelegationAsync(
+        IActivityLogService activity,
+        DelegationAlpetaSyncService alpetaSync,
+        Delegation del,
+        DateTime now,
+        CancellationToken ct)
+    {
+        var wasScheduled = del.ActivatedAt is null;
+        var snapshotReady = del.ActivatedAt is not null
+            || await alpetaSync.TryCaptureActivationSnapshotAsync(del, now, ct);
+
+        if (!snapshotReady)
+            return;
+
+        var terminals = (del.Terminals ?? new())
+            .Where(t => !string.IsNullOrWhiteSpace(t.TerminalId))
+            .Select(t => t.TerminalId.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var terminalId in terminals)
+            await alpetaSync.EnsureAssignedAsync(del.Id, del.EmployeeId, terminalId, "active", ct);
+
+        if (!wasScheduled)
+            return;
+
+        var employeeText = FormatEmployeeText(null, del.EmployeeId);
+        var actorText = FormatActorText("DelegationWorker", null);
+
+        await activity.LogSystemAsync(
+            actorName: "DelegationWorker",
+            action: "Delegation.Activated",
+            entityType: "Delegation",
+            entityId: del.Id.ToString(),
+            summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({terminals.Count}) أجهزة\nبواسطة: {actorText}",
+            details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
+            ct: ct
+        );
+    }
+
+    private static async Task ExpireDelegationAsync(
+        LocalAppDbContext db,
+        IActivityLogService activity,
+        DelegationAlpetaSyncService alpetaSync,
+        Delegation del,
+        DateTime now,
+        CancellationToken ct)
+    {
+        var terminals = (del.Terminals ?? new())
+            .Where(t => !string.IsNullOrWhiteSpace(t.TerminalId))
+            .ToList();
+
+        del.Status = "Expired";
+        del.ExpiredAt = now;
+
+        foreach (var terminal in terminals)
+        {
+            var terminalId = terminal.TerminalId.Trim();
+            if (terminal.WasAssignedBefore)
+                continue;
+
+            var coveredByAnotherDelegation = await db.DelegationTerminals
+                .AnyAsync(
+                    x => x.DelegationId != del.Id &&
+                         x.Delegation != null &&
+                         x.Delegation.EmployeeId == del.EmployeeId &&
+                         x.TerminalId == terminalId &&
+                         x.Delegation.Status == "Active" &&
+                         x.Delegation.StartDate <= now &&
+                         x.Delegation.EndDate > now,
+                    ct);
+
+            if (coveredByAnotherDelegation)
+                continue;
+
+            await alpetaSync.EnsureUnassignedAsync(del.Id, del.EmployeeId, terminalId, "expired", ct);
+        }
+
+        var employeeText = FormatEmployeeText(null, del.EmployeeId);
+        var actorText = FormatActorText("DelegationWorker", null);
+
+        await activity.LogSystemAsync(
+            actorName: "DelegationWorker",
+            action: "Delegation.Expired",
+            entityType: "Delegation",
+            entityId: del.Id.ToString(),
+            summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
+            details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
+            ct: ct
+        );
     }
 }

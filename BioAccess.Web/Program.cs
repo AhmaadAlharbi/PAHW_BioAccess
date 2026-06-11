@@ -51,6 +51,7 @@ builder.Services.AddSession(options =>
 builder.Services.AddScoped<IAllowedUsersStore, SqliteAllowedUsersStore>();
 builder.Services.AddScoped<AllowedUsersAdminService>();
 builder.Services.AddScoped<IAllowedUsersAdmin, AllowedUsersAdminService>();
+builder.Services.AddScoped<DelegationAlpetaSyncService>();
 builder.Services.AddScoped<DelegationService>();
 builder.Services.AddScoped<IDelegationService, DelegationService>();
 // -------------------------

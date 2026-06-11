@@ -12,14 +12,18 @@ public class DelegationService : IDelegationService
 {
     private readonly LocalAppDbContext _db;
     private readonly IActivityLogService _activity;
-    private readonly IEmployeeDevicesApi _api;
+    private readonly DelegationAlpetaSyncService _alpetaSync;
     private readonly IHttpContextAccessor _http;
 
-    public DelegationService(LocalAppDbContext db, IActivityLogService activity, IEmployeeDevicesApi api, IHttpContextAccessor http)
+    public DelegationService(
+        LocalAppDbContext db,
+        IActivityLogService activity,
+        DelegationAlpetaSyncService alpetaSync,
+        IHttpContextAccessor http)
     {
         _db = db;
         _activity = activity;
-        _api = api;
+        _alpetaSync = alpetaSync;
         _http = http;
     }
 
@@ -31,10 +35,19 @@ public class DelegationService : IDelegationService
         CancellationToken ct = default)
     {
         // Basic validation before saving the delegation.
-        if (terminalIds == null || terminalIds.Count == 0)
+        if (employeeId <= 0 || terminalIds == null || terminalIds.Count == 0)
             return "Invalid";
 
         if (endDate < startDate)
+            return "Invalid";
+
+        var normalizedTerminalIds = terminalIds
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalizedTerminalIds.Count == 0)
             return "Invalid";
 
         // Store whole-day ranges so the delegation stays active until end of day.
@@ -53,14 +66,25 @@ public class DelegationService : IDelegationService
             EndDate = endDate,
             Status = status,
             CreatedAt = now,
-            Terminals = terminalIds
-                .Where(t => !string.IsNullOrWhiteSpace(t))
-                .Select(t => new DelegationTerminal { TerminalId = t.Trim() })
+            Terminals = normalizedTerminalIds
+                .Select(t => new DelegationTerminal { TerminalId = t })
                 .ToList()
         };
 
         _db.Delegations.Add(d);
         await _db.SaveChangesAsync(ct);
+
+        if (status == "Active")
+        {
+            var snapshotReady = await _alpetaSync.TryCaptureActivationSnapshotAsync(d, now, ct);
+            if (snapshotReady)
+            {
+                await _db.SaveChangesAsync(ct);
+
+                foreach (var terminal in d.Terminals)
+                    await _alpetaSync.EnsureAssignedAsync(d.Id, d.EmployeeId, terminal.TerminalId, "manual", ct);
+            }
+        }
 
         var employeeName = await _db.AllowedUsers
             .AsNoTracking()
@@ -70,11 +94,7 @@ public class DelegationService : IDelegationService
 
         var employeeText = FormatEmployeeText(employeeName, employeeId);
         var actorText = GetActorText();
-        var delegatedTerminalIds = terminalIds
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .Select(t => t.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var delegatedTerminalIds = normalizedTerminalIds;
 
         // Region names are loaded only for the activity log text.
         var regionNames = await _db.TerminalRegionMaps
@@ -93,8 +113,8 @@ public class DelegationService : IDelegationService
             action: "Delegation.Created",
             entityType: "Delegation",
             entityId: d.Id.ToString(),
-            summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({terminalIds.Count}) أجهزة{regionsLine}\nمن {startDate:yyyy-MM-dd} إلى {endDate:yyyy-MM-dd}\nبواسطة: {actorText}",
-            details: new { employeeId, employeeName, terminalCount = terminalIds.Count, startDate, endDate, status },
+            summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({delegatedTerminalIds.Count}) أجهزة{regionsLine}\nمن {startDate:yyyy-MM-dd} إلى {endDate:yyyy-MM-dd}\nبواسطة: {actorText}",
+            details: new { employeeId, employeeName, terminalCount = delegatedTerminalIds.Count, startDate, endDate, status },
             ct: ct
         );
 
@@ -131,15 +151,27 @@ public class DelegationService : IDelegationService
         if (matchedRows.Count == 0) return false;
 
         var successCount = 0;
+        var unassignedCount = 0;
         foreach (var row in matchedRows)
         {
             var terminalId = (row.Terminal.TerminalId ?? "").Trim();
-            var success = false;
-            // Retry because Alpeta calls may fail for short network or session issues.
-            for (var i = 1; i <= 3 && !success; i++)
+            var success = true;
+            var coveredByAnotherDelegation = await IsCoveredByAnotherActiveDelegationAsync(
+                row.Delegation.Id,
+                employeeId,
+                terminalId,
+                ct);
+
+            if (!row.Terminal.WasAssignedBefore && !coveredByAnotherDelegation)
             {
-                success = await _api.UnassignOneAsync(employeeId, terminalId, ct);
-                if (!success) await Task.Delay(500, ct);
+                success = await _alpetaSync.EnsureUnassignedAsync(
+                    row.Delegation.Id,
+                    employeeId,
+                    terminalId,
+                    "manual",
+                    ct);
+                if (success)
+                    unassignedCount++;
             }
 
             if (!success) continue;
@@ -190,7 +222,7 @@ public class DelegationService : IDelegationService
             entityType: "Delegation",
             entityId: null,
             summary: $"تم إنهاء انتداب الموظف {employeeText} لعدد ({successCount}) أجهزة{regionsLine}\nبواسطة: {actorText}",
-            details: new { employeeId, employeeName, terminalCount = successCount, terminalIds = selectedTerminalIds, unassigned = successCount },
+            details: new { employeeId, employeeName, terminalCount = successCount, terminalIds = selectedTerminalIds, unassigned = unassignedCount },
             ct: ct
         );
 
@@ -237,6 +269,21 @@ public class DelegationService : IDelegationService
     private string GetActorText()
         // Read the current user from session for audit logs.
         => FormatActorText(_http.HttpContext?.Session.GetString("EmpName"), _http.HttpContext?.Session.GetString("EmpId"));
+
+    private Task<bool> IsCoveredByAnotherActiveDelegationAsync(
+        int delegationId,
+        int employeeId,
+        string terminalId,
+        CancellationToken ct)
+        => _db.DelegationTerminals.AnyAsync(
+            x => x.DelegationId != delegationId &&
+                 x.Delegation != null &&
+                 x.Delegation.EmployeeId == employeeId &&
+                 x.TerminalId == terminalId &&
+                 x.Delegation.Status == "Active" &&
+                 x.Delegation.StartDate <= DateTime.Now &&
+                 x.Delegation.EndDate > DateTime.Now,
+            ct);
 
     private static string FormatEmployeeText(string? employeeName, int employeeId)
         => string.IsNullOrWhiteSpace(employeeName)
