@@ -158,6 +158,40 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             });
         }
 
+        // Assigned devices whose IDs are absent from allDevices would be silently dropped by the
+        // loop above. A second pass ensures they always appear, using the placeholder DeviceDto
+        // that GetEmployeeDevicesAsync already provides for exactly this case.
+        var coveredIds = new HashSet<string>(
+            rows.Where(r => !string.IsNullOrWhiteSpace(r.DeviceId)).Select(r => r.DeviceId!),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var d in assigned)
+        {
+            var id = d.DeviceId?.Trim();
+            if (string.IsNullOrWhiteSpace(id) || coveredIds.Contains(id)) continue;
+
+            mappings.TryGetValue(id, out var regId);
+            regionNameById.TryGetValue(regId, out var regName);
+            var isDelegatedActive = activeDelegatedTerminalIds.Contains(id);
+            delegatedRowsByTerminal.TryGetValue(id, out var delRow);
+
+            rows.Add(new DeviceRowDto
+            {
+                DeviceId = id,
+                DeviceName = d.DeviceName,
+                IsAssigned = true,
+                IsDelegated = delRow != null,
+                IsDelegatedActive = isDelegatedActive,
+                DelegationId = delRow?.DelegationId,
+                DelegationStatus = delRow?.Status,
+                IsEffectivelyAssigned = true,
+                DelegationStartDate = delRow?.StartDate,
+                DelegationEndDate = delRow?.EndDate,
+                RegionId = regId == 0 ? null : regId,
+                RegionName = string.IsNullOrWhiteSpace(regName) ? "أجهزة غير مصنفة" : regName
+            });
+        }
+
         // Group devices by region so the page can show them as region sections.
         var groups = rows
             .GroupBy(x => new { x.RegionId, RegionName = string.IsNullOrWhiteSpace(x.RegionName) ? "أجهزة غير مصنفة" : x.RegionName })
