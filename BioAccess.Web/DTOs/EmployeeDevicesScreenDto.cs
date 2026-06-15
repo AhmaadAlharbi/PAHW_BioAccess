@@ -3,6 +3,7 @@ namespace BioAccess.Web.DTOs;
 public sealed class EmployeeDevicesScreenDto
 {
     public EmployeeDto Employee { get; set; } = default!;
+    public string? Error { get; set; }
     public List<DeviceRowDto> Devices { get; set; } = new();
     public List<RegionGroupDto> RegionGroups { get; set; } = new();
 }

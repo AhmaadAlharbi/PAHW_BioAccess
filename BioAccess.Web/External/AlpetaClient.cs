@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using BioAccess.Web.DTOs;
-
+ 
 namespace BioAccess.Web.External;
 
 // Low-level client for Alpeta login, device list, and user-terminal assignment.
@@ -72,7 +72,10 @@ public class AlpetaClient
         {
             // Another request may have already filled the token.
             if (!string.IsNullOrWhiteSpace(_uuid))
+            {
+                ApplyUuidHeaders(_uuid);
                 return;
+            }
 
             var loginUrl = $"{BaseUrl}/login";
             var payload = new { userId = UserId, password = Password, userType = UserType };
@@ -103,6 +106,14 @@ public class AlpetaClient
         }
     }
 
+    private void ClearCachedSession()
+    {
+        _uuid = null;
+        _cache.Remove(UuidCacheKey);
+        _http.DefaultRequestHeaders.Remove("Uuid");
+        _http.DefaultRequestHeaders.Remove("UUID");
+    }
+
     public async Task<bool> PingAsync(CancellationToken ct = default)
     {
         // Simple health check used to see if Alpeta is reachable.
@@ -126,30 +137,49 @@ public class AlpetaClient
         ct.ThrowIfCancellationRequested();
 
         await EnsureLoggedInAsync(ct);
-
-        using var timeoutCts = CreateTimeoutTokenSource(ct);
-        using var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", timeoutCts.Token);
-
-        if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        var url = $"{BaseUrl}/terminals?offset=0&limit=500";
+        var firstAttempt = await TryReadAllDevicesResponseAsync(url, ct);
+        if (firstAttempt.Success)
         {
-            _uuid = null;
-            _cache.Remove(UuidCacheKey);
-            await EnsureLoggedInAsync(ct);
-
-            using var retryTimeoutCts = CreateTimeoutTokenSource(ct);
-            using var retryRes = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", retryTimeoutCts.Token);
-            retryRes.EnsureSuccessStatusCode();
-
-            var retryJson = await retryRes.Content.ReadAsStringAsync(retryTimeoutCts.Token);
-            using var retryDoc = JsonDocument.Parse(retryJson);
-            return await ParseDevicesAsync(retryDoc.RootElement, retryTimeoutCts.Token);
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", firstAttempt.Devices.Count, true);
+            return firstAttempt.Devices;
         }
 
-        res.EnsureSuccessStatusCode();
+        if (firstAttempt.SessionExpired)
+        {
+            if (firstAttempt.InvalidPayload)
+            {
+                _logger.LogWarning("ALPETA_INVALID_PAYLOAD_TREATED_AS_SESSION_EXPIRED scope=all");
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "ALPETA_SESSION_EXPIRED scope=all statusCode={StatusCode}",
+                    (int)firstAttempt.StatusCode!.Value);
+            }
 
-        var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
-        using var doc = JsonDocument.Parse(json);
-        return await ParseDevicesAsync(doc.RootElement, timeoutCts.Token);
+            ClearCachedSession();
+            await EnsureLoggedInAsync(ct);
+
+            var retryAttempt = await TryReadAllDevicesResponseAsync(url, ct);
+            if (retryAttempt.Success)
+            {
+                _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", retryAttempt.Devices.Count, true);
+                return retryAttempt.Devices;
+            }
+
+            _logger.LogWarning(
+                "ALPETA_READ_FAILED scope=all statusCode={StatusCode}",
+                retryAttempt.StatusCode.HasValue ? (int)retryAttempt.StatusCode.Value : -1);
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", 0, false);
+            throw new InvalidOperationException("Failed to read Alpeta terminals after session refresh.");
+        }
+
+        _logger.LogWarning(
+            "ALPETA_READ_FAILED scope=all statusCode={StatusCode}",
+            firstAttempt.StatusCode.HasValue ? (int)firstAttempt.StatusCode.Value : -1);
+        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", 0, false);
+        throw new InvalidOperationException("Failed to read Alpeta terminals.");
     }
 
     // Load the terminals linked to one employee from Alpeta.
@@ -159,6 +189,14 @@ public class AlpetaClient
         CancellationToken ct = default)
     {
         var result = await TryGetEmployeeDevicesAsync(employeeId, allDevices, ct);
+        if (!result.Success)
+        {
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
+            throw new InvalidOperationException($"Failed to read Alpeta devices for employee {employeeId}.");
+        }
+
+        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", result.Devices.Count, true, employeeId);
+
         return result.Devices;
     }
 
@@ -174,34 +212,147 @@ public class AlpetaClient
             var userId = FormatUserId(employeeId);
             var url = $"{BaseUrl.TrimEnd('/')}/users/{userId}/terminaluser";
 
-            using var timeoutCts = CreateTimeoutTokenSource(ct);
-            using var res = await _http.GetAsync(url, timeoutCts.Token);
+            var firstAttempt = await TryReadEmployeeDevicesResponseAsync(url, employeeId, allDevices, ct);
+            if (firstAttempt.Success)
+                return (true, firstAttempt.Devices);
 
-            // Missing user in Alpeta means no linked terminals.
-            if (res.StatusCode == HttpStatusCode.NotFound)
-                return (true, new List<DeviceDto>());
-
-            if (!res.IsSuccessStatusCode)
-                return (false, new List<DeviceDto>());
-
-            var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
-            if (string.IsNullOrWhiteSpace(json))
-                return (false, new List<DeviceDto>());
-
-            using var doc = JsonDocument.Parse(json);
-
-            // Match returned terminal IDs with the full device list for names and location.
-            var all = allDevices ?? await GetAllDevicesAsync(ct);
-            return (true, BuildEmployeeDevices(doc.RootElement, all));
-        }
-        catch (JsonException)
+        if (firstAttempt.SessionExpired)
         {
+            if (firstAttempt.InvalidPayload)
+            {
+                _logger.LogWarning(
+                    "ALPETA_INVALID_PAYLOAD_TREATED_AS_SESSION_EXPIRED employeeId={EmployeeId}",
+                    employeeId);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "ALPETA_SESSION_EXPIRED employeeId={EmployeeId} statusCode={StatusCode}",
+                    employeeId,
+                    (int)firstAttempt.StatusCode!.Value);
+            }
+
+            ClearCachedSession();
+            await EnsureLoggedInAsync(ct);
+
+            var retryAttempt = await TryReadEmployeeDevicesResponseAsync(url, employeeId, allDevices, ct);
+                if (retryAttempt.Success)
+                    return (true, retryAttempt.Devices);
+
+                _logger.LogWarning(
+                    "ALPETA_READ_FAILED employeeId={EmployeeId} statusCode={StatusCode}",
+                    employeeId,
+                    retryAttempt.StatusCode.HasValue ? (int)retryAttempt.StatusCode.Value : -1);
+                _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
+                return (false, new List<DeviceDto>());
+            }
+
+            _logger.LogWarning(
+                "ALPETA_READ_FAILED employeeId={EmployeeId} statusCode={StatusCode}",
+                employeeId,
+                firstAttempt.StatusCode.HasValue ? (int)firstAttempt.StatusCode.Value : -1);
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
             return (false, new List<DeviceDto>());
         }
-        catch
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
         {
+            _logger.LogWarning(
+                ex,
+                "ALPETA_TIMEOUT_READ employeeId={EmployeeId}",
+                employeeId);
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
             return (false, new List<DeviceDto>());
         }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "ALPETA_READ_FAILED employeeId={EmployeeId}",
+                employeeId);
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
+            return (false, new List<DeviceDto>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "ALPETA_READ_FAILED employeeId={EmployeeId}",
+                employeeId);
+            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
+            return (false, new List<DeviceDto>());
+        }
+    }
+
+    private async Task<(bool Success, List<DeviceDto> Devices, HttpStatusCode? StatusCode, bool InvalidPayload, bool SessionExpired)> TryReadAllDevicesResponseAsync(
+        string url,
+        CancellationToken ct)
+    {
+        using var timeoutCts = CreateTimeoutTokenSource(ct);
+        using var res = await _http.GetAsync(url, timeoutCts.Token);
+
+        if (!res.IsSuccessStatusCode)
+            return (false, new List<DeviceDto>(), res.StatusCode, false, res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
+
+        var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            _logger.LogWarning("ALPETA_READ_FAILED scope=all reason=EmptyBody");
+            return (false, new List<DeviceDto>(), res.StatusCode, false, false);
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        var devices = await ParseDevicesAsync(doc.RootElement, timeoutCts.Token);
+        if (!IsValidAllDevicesPayload(doc.RootElement, devices))
+        {
+            _logger.LogWarning(
+                "ALPETA_READ_FAILED scope=all reason=UnexpectedPayload payloadSnippet={PayloadSnippet}",
+                CreatePayloadSnippet(json));
+            return (false, new List<DeviceDto>(), res.StatusCode, true, true);
+        }
+
+        return (true, devices, res.StatusCode, false, false);
+    }
+
+    private async Task<(bool Success, List<DeviceDto> Devices, HttpStatusCode? StatusCode, bool InvalidPayload, bool SessionExpired)> TryReadEmployeeDevicesResponseAsync(
+        string url,
+        int employeeId,
+        IReadOnlyCollection<DeviceDto>? allDevices,
+        CancellationToken ct)
+    {
+        using var timeoutCts = CreateTimeoutTokenSource(ct);
+        using var res = await _http.GetAsync(url, timeoutCts.Token);
+
+        // Missing user in Alpeta means no linked terminals.
+        if (res.StatusCode == HttpStatusCode.NotFound)
+            return (true, new List<DeviceDto>(), res.StatusCode, false, false);
+
+        if (!res.IsSuccessStatusCode)
+            return (false, new List<DeviceDto>(), res.StatusCode, false, res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
+
+        var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            _logger.LogWarning(
+                "ALPETA_READ_FAILED employeeId={EmployeeId} reason=EmptyBody",
+                employeeId);
+            return (false, new List<DeviceDto>(), res.StatusCode, false, false);
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        if (!IsValidEmployeeDevicesPayload(doc.RootElement))
+        {
+            _logger.LogWarning(
+                "ALPETA_READ_FAILED employeeId={EmployeeId} reason=UnexpectedPayload payloadSnippet={PayloadSnippet}",
+                employeeId,
+                CreatePayloadSnippet(json));
+            return (false, new List<DeviceDto>(), res.StatusCode, true, true);
+        }
+
+        // Match returned terminal IDs with the full device list for names and location.
+        var all = allDevices ?? await GetAllDevicesAsync(ct);
+        var devices = BuildEmployeeDevices(doc.RootElement, all);
+        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", devices.Count, true, employeeId);
+        return (true, devices, res.StatusCode, false, false);
     }
 
     // Assign one employee to one terminal in Alpeta.
@@ -480,6 +631,49 @@ public class AlpetaClient
         }
 
         return list;
+    }
+
+    private static bool IsValidEmployeeDevicesPayload(JsonElement root)
+    {
+        if (root.ValueKind == JsonValueKind.Array)
+            return true;
+
+        if (root.ValueKind != JsonValueKind.Object)
+            return false;
+
+        if (root.TryGetProperty("TerminalTinyList", out var tiny) && tiny.ValueKind == JsonValueKind.Array)
+            return true;
+
+        if (root.TryGetProperty("Rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
+            return true;
+
+        foreach (var prop in root.EnumerateObject())
+        {
+            if (prop.Value.ValueKind == JsonValueKind.Array)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsValidAllDevicesPayload(JsonElement root, List<DeviceDto> devices)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            return false;
+
+        if (!root.TryGetProperty("TerminalList", out var terminals) || terminals.ValueKind != JsonValueKind.Array)
+            return false;
+
+        return devices.Count > 0 || terminals.GetArrayLength() == 0;
+    }
+
+    private static string CreatePayloadSnippet(string payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+            return "<empty>";
+
+        payload = payload.Replace(Environment.NewLine, " ").Replace("\n", " ").Replace("\r", " ").Trim();
+        return payload.Length <= 300 ? payload : payload[..300];
     }
 
     private async Task<List<DeviceDto>> ParseDevicesAsync(JsonElement root, CancellationToken ct)

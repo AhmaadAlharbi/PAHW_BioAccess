@@ -28,7 +28,7 @@ public sealed class EmployeesController : Controller
         if (!employeeId.HasValue || employeeId.Value <= 0)
             return View("Search", null);
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId.Value, ct);
+        var screen = await LoadScreenAsync(employeeId.Value, ct);
         return View("Search", screen);
     }
 
@@ -38,7 +38,7 @@ public sealed class EmployeesController : Controller
         // Load the full employee screen for a direct search request.
         if (employeeId <= 0) return View("Search");
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         TempData["LastEmployeeId"] = employeeId.ToString();
         return View("Search", screen);
     }
@@ -48,7 +48,7 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> SearchPost([FromForm] int employeeId, CancellationToken ct)
     {
         // POST version used by the search form on the page.
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         if (screen?.Employee is null)
@@ -72,7 +72,7 @@ public sealed class EmployeesController : Controller
         TempData["ToastMsg"] = (result.Success ? "✅ " : "❌ ") + result.Message;
         TempData["LastEmployeeId"] = employeeId.ToString();
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         if (result.Success)
         {
             // Log only after reloading the screen so the log can include region info.
@@ -98,7 +98,7 @@ public sealed class EmployeesController : Controller
         TempData["ToastMsg"] = (result.Success ? "✅ " : "❌ ") + result.Message;
         TempData["LastEmployeeId"] = employeeId.ToString();
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         if (result.Success)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
@@ -147,7 +147,7 @@ public sealed class EmployeesController : Controller
             TempData["ToastMsg"] = $"✅ تم ربط {successCount} جهاز";
         }
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         if (successCount > 0)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
@@ -196,7 +196,7 @@ public sealed class EmployeesController : Controller
             TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {successCount} جهاز";
         }
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         if (successCount > 0)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
@@ -233,7 +233,7 @@ public sealed class EmployeesController : Controller
             TempData["ToastMsg"] = "✅ تم جدولة الانتداب بنجاح";
         }
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         return View("Search", screen);
     }
 
@@ -246,7 +246,7 @@ public sealed class EmployeesController : Controller
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم إنهاء الندب بنجاح" : "❌ تعذر إنهاء الندب";
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         return View("Search", screen);
     }
 
@@ -259,8 +259,20 @@ public sealed class EmployeesController : Controller
         TempData["ToastType"] = ok ? "success" : "danger";
         TempData["ToastMsg"] = ok ? "✅ تم إلغاء الندب بنجاح" : "❌ تعذر إلغاء الندب";
 
-        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        var screen = await LoadScreenAsync(employeeId, ct);
         return View("Search", screen);
+    }
+
+    private async Task<EmployeeDevicesScreenDto?> LoadScreenAsync(int employeeId, CancellationToken ct)
+    {
+        var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
+        if (!string.IsNullOrWhiteSpace(screen?.Error))
+        {
+            TempData["ToastType"] = "danger";
+            TempData["ToastMsg"] = $"❌ {screen.Error}";
+        }
+
+        return screen;
     }
 
     private static string FormatEmployeeText(string? employeeName, int employeeId)

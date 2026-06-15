@@ -4,6 +4,7 @@ using BioAccess.Web.External;
 using BioAccess.Web.Persistence;
 using BioAccess.Web.Services.Terminals;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace BioAccess.Web.Services.Employees;
 
@@ -14,17 +15,20 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
     private readonly AlpetaClient _alpeta;
     private readonly RegionMappingService _regions;
     private readonly LocalAppDbContext _db;
+    private readonly ILogger<EmployeeDevicesApi> _logger;
 
     public EmployeeDevicesApi(
         EmployeeSoapClient soap,
         AlpetaClient alpeta,
         RegionMappingService regions,
-        LocalAppDbContext db)
+        LocalAppDbContext db,
+        ILogger<EmployeeDevicesApi> logger)
     {
         _soap = soap;
         _alpeta = alpeta;
         _regions = regions;
         _db = db;
+        _logger = logger;
     }
 
     public async Task<EmployeeDevicesDto?> GetEmployeeWithDevicesAsync(int employeeId, CancellationToken ct = default)
@@ -44,15 +48,27 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             JobTitle = title
         };
 
-        var allDevices = await _alpeta.GetAllDevicesAsync(ct);
-        var assignedDevices = await _alpeta.GetEmployeeDevicesAsync(employeeId, allDevices, ct);
-
-        return new EmployeeDevicesDto
+        try
         {
-            Employee = employee,
-            AllDevices = allDevices,
-            AssignedDevices = assignedDevices
-        };
+            var allDevices = await _alpeta.GetAllDevicesAsync(ct);
+            var assignedDevices = await _alpeta.GetEmployeeDevicesAsync(employeeId, allDevices, ct);
+
+            return new EmployeeDevicesDto
+            {
+                Employee = employee,
+                AllDevices = allDevices,
+                AssignedDevices = assignedDevices
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ALPETA_READ_FAILED_UI employeeId={EmployeeId}", employeeId);
+            return new EmployeeDevicesDto
+            {
+                Employee = employee,
+                Error = BuildUserFacingReadError(ex)
+            };
+        }
     }
 
     public async Task<EmployeeDevicesScreenDto?> GetEmployeeDevicesScreenAsync(int employeeId, CancellationToken ct = default)
@@ -109,6 +125,14 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
 
         var baseDto = await GetEmployeeWithDevicesAsync(employeeId, ct);
         if (baseDto?.Employee is null) return null;
+        if (!string.IsNullOrWhiteSpace(baseDto.Error))
+        {
+            return new EmployeeDevicesScreenDto
+            {
+                Employee = baseDto.Employee,
+                Error = baseDto.Error
+            };
+        }
 
         var all = baseDto.AllDevices ?? new();
         var assigned = baseDto.AssignedDevices ?? new();
@@ -249,5 +273,17 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         }
 
         return result;
+    }
+
+    private static string BuildUserFacingReadError(Exception ex)
+    {
+        var message = ex.Message ?? "";
+        if (message.Contains("session", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+        {
+            return "فشل الاتصال بالنظام الخارجي (Alpeta)، يرجى إعادة المحاولة";
+        }
+
+        return "تعذر تحميل الأجهزة حالياً، يرجى المحاولة لاحقاً";
     }
 }

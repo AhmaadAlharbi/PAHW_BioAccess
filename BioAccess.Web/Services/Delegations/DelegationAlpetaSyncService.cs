@@ -162,7 +162,14 @@ public class DelegationAlpetaSyncService
                 reason);
         }
 
-        _ = await _alpeta.GetEmployeeDevicesAsync(delegation.EmployeeId, ct: ct);
+        var finalRead = await _alpeta.TryGetEmployeeDevicesAsync(delegation.EmployeeId, ct: ct);
+        if (!finalRead.Success)
+        {
+            _logger.LogWarning(
+                "Delegation {DelegationId}: final Alpeta read failed after cleanup for employee {EmployeeId}; skipping state confirmation refresh.",
+                delegation.Id,
+                delegation.EmployeeId);
+        }
         return cleanedTerminalIds;
     }
 
