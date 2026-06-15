@@ -12,6 +12,12 @@ namespace BioAccess.Web.External;
 // Low-level client for Alpeta login, device list, and user-terminal assignment.
 public class AlpetaClient
 {
+    public sealed class AllDevicesSnapshot
+    {
+        public List<DeviceDto> Devices { get; init; } = new();
+        public JsonDocument? TerminalsDocument { get; init; }
+    }
+
     private readonly HttpClient _http;
     private readonly IConfiguration _config;
     private readonly ILogger<AlpetaClient> _logger;
@@ -131,6 +137,9 @@ public class AlpetaClient
     }
 
     public async Task<List<DeviceDto>> GetAllDevicesAsync(CancellationToken ct = default)
+        => (await GetAllDevicesSnapshotAsync(ct)).Devices;
+
+    public async Task<AllDevicesSnapshot> GetAllDevicesSnapshotAsync(CancellationToken ct = default)
     {
         LastCallUsedFallback = false;
 
@@ -142,7 +151,11 @@ public class AlpetaClient
         if (firstAttempt.Success)
         {
             _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", firstAttempt.Devices.Count, true);
-            return firstAttempt.Devices;
+            return new AllDevicesSnapshot
+            {
+                Devices = firstAttempt.Devices,
+                TerminalsDocument = firstAttempt.Document
+            };
         }
 
         if (firstAttempt.SessionExpired)
@@ -165,7 +178,11 @@ public class AlpetaClient
             if (retryAttempt.Success)
             {
                 _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", retryAttempt.Devices.Count, true);
-                return retryAttempt.Devices;
+                return new AllDevicesSnapshot
+                {
+                    Devices = retryAttempt.Devices,
+                    TerminalsDocument = retryAttempt.Document
+                };
             }
 
             _logger.LogWarning(
@@ -195,8 +212,6 @@ public class AlpetaClient
             throw new InvalidOperationException($"Failed to read Alpeta devices for employee {employeeId}.");
         }
 
-        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", result.Devices.Count, true, employeeId);
-
         return result.Devices;
     }
 
@@ -214,7 +229,10 @@ public class AlpetaClient
 
             var firstAttempt = await TryReadEmployeeDevicesResponseAsync(url, employeeId, allDevices, ct);
             if (firstAttempt.Success)
+            {
+                _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", firstAttempt.Devices.Count, true, employeeId);
                 return (true, firstAttempt.Devices);
+            }
 
         if (firstAttempt.SessionExpired)
         {
@@ -237,7 +255,10 @@ public class AlpetaClient
 
             var retryAttempt = await TryReadEmployeeDevicesResponseAsync(url, employeeId, allDevices, ct);
                 if (retryAttempt.Success)
+                {
+                    _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", retryAttempt.Devices.Count, true, employeeId);
                     return (true, retryAttempt.Devices);
+                }
 
                 _logger.LogWarning(
                     "ALPETA_READ_FAILED employeeId={EmployeeId} statusCode={StatusCode}",
@@ -283,7 +304,19 @@ public class AlpetaClient
         }
     }
 
-    private async Task<(bool Success, List<DeviceDto> Devices, HttpStatusCode? StatusCode, bool InvalidPayload, bool SessionExpired)> TryReadAllDevicesResponseAsync(
+    public Task<JsonDocument?> GetAccessGroupsDocumentAsync(CancellationToken ct = default)
+        => GetCatalogDocumentAsync($"{BaseUrl}/accessGroups?offset=0&limit=500", "accessGroups", ct);
+
+    public Task<JsonDocument?> GetGroupsDocumentAsync(CancellationToken ct = default)
+        => GetCatalogDocumentAsync($"{BaseUrl}/groups?offset=0&limit=500", "groups", ct);
+
+    public Task<JsonDocument?> GetPrivilegesDocumentAsync(CancellationToken ct = default)
+        => GetCatalogDocumentAsync($"{BaseUrl}/privileges?offset=0&limit=500", "privileges", ct);
+
+    public Task<JsonDocument?> GetTerminalsDocumentAsync(CancellationToken ct = default)
+        => GetCatalogDocumentAsync($"{BaseUrl}/terminals?offset=0&limit=500", "terminals", ct);
+
+    private async Task<(bool Success, List<DeviceDto> Devices, JsonDocument? Document, HttpStatusCode? StatusCode, bool InvalidPayload, bool SessionExpired)> TryReadAllDevicesResponseAsync(
         string url,
         CancellationToken ct)
     {
@@ -291,26 +324,26 @@ public class AlpetaClient
         using var res = await _http.GetAsync(url, timeoutCts.Token);
 
         if (!res.IsSuccessStatusCode)
-            return (false, new List<DeviceDto>(), res.StatusCode, false, res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
+            return (false, new List<DeviceDto>(), null, res.StatusCode, false, res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
 
         var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
         if (string.IsNullOrWhiteSpace(json))
         {
             _logger.LogWarning("ALPETA_READ_FAILED scope=all reason=EmptyBody");
-            return (false, new List<DeviceDto>(), res.StatusCode, false, false);
+            return (false, new List<DeviceDto>(), null, res.StatusCode, false, false);
         }
 
-        using var doc = JsonDocument.Parse(json);
+        var doc = JsonDocument.Parse(json);
         var devices = await ParseDevicesAsync(doc.RootElement, timeoutCts.Token);
         if (!IsValidAllDevicesPayload(doc.RootElement, devices))
         {
             _logger.LogWarning(
                 "ALPETA_READ_FAILED scope=all reason=UnexpectedPayload payloadSnippet={PayloadSnippet}",
                 CreatePayloadSnippet(json));
-            return (false, new List<DeviceDto>(), res.StatusCode, true, true);
+            return (false, new List<DeviceDto>(), doc, res.StatusCode, true, true);
         }
 
-        return (true, devices, res.StatusCode, false, false);
+        return (true, devices, doc, res.StatusCode, false, false);
     }
 
     private async Task<(bool Success, List<DeviceDto> Devices, HttpStatusCode? StatusCode, bool InvalidPayload, bool SessionExpired)> TryReadEmployeeDevicesResponseAsync(
@@ -351,8 +384,58 @@ public class AlpetaClient
         // Match returned terminal IDs with the full device list for names and location.
         var all = allDevices ?? await GetAllDevicesAsync(ct);
         var devices = BuildEmployeeDevices(doc.RootElement, all);
-        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", devices.Count, true, employeeId);
         return (true, devices, res.StatusCode, false, false);
+    }
+
+    private async Task<JsonDocument?> GetCatalogDocumentAsync(string url, string catalogName, CancellationToken ct)
+    {
+        try
+        {
+            await EnsureLoggedInAsync(ct);
+            var firstAttempt = await TryReadCatalogDocumentAsync(url, ct);
+            if (firstAttempt.Document != null)
+                return firstAttempt.Document;
+
+            if (firstAttempt.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            {
+                _logger.LogWarning(
+                    "ALPETA_SESSION_EXPIRED scope={Scope} statusCode={StatusCode}",
+                    catalogName,
+                    (int)firstAttempt.StatusCode.Value);
+                ClearCachedSession();
+                await EnsureLoggedInAsync(ct);
+                var retryAttempt = await TryReadCatalogDocumentAsync(url, ct);
+                return retryAttempt.Document;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ALPETA_CATALOG_READ_FAILED scope={Scope}", catalogName);
+        }
+
+        return null;
+    }
+
+    private async Task<(JsonDocument? Document, HttpStatusCode? StatusCode)> TryReadCatalogDocumentAsync(string url, CancellationToken ct)
+    {
+        using var timeoutCts = CreateTimeoutTokenSource(ct);
+        using var res = await _http.GetAsync(url, timeoutCts.Token);
+        if (!res.IsSuccessStatusCode)
+            return (null, res.StatusCode);
+
+        var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
+        if (string.IsNullOrWhiteSpace(json))
+            return (null, res.StatusCode);
+
+        try
+        {
+            return (JsonDocument.Parse(json), res.StatusCode);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "ALPETA_CATALOG_INVALID_JSON");
+            return (null, res.StatusCode);
+        }
     }
 
     // Assign one employee to one terminal in Alpeta.

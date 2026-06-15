@@ -231,13 +231,14 @@
                                             : d.IsAssigned ? "assigned"
                                             : "unassigned";
 
-                                        <div class="col-md-6 col-xl-4">
-                                            <div class="device-card"
-                                                 data-is-assigned="@(d.IsEffectivelyAssigned ? "1" : "0")"
-                                                 data-state="@stateText"
-                                                 data-state-key="@stateKey"
-                                                 data-terminal-id="@terminalId"
-                                                 data-device-name="@d.DeviceName"
+                                         <div class="col-md-6 col-xl-4">
+                                             <div class="device-card"
+                                                  data-is-assigned="@(d.IsEffectivelyAssigned ? "1" : "0")"
+                                                 data-is-restricted="@(d.IsRestricted ? "1" : "0")"
+                                                  data-state="@stateText"
+                                                  data-state-key="@stateKey"
+                                                  data-terminal-id="@terminalId"
+                                                  data-device-name="@d.DeviceName"
                                                  data-delegation-id="@(d.DelegationId?.ToString() ?? "")"
                                                  data-delegation-status="@(d.DelegationStatus ?? "")"
                                                  data-delegation-start="@(d.DelegationStartDate?.ToString("dd/MM/yyyy") ?? "")"
@@ -263,10 +264,10 @@
                                                             <i class="fa-solid fa-hashtag"></i> @terminalId
                                                         </div>
 
-                                                        <div class="small mb-1">
-                                                            @if (d.IsOnline)
-                                                            {
-                                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                         <div class="small mb-1">
+                                                             @if (d.IsOnline)
+                                                             {
+                                                                 <span class="badge bg-success-subtle text-success border border-success-subtle">
                                                                     <i class="fa-solid fa-circle-check"></i> Online
                                                                 </span>
                                                             }
@@ -275,12 +276,33 @@
                                                                 <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
                                                                     <i class="fa-solid fa-circle-xmark"></i> Offline
                                                                 </span>
-                                                            }
-                                                            <span class="text-muted ms-2">@d.IsOnline</span>
-                                                        </div>
+                                                             }
+                                                             <span class="text-muted ms-2">@d.IsOnline</span>
+                                                         </div>
 
-                                                        @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
-                                                        {
+                                                         @if (d.IsRestricted)
+                                                         {
+                                                             <div class="small mb-1">
+                                                                 <span class="badge bg-warning-subtle text-dark border border-warning-subtle"
+                                                                       title="@d.RestrictionReason">
+                                                                     <i class="fa-solid fa-triangle-exclamation"></i>
+                                                                     جهاز مُدار
+                                                                 </span>
+                                                                 @if (!string.IsNullOrWhiteSpace(d.RestrictionSource))
+                                                                 {
+                                                                     <span class="text-muted ms-2">(@d.RestrictionSource)</span>
+                                                                 }
+                                                             </div>
+                                                             @if (!string.IsNullOrWhiteSpace(d.RestrictionReason))
+                                                             {
+                                                                 <div class="text-muted small">
+                                                                     <i class="fa-regular fa-circle-question"></i> @d.RestrictionReason
+                                                                 </div>
+                                                             }
+                                                         }
+
+                                                         @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
+                                                         {
                                                             <div class="text-muted small">
                                                                 <i class="fa-regular fa-calendar"></i>
                                                                 من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")

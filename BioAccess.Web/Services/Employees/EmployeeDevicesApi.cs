@@ -2,6 +2,7 @@ using BioAccess.Web.Contracts;
 using BioAccess.Web.DTOs;
 using BioAccess.Web.External;
 using BioAccess.Web.Persistence;
+using BioAccess.Web.Services.Restrictions;
 using BioAccess.Web.Services.Terminals;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
     private readonly AlpetaClient _alpeta;
     private readonly RegionMappingService _regions;
     private readonly LocalAppDbContext _db;
+    private readonly DeviceRestrictionService _restrictionService;
     private readonly ILogger<EmployeeDevicesApi> _logger;
 
     public EmployeeDevicesApi(
@@ -22,12 +24,14 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         AlpetaClient alpeta,
         RegionMappingService regions,
         LocalAppDbContext db,
+        DeviceRestrictionService restrictionService,
         ILogger<EmployeeDevicesApi> logger)
     {
         _soap = soap;
         _alpeta = alpeta;
         _regions = regions;
         _db = db;
+        _restrictionService = restrictionService;
         _logger = logger;
     }
 
@@ -50,14 +54,14 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
 
         try
         {
-            var allDevices = await _alpeta.GetAllDevicesAsync(ct);
-            var assignedDevices = await _alpeta.GetEmployeeDevicesAsync(employeeId, allDevices, ct);
+            var context = await BuildAlpetaRequestContextAsync(employeeId, ct);
+            await ApplyRestrictionAnalysisAsync(employeeId, context, ct);
 
             return new EmployeeDevicesDto
             {
                 Employee = employee,
-                AllDevices = allDevices,
-                AssignedDevices = assignedDevices
+                AllDevices = context.AllDevices,
+                AssignedDevices = context.EmployeeDevices
             };
         }
         catch (Exception ex)
@@ -170,6 +174,9 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
                 DeviceId = id,
                 DeviceName = d.DeviceName,
                 IsOnline = d.IsOnline,
+                IsRestricted = d.IsRestricted,
+                RestrictionReason = d.RestrictionReason,
+                RestrictionSource = d.RestrictionSource,
                 IsAssigned = isAssigned,
                 IsDelegated = isDelegated,
                 IsDelegatedActive = isDelegatedActive,
@@ -205,6 +212,9 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
                 DeviceId = id,
                 DeviceName = d.DeviceName,
                 IsOnline = d.IsOnline,
+                IsRestricted = d.IsRestricted,
+                RestrictionReason = d.RestrictionReason,
+                RestrictionSource = d.RestrictionSource,
                 IsAssigned = true,
                 IsDelegated = delRow != null,
                 IsDelegatedActive = isDelegatedActive,
@@ -285,5 +295,84 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         }
 
         return "تعذر تحميل الأجهزة حالياً، يرجى المحاولة لاحقاً";
+    }
+
+    private async Task ApplyRestrictionAnalysisAsync(
+        int employeeId,
+        AlpetaRequestContext context,
+        CancellationToken ct)
+    {
+        _restrictionService.PrimeEmployeeAssignments(
+            employeeId,
+            context.EmployeeDevices
+                .Where(x => !string.IsNullOrWhiteSpace(x.DeviceId))
+                .Select(x => x.DeviceId!));
+
+        var devicesToAnalyze = context.AllDevices
+            .Concat(context.EmployeeDevices)
+            .Where(x => !string.IsNullOrWhiteSpace(x.DeviceId))
+            .GroupBy(x => x.DeviceId!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        foreach (var device in devicesToAnalyze)
+        {
+            if (!int.TryParse(device.DeviceId.Trim(), out var terminalId))
+                continue;
+
+            try
+            {
+                var analysis = await _restrictionService.AnalyzeAsync(employeeId, terminalId, context, ct);
+                device.IsRestricted = analysis.IsRestricted;
+                device.RestrictionReason = string.IsNullOrWhiteSpace(analysis.Reason) ? null : analysis.Reason;
+                device.RestrictionSource = string.IsNullOrWhiteSpace(analysis.Source) ? null : analysis.Source;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "DEVICE_RESTRICTION_ANALYSIS_FAILED employeeId={EmployeeId} terminalId={TerminalId}",
+                    employeeId,
+                    terminalId);
+            }
+        }
+
+        var analysisById = devicesToAnalyze
+            .Where(x => !string.IsNullOrWhiteSpace(x.DeviceId))
+            .ToDictionary(x => x.DeviceId.Trim(), x => x, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var device in context.AllDevices.Concat(context.EmployeeDevices))
+        {
+            var deviceId = device.DeviceId?.Trim();
+            if (string.IsNullOrWhiteSpace(deviceId) || !analysisById.TryGetValue(deviceId, out var analyzed))
+                continue;
+
+            device.IsRestricted = analyzed.IsRestricted;
+            device.RestrictionReason = analyzed.RestrictionReason;
+            device.RestrictionSource = analyzed.RestrictionSource;
+        }
+    }
+
+    private async Task<AlpetaRequestContext> BuildAlpetaRequestContextAsync(int employeeId, CancellationToken ct)
+    {
+        var allDevicesSnapshot = await _alpeta.GetAllDevicesSnapshotAsync(ct);
+        var allDevices = allDevicesSnapshot.Devices;
+
+        var employeeDevicesTask = _alpeta.GetEmployeeDevicesAsync(employeeId, allDevices, ct);
+        var accessGroupsTask = _alpeta.GetAccessGroupsDocumentAsync(ct);
+        var groupsTask = _alpeta.GetGroupsDocumentAsync(ct);
+        var privilegesTask = _alpeta.GetPrivilegesDocumentAsync(ct);
+
+        await Task.WhenAll(employeeDevicesTask, accessGroupsTask, groupsTask, privilegesTask);
+
+        return new AlpetaRequestContext
+        {
+            AllDevices = allDevices,
+            EmployeeDevices = await employeeDevicesTask,
+            AccessGroups = await accessGroupsTask,
+            Groups = await groupsTask,
+            Privileges = await privilegesTask,
+            Terminals = allDevicesSnapshot.TerminalsDocument
+        };
     }
 }

@@ -9,6 +9,7 @@ using BioAccess.Web.Services.Auth;
 using BioAccess.Web.Services.Dashboard;
 using BioAccess.Web.Services.Delegations;
 using BioAccess.Web.Services.Employees;
+using BioAccess.Web.Services.Restrictions;
 using BioAccess.Web.Services.Terminals;
 using BioAccess.Web.Filters;
 
@@ -71,6 +72,7 @@ builder.Services.AddHttpClient<AlpetaClient>(http =>
 // ✅ Facade API
 // -------------------------
 builder.Services.AddScoped<EmployeeDevicesApi>();
+builder.Services.AddScoped<DeviceRestrictionService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<TerminalService>();
 builder.Services.AddScoped<IEmployeeDevicesApi, EmployeeDevicesApi>();

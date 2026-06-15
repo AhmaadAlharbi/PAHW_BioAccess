@@ -14,6 +14,9 @@ public class DeviceRowDto
     public string DeviceName { get; set; } = "";
     public string Location { get; set; } = "";
     public bool IsOnline { get; set; }
+    public bool IsRestricted { get; set; }
+    public string? RestrictionReason { get; set; }
+    public string? RestrictionSource { get; set; }
     public bool IsAssigned { get; set; }
 
     // ✅ جديد
