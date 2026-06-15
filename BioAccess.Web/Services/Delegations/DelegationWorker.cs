@@ -61,8 +61,18 @@ public class DelegationWorker : BackgroundService
                         continue;
                     }
 
-                    await EnsureActiveDelegationAsync(activity, alpetaSync, del, now, stoppingToken);
+                    await EnsureActiveDelegationAsync(activity, alpetaSync, del, now, _logger, stoppingToken);
                 }
+
+                var staleDelegations = await db.Delegations
+                    .Include(x => x.Terminals)
+                    .Where(x =>
+                        (x.Status == "Expired" || x.Status == "ManuallyEnded" || x.Status == "Cancelled") &&
+                        x.Terminals.Any())
+                    .ToListAsync(stoppingToken);
+
+                foreach (var delegation in staleDelegations)
+                    await RecoverDelegationCleanupAsync(alpetaSync, delegation, stoppingToken);
 
                 await db.SaveChangesAsync(stoppingToken);
             }
@@ -93,8 +103,12 @@ public class DelegationWorker : BackgroundService
         DelegationAlpetaSyncService alpetaSync,
         Delegation del,
         DateTime now,
+        ILogger<DelegationWorker> logger,
         CancellationToken ct)
     {
+        if (del.Status != "Active" || del.StartDate > now || del.EndDate <= now)
+            return;
+
         var wasScheduled = del.ActivatedAt is null;
         var snapshotReady = del.ActivatedAt is not null
             || await alpetaSync.TryCaptureActivationSnapshotAsync(del, now, ct);
@@ -104,12 +118,23 @@ public class DelegationWorker : BackgroundService
 
         var terminals = (del.Terminals ?? new())
             .Where(t => !string.IsNullOrWhiteSpace(t.TerminalId))
-            .Select(t => t.TerminalId.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        foreach (var terminalId in terminals)
+        foreach (var terminal in terminals)
+        {
+            var terminalId = terminal.TerminalId.Trim();
+
+            if (terminal.IsManuallyRemoved)
+            {
+                logger.LogInformation(
+                    "Delegation {DelegationId}: skipping assign for terminal {TerminalId} — manually removed by user.",
+                    del.Id,
+                    terminalId);
+                continue;
+            }
+
             await alpetaSync.EnsureAssignedAsync(del.Id, del.EmployeeId, terminalId, "active", ct);
+        }
 
         if (!wasScheduled)
             return;
@@ -178,5 +203,17 @@ public class DelegationWorker : BackgroundService
             details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
             ct: ct
         );
+    }
+
+    private static async Task RecoverDelegationCleanupAsync(
+        DelegationAlpetaSyncService alpetaSync,
+        Delegation delegation,
+        CancellationToken ct)
+    {
+        await alpetaSync.CleanupDelegationAsync(
+            delegation,
+            delegation.Terminals,
+            "recovery",
+            ct);
     }
 }

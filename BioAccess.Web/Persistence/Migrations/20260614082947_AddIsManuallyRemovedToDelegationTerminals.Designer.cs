@@ -4,6 +4,7 @@ using BioAccess.Web.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BioAccess.Web.Persistence.Migrations
 {
     [DbContext(typeof(LocalAppDbContext))]
-    partial class LocalAppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260614082947_AddIsManuallyRemovedToDelegationTerminals")]
+    partial class AddIsManuallyRemovedToDelegationTerminals
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

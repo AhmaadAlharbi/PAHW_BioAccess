@@ -67,13 +67,13 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> Assign(int employeeId, string terminalId, CancellationToken ct)
     {
         // Assign one terminal to the employee in Alpeta.
-        var ok = await _employees.AssignOneAsync(employeeId, terminalId, ct);
-        TempData["ToastType"] = ok ? "success" : "danger";
-        TempData["ToastMsg"] = ok ? "✅ تم الربط" : "❌ فشل الربط";
+        var result = await _employees.AssignOneAsync(employeeId, terminalId, ct);
+        TempData["ToastType"] = result.Success ? "success" : "danger";
+        TempData["ToastMsg"] = (result.Success ? "✅ " : "❌ ") + result.Message;
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
-        if (ok)
+        if (result.Success)
         {
             // Log only after reloading the screen so the log can include region info.
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
@@ -93,13 +93,13 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> Unassign(int employeeId, string terminalId, CancellationToken ct)
     {
         // Remove one terminal from the employee in Alpeta.
-        var ok = await _employees.UnassignOneAsync(employeeId, terminalId, ct);
-        TempData["ToastType"] = ok ? "success" : "danger";
-        TempData["ToastMsg"] = ok ? "✅ تم فك الارتباط" : "❌ فشل فك الارتباط";
+        var result = await _employees.UnassignOneAsync(employeeId, terminalId, ct);
+        TempData["ToastType"] = result.Success ? "success" : "danger";
+        TempData["ToastMsg"] = (result.Success ? "✅ " : "❌ ") + result.Message;
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
-        if (ok)
+        if (result.Success)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
             var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
@@ -118,19 +118,34 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> AssignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
         // Run bulk assignment one terminal at a time.
+        terminalIds ??= new List<string>();
         var successCount = 0;
+        var totalCount = terminalIds.Count;
         var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
         {
-            if (await _employees.AssignOneAsync(employeeId, terminalId, ct))
+            if ((await _employees.AssignOneAsync(employeeId, terminalId, ct)).Success)
             {
                 successCount++;
                 successfulTerminalIds.Add(terminalId);
             }
         }
 
-        TempData["ToastType"] = "success";
-        TempData["ToastMsg"] = $"✅ تم ربط {successCount} جهاز";
+        if (successCount == 0)
+        {
+            TempData["ToastType"] = "danger";
+            TempData["ToastMsg"] = "❌ لم يتم تنفيذ أي عملية";
+        }
+        else if (successCount < totalCount)
+        {
+            TempData["ToastType"] = "warning";
+            TempData["ToastMsg"] = $"⚠️ تم تنفيذ جزئي ({successCount}/{totalCount})";
+        }
+        else
+        {
+            TempData["ToastType"] = "success";
+            TempData["ToastMsg"] = $"✅ تم ربط {successCount} جهاز";
+        }
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (successCount > 0)
@@ -152,19 +167,34 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> UnassignBulk(int employeeId, List<string> terminalIds, CancellationToken ct)
     {
         // Run bulk unassignment one terminal at a time.
+        terminalIds ??= new List<string>();
         var successCount = 0;
+        var totalCount = terminalIds.Count;
         var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
         {
-            if (await _employees.UnassignOneAsync(employeeId, terminalId, ct))
+            if ((await _employees.UnassignOneAsync(employeeId, terminalId, ct)).Success)
             {
                 successCount++;
                 successfulTerminalIds.Add(terminalId);
             }
         }
 
-        TempData["ToastType"] = "success";
-        TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {successCount} جهاز";
+        if (successCount == 0)
+        {
+            TempData["ToastType"] = "danger";
+            TempData["ToastMsg"] = "❌ لم يتم تنفيذ أي عملية";
+        }
+        else if (successCount < totalCount)
+        {
+            TempData["ToastType"] = "warning";
+            TempData["ToastMsg"] = $"⚠️ تم تنفيذ جزئي ({successCount}/{totalCount})";
+        }
+        else
+        {
+            TempData["ToastType"] = "success";
+            TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {successCount} جهاز";
+        }
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (successCount > 0)

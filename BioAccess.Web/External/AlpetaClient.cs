@@ -1,7 +1,10 @@
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using BioAccess.Web.DTOs;
 
 namespace BioAccess.Web.External;
@@ -11,7 +14,11 @@ public class AlpetaClient
 {
     private readonly HttpClient _http;
     private readonly IConfiguration _config;
+    private readonly ILogger<AlpetaClient> _logger;
     private readonly SemaphoreSlim _loginLock = new(1, 1);
+    private readonly IMemoryCache _cache;
+    private const string UuidCacheKey = "Alpeta:UUID";
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
     // Alpeta uses a UUID token after login for later requests.
     private string? _uuid;
@@ -19,10 +26,12 @@ public class AlpetaClient
     // True when the device list came from local cache instead of live Alpeta data.
     public bool LastCallUsedFallback { get; private set; }
 
-    public AlpetaClient(HttpClient http, IConfiguration config)
+    public AlpetaClient(HttpClient http, IConfiguration config, ILogger<AlpetaClient> logger, IMemoryCache cache)
     {
         _http = http;
         _config = config;
+        _logger = logger;
+        _cache = cache;
     }
 
     private string BaseUrl => _config["Alpeta:BaseUrl"] ?? "http://192.168.120.56:9004/v1";
@@ -34,11 +43,27 @@ public class AlpetaClient
 
     private static string FormatUserId(int employeeId) => employeeId.ToString("D8");
 
+    private static CancellationTokenSource CreateTimeoutTokenSource(CancellationToken cancellationToken)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(RequestTimeout);
+        return cts;
+    }
+
     private async Task EnsureLoggedInAsync(CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(_uuid))
         {
             ApplyUuidHeaders(_uuid);
+            return;
+        }
+
+        // Reuse the session token across transient instances via shared cache.
+        if (_cache.TryGetValue(UuidCacheKey, out string? cachedUuid) && !string.IsNullOrWhiteSpace(cachedUuid))
+        {
+            _uuid = cachedUuid;
+            ApplyUuidHeaders(_uuid);
+            _logger.LogDebug("Using cached Alpeta session.");
             return;
         }
 
@@ -58,16 +83,18 @@ public class AlpetaClient
                 "application/json"
             );
 
-            using var res = await _http.PostAsync(loginUrl, content, ct);
+            using var timeoutCts = CreateTimeoutTokenSource(ct);
+            using var res = await _http.PostAsync(loginUrl, content, timeoutCts.Token);
             res.EnsureSuccessStatusCode();
 
-            var json = await res.Content.ReadAsStringAsync(ct);
+            var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
             using var doc = JsonDocument.Parse(json);
 
             _uuid = doc.RootElement.GetProperty("AccountInfo").GetProperty("Uuid").GetString();
             if (string.IsNullOrWhiteSpace(_uuid))
                 throw new Exception("Login succeeded but AccountInfo.Uuid is empty.");
 
+            _cache.Set(UuidCacheKey, _uuid, TimeSpan.FromMinutes(30));
             ApplyUuidHeaders(_uuid);
         }
         finally
@@ -82,7 +109,8 @@ public class AlpetaClient
         try
         {
             await EnsureLoggedInAsync(ct);
-            var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=1", ct);
+            using var timeoutCts = CreateTimeoutTokenSource(ct);
+            var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=1", timeoutCts.Token);
             return res.IsSuccessStatusCode;
         }
         catch
@@ -99,26 +127,29 @@ public class AlpetaClient
 
         await EnsureLoggedInAsync(ct);
 
-        using var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
+        using var timeoutCts = CreateTimeoutTokenSource(ct);
+        using var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", timeoutCts.Token);
 
         if (res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             _uuid = null;
+            _cache.Remove(UuidCacheKey);
             await EnsureLoggedInAsync(ct);
 
-            using var retryRes = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", ct);
+            using var retryTimeoutCts = CreateTimeoutTokenSource(ct);
+            using var retryRes = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", retryTimeoutCts.Token);
             retryRes.EnsureSuccessStatusCode();
 
-            var retryJson = await retryRes.Content.ReadAsStringAsync(ct);
+            var retryJson = await retryRes.Content.ReadAsStringAsync(retryTimeoutCts.Token);
             using var retryDoc = JsonDocument.Parse(retryJson);
-            return ParseDevices(retryDoc.RootElement);
+            return await ParseDevicesAsync(retryDoc.RootElement, retryTimeoutCts.Token);
         }
 
         res.EnsureSuccessStatusCode();
 
-        var json = await res.Content.ReadAsStringAsync(ct);
+        var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
         using var doc = JsonDocument.Parse(json);
-        return ParseDevices(doc.RootElement);
+        return await ParseDevicesAsync(doc.RootElement, timeoutCts.Token);
     }
 
     // Load the terminals linked to one employee from Alpeta.
@@ -143,7 +174,8 @@ public class AlpetaClient
             var userId = FormatUserId(employeeId);
             var url = $"{BaseUrl.TrimEnd('/')}/users/{userId}/terminaluser";
 
-            using var res = await _http.GetAsync(url, ct);
+            using var timeoutCts = CreateTimeoutTokenSource(ct);
+            using var res = await _http.GetAsync(url, timeoutCts.Token);
 
             // Missing user in Alpeta means no linked terminals.
             if (res.StatusCode == HttpStatusCode.NotFound)
@@ -152,7 +184,7 @@ public class AlpetaClient
             if (!res.IsSuccessStatusCode)
                 return (false, new List<DeviceDto>());
 
-            var json = await res.Content.ReadAsStringAsync(ct);
+            var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
             if (string.IsNullOrWhiteSpace(json))
                 return (false, new List<DeviceDto>());
 
@@ -173,45 +205,166 @@ public class AlpetaClient
     }
 
     // Assign one employee to one terminal in Alpeta.
-    public async Task<bool> AssignUserToTerminalAsync(string terminalId, int employeeId, CancellationToken ct = default)
+    public async Task<OperationResult> AssignUserToTerminalAsync(string terminalId, int employeeId, CancellationToken ct = default)
     {
         await EnsureLoggedInAsync(ct);
 
         if (string.IsNullOrWhiteSpace(terminalId) || employeeId <= 0)
-            return false;
+            return OperationResult.Fail("بيانات الطلب غير صحيحة");
 
         var userId = FormatUserId(employeeId);
+
+        _logger.LogInformation(
+            "Assign attempt: terminal={TerminalId}, user={UserId}",
+            terminalId,
+            userId);
+
         var url = $"{BaseUrl.TrimEnd('/')}/terminals/{terminalId.Trim()}/users/{userId}";
 
-        // Some Alpeta versions expect a JSON body even when empty.
-        using var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        using var res = await _http.PostAsync(url, content, ct);
+        try
+        {
+            // Some Alpeta versions expect a JSON body even when empty.
+            using var content = new StringContent("{}", Encoding.UTF8, "application/json");
+            using var timeoutCts = CreateTimeoutTokenSource(ct);
+            using var res = await _http.PostAsync(url, content, timeoutCts.Token);
 
-        // Treat "already assigned" as success for idempotent behavior.
-        if (res.StatusCode == HttpStatusCode.Conflict)
-            return true;
+            if (res.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _logger.LogWarning(
+                    "Alpeta session expired on assign, re-authenticating. terminal={TerminalId}, user={UserId}",
+                    terminalId.Trim(),
+                    userId);
+                _uuid = null;
+                _cache.Remove(UuidCacheKey);
+                await EnsureLoggedInAsync(ct);
+                using var retryContent = new StringContent("{}", Encoding.UTF8, "application/json");
+                using var retryTimeoutCts = CreateTimeoutTokenSource(ct);
+                using var retryRes = await _http.PostAsync(url, retryContent, retryTimeoutCts.Token);
+                if (retryRes.StatusCode == HttpStatusCode.Conflict) return OperationResult.Ok("الجهاز مربوط مسبقاً");
+                return retryRes.IsSuccessStatusCode
+                    ? OperationResult.Ok("تمت العملية بنجاح")
+                    : OperationResult.Fail("فشل الاتصال بالنظام الخارجي، الرجاء المحاولة لاحقاً");
+            }
 
-        return res.IsSuccessStatusCode;
+            // Treat "already assigned" as success for idempotent behavior.
+            if (res.StatusCode == HttpStatusCode.Conflict)
+                return OperationResult.Ok("الجهاز مربوط مسبقاً");
+
+            return res.IsSuccessStatusCode
+                ? OperationResult.Ok("تمت العملية بنجاح")
+                : OperationResult.Fail("فشل الاتصال بالنظام الخارجي، الرجاء المحاولة لاحقاً");
+        }
+        catch (TaskCanceledException)
+        {
+            _logger.LogWarning(
+                "Alpeta request timed out for assign. terminal={TerminalId}, employeeId={EmployeeId}",
+                terminalId.Trim(),
+                employeeId);
+            return OperationResult.Fail("النظام الخارجي غير متاح حالياً، حاول مرة أخرى");
+        }
     }
 
     // Remove one employee from one terminal in Alpeta.
-    public async Task<bool> UnassignUserFromTerminalAsync(string terminalId, int employeeId, CancellationToken ct = default)
+    public async Task<OperationResult> UnassignUserFromTerminalAsync(string terminalId, int employeeId, CancellationToken ct = default)
     {
         await EnsureLoggedInAsync(ct);
 
         if (string.IsNullOrWhiteSpace(terminalId) || employeeId <= 0)
-            return false;
+            return OperationResult.Fail("بيانات الطلب غير صحيحة");
 
+        var trimmedTerminalId = terminalId.Trim();
         var userId = FormatUserId(employeeId);
-        var url = $"{BaseUrl.TrimEnd('/')}/terminals/{terminalId.Trim()}/users/{userId}";
+        var url = $"{BaseUrl.TrimEnd('/')}/terminals/{trimmedTerminalId}/users/{userId}";
 
-        using var res = await _http.DeleteAsync(url, ct);
+        _logger.LogInformation(
+            "Unassign attempt: terminal={TerminalId}, employeeId={EmployeeId}, alpetaUserId={AlpetaUserId}, request=DELETE {RequestPath}",
+            trimmedTerminalId,
+            employeeId,
+            userId,
+            url);
 
-        // Treat "not linked" as success so repeated calls stay safe.
-        if (res.StatusCode == HttpStatusCode.NotFound)
-            return true;
+        var assignedDevicesResult = await TryGetEmployeeDevicesAsync(employeeId, ct: ct);
+        if (assignedDevicesResult.Success)
+        {
+            var isAssignedInAlpeta = assignedDevicesResult.Devices
+                .Any(x => string.Equals(x.DeviceId?.Trim(), trimmedTerminalId, StringComparison.OrdinalIgnoreCase));
 
-        return res.IsSuccessStatusCode;
+            _logger.LogInformation(
+                "Unassign pre-check: terminal={TerminalId}, employeeId={EmployeeId}, existsInAssignmentList={ExistsInAssignmentList}, assignedCount={AssignedCount}",
+                trimmedTerminalId,
+                employeeId,
+                isAssignedInAlpeta,
+                assignedDevicesResult.Devices.Count);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Unassign pre-check: failed to load current Alpeta assignments for employeeId={EmployeeId} before deleting terminal={TerminalId}.",
+                employeeId,
+                trimmedTerminalId);
+        }
+
+        try
+        {
+            using var timeoutCts = CreateTimeoutTokenSource(ct);
+            using var res = await _http.DeleteAsync(url, timeoutCts.Token);
+
+            if (res.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _logger.LogWarning(
+                    "Alpeta session expired on unassign, re-authenticating. terminal={TerminalId}, employeeId={EmployeeId}",
+                    trimmedTerminalId,
+                    employeeId);
+                _uuid = null;
+                _cache.Remove(UuidCacheKey);
+                await EnsureLoggedInAsync(ct);
+                using var retryTimeoutCts = CreateTimeoutTokenSource(ct);
+                using var retryRes = await _http.DeleteAsync(url, retryTimeoutCts.Token);
+                var retryBody = await retryRes.Content.ReadAsStringAsync(retryTimeoutCts.Token);
+                _logger.LogInformation(
+                    "Unassign retry response: terminal={TerminalId}, employeeId={EmployeeId}, statusCode={StatusCode}, body={Body}",
+                    trimmedTerminalId,
+                    employeeId,
+                    (int)retryRes.StatusCode,
+                    string.IsNullOrWhiteSpace(retryBody) ? "<empty>" : retryBody);
+                if (retryRes.StatusCode == HttpStatusCode.NotFound)
+                    return OperationResult.Ok("تم فك الربط مسبقاً");
+                return retryRes.IsSuccessStatusCode
+                    ? OperationResult.Ok("تمت العملية بنجاح")
+                    : OperationResult.Fail("فشل الاتصال بالنظام الخارجي، الرجاء المحاولة لاحقاً");
+            }
+
+            var body = await res.Content.ReadAsStringAsync(timeoutCts.Token);
+
+            _logger.LogInformation(
+                "Unassign response: terminal={TerminalId}, employeeId={EmployeeId}, statusCode={StatusCode}, body={Body}",
+                trimmedTerminalId,
+                employeeId,
+                (int)res.StatusCode,
+                string.IsNullOrWhiteSpace(body) ? "<empty>" : body);
+
+            // Treat "not linked" as success so repeated calls stay safe.
+            if (res.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogInformation(
+                    "Unassign treated as success because Alpeta returned 404 NotFound for terminal={TerminalId}, employeeId={EmployeeId}.",
+                    trimmedTerminalId,
+                    employeeId);
+                return OperationResult.Ok("تم فك الربط مسبقاً");
+            }
+
+            return res.IsSuccessStatusCode
+                ? OperationResult.Ok("تمت العملية بنجاح")
+                : OperationResult.Fail("فشل الاتصال بالنظام الخارجي، الرجاء المحاولة لاحقاً");
+        }
+        catch (TaskCanceledException)
+        {
+            _logger.LogWarning(
+                "Alpeta request timed out for unassign. terminal={TerminalId}, employeeId={EmployeeId}",
+                trimmedTerminalId,
+                employeeId);
+            return OperationResult.Fail("النظام الخارجي غير متاح حالياً، حاول مرة أخرى");
+        }
     }
 
     // === Response parsing helpers ===
@@ -320,7 +473,8 @@ public class AlpetaClient
                 {
                     DeviceId = id,
                     DeviceName = $"Terminal {id}",
-                    Location = ""
+                    Location = "",
+                    IsOnline = false
                 });
             }
         }
@@ -328,7 +482,7 @@ public class AlpetaClient
         return list;
     }
 
-    private static List<DeviceDto> ParseDevices(JsonElement root)
+    private async Task<List<DeviceDto>> ParseDevicesAsync(JsonElement root, CancellationToken ct)
     {
         var list = new List<DeviceDto>();
 
@@ -340,15 +494,125 @@ public class AlpetaClient
                 var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
                 var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
                 var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
+                var ipAddress = t.TryGetProperty("IPAddress", out var ipEl) ? (ipEl.GetString() ?? "") : "";
 
                 if (string.IsNullOrWhiteSpace(id))
                     continue;
 
-                list.Add(new DeviceDto { DeviceId = id.Trim(), DeviceName = name, Location = location });
+                list.Add(new DeviceDto
+                {
+                    DeviceId = id.Trim(),
+                    DeviceName = name,
+                    Location = location,
+                    IPAddress = ipAddress
+                });
             }
         }
 
+        var tasks = list.Select(device =>
+            Task.Run(() => device.IsOnline = CheckDeviceOnline(device.IPAddress), ct));
+
+        await Task.WhenAll(tasks);
         return list;
+    }
+
+    private static bool CheckDeviceOnline(string ip)
+    {
+        if (string.IsNullOrWhiteSpace(ip))
+            return false;
+
+        try
+        {
+            using var ping = new Ping();
+            var reply = ping.Send(ip, 1000);
+            return reply.Status == IPStatus.Success;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task LogTerminalDebugInfoAsync(string terminalId, CancellationToken ct)
+    {
+        try
+        {
+            using var timeoutCts = CreateTimeoutTokenSource(ct);
+            using var res = await _http.GetAsync($"{BaseUrl}/terminals?offset=0&limit=500", timeoutCts.Token);
+            if (!res.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Terminal debug lookup failed for terminal={TerminalId}. StatusCode={StatusCode}",
+                    terminalId,
+                    (int)res.StatusCode);
+                return;
+            }
+
+            var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("TerminalList", out var terminals) ||
+                terminals.ValueKind != JsonValueKind.Array)
+            {
+                _logger.LogWarning(
+                    "Terminal debug lookup returned no TerminalList for terminal={TerminalId}.",
+                    terminalId);
+                return;
+            }
+
+            foreach (var terminal in terminals.EnumerateArray())
+            {
+                var id = terminal.TryGetProperty("ID", out var idEl) ? idEl.ToString()?.Trim() : "";
+                if (!string.Equals(id, terminalId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var name = terminal.TryGetProperty("Name", out var nameEl) ? (nameEl.GetString() ?? "") : "";
+                var location = terminal.TryGetProperty("Location", out var locationEl) ? (locationEl.GetString() ?? "") : "";
+                var ipAddress = terminal.TryGetProperty("IPAddress", out var ipEl) ? (ipEl.GetString() ?? "") : "";
+                var registerFlag = ReadDebugProperty(terminal, "RegisterFlag");
+                var coreFlag = ReadDebugProperty(terminal, "CoreFlag");
+                var remoteAllOptionFlag = ReadDebugProperty(terminal, "RemoteAllOptionFlag");
+
+                _logger.LogInformation(
+                    "Terminal debug info: terminal={TerminalId}, name={Name}, location={Location}, ipAddress={IPAddress}, registerFlag={RegisterFlag}, coreFlag={CoreFlag}, remoteAllOptionFlag={RemoteAllOptionFlag}",
+                    terminalId,
+                    name,
+                    location,
+                    ipAddress,
+                    registerFlag,
+                    coreFlag,
+                    remoteAllOptionFlag);
+
+                return;
+            }
+
+            _logger.LogWarning(
+                "Terminal debug lookup did not find terminal={TerminalId} in Alpeta TerminalList.",
+                terminalId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Terminal debug lookup failed unexpectedly for terminal={TerminalId}.",
+                terminalId);
+        }
+    }
+
+    private static string ReadDebugProperty(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+            return "<missing>";
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString() ?? "",
+            JsonValueKind.Number => value.ToString(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.Null => "<null>",
+            _ => value.GetRawText()
+        };
     }
 
     private void ApplyUuidHeaders(string uuid)

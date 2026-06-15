@@ -145,6 +145,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             {
                 DeviceId = id,
                 DeviceName = d.DeviceName,
+                IsOnline = d.IsOnline,
                 IsAssigned = isAssigned,
                 IsDelegated = isDelegated,
                 IsDelegatedActive = isDelegatedActive,
@@ -179,6 +180,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             {
                 DeviceId = id,
                 DeviceName = d.DeviceName,
+                IsOnline = d.IsOnline,
                 IsAssigned = true,
                 IsDelegated = delRow != null,
                 IsDelegatedActive = isDelegatedActive,
@@ -220,11 +222,32 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         };
     }
 
-    public Task<bool> AssignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
+    public Task<OperationResult> AssignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
         // Permanent assignment goes straight to Alpeta.
        => _alpeta.AssignUserToTerminalAsync(terminalId, employeeId, ct);
 
-    public Task<bool> UnassignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
-        // Permanent unassignment goes straight to Alpeta.
-        => _alpeta.UnassignUserFromTerminalAsync(terminalId, employeeId, ct);
+    public async Task<OperationResult> UnassignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
+    {
+        var result = await _alpeta.UnassignUserFromTerminalAsync(terminalId, employeeId, ct);
+        if (!result.Success) return result;
+
+        // If an active delegation covers this terminal, mark it so the worker won't re-assign it.
+        var trimmedTerminalId = terminalId.Trim();
+        var rows = await _db.DelegationTerminals
+            .Include(t => t.Delegation)
+            .Where(t => t.TerminalId == trimmedTerminalId &&
+                        t.Delegation != null &&
+                        t.Delegation.EmployeeId == employeeId &&
+                        t.Delegation.Status == "Active")
+            .ToListAsync(ct);
+
+        if (rows.Count > 0)
+        {
+            foreach (var row in rows)
+                row.IsManuallyRemoved = true;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return result;
+    }
 }

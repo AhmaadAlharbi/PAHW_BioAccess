@@ -41,31 +41,31 @@
     <div class="content-card mb-3">
         <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
             <h2 class="c-section-title">البحث عن موظف</h2>
-            @if (isAdmin)
-            {
-                <div class="c-admin-tools">
-                    <button type="button" class="btn btn-muted btn-sm c-admin-tools-toggle u-nowrap" onclick="toggleAdminTools()">
-                        <i class="fa-solid fa-screwdriver-wrench"></i>
-                        <span>أدوات إدارية</span>
-                    </button>
-                    <div id="adminToolsPanel" class="c-admin-tools-panel is-hidden" aria-hidden="true">
-                        <div class="d-flex align-items-center gap-2 fw-bold text-maroon mb-3">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                            <span>إجراءات عامة (لا تخص موظفًا واحدًا)</span>
-                        </div>
-                        <div class="d-flex align-items-start justify-content-between gap-3 p-3 border rounded">
-                            <div>
-                                <div class="fw-bold mb-1">إعادة توزيع الأجهزة تلقائيًا</div>
-                                <div class="text-muted small">قد يغيّر توزيع أجهزة كثيرة على المناطق. استخدمه فقط عند فقدان/تلف بيانات التوزيع.</div>
-                            </div>
-                            <button id="autoAssignBtn" type="button" class="btn btn-outline btn-sm u-nowrap">
-                                <i class="fa-solid fa-rotate"></i>
-                                <span>تشغيل</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
+            @* @if (isAdmin) *@
+            @* { *@
+            @*     <div class="c-admin-tools"> *@
+            @*         <button type="button" class="btn btn-muted btn-sm c-admin-tools-toggle u-nowrap" onclick="toggleAdminTools()"> *@
+            @*             <i class="fa-solid fa-screwdriver-wrench"></i> *@
+            @*             <span>أدوات إدارية</span> *@
+            @*         </button> *@
+            @*         <div id="adminToolsPanel" class="c-admin-tools-panel is-hidden" aria-hidden="true"> *@
+            @*             <div class="d-flex align-items-center gap-2 fw-bold text-maroon mb-3"> *@
+            @*                 <i class="fa-solid fa-triangle-exclamation"></i> *@
+            @*                 <span>إجراءات عامة (لا تخص موظفًا واحدًا)</span> *@
+            @*             </div> *@
+            @*             <div class="d-flex align-items-start justify-content-between gap-3 p-3 border rounded"> *@
+            @*                 <div> *@
+            @*                     <div class="fw-bold mb-1">إعادة توزيع الأجهزة تلقائيًا</div> *@
+            @*                     <div class="text-muted small">قد يغيّر توزيع أجهزة كثيرة على المناطق. استخدمه فقط عند فقدان/تلف بيانات التوزيع.</div> *@
+            @*                 </div> *@
+            @*                 <button id="autoAssignBtn" type="button" class="btn btn-outline btn-sm u-nowrap"> *@
+            @*                     <i class="fa-solid fa-rotate"></i> *@
+            @*                     <span>تشغيل</span> *@
+            @*                 </button> *@
+            @*             </div> *@
+            @*         </div> *@
+            @*     </div> *@
+            @* } *@
         </div>
 
         <form method="post" action="/employees/search">
@@ -74,7 +74,7 @@
                 <div class="flex-grow-1">
                     <label class="form-label fw-bold">الرقم الوظيفي للموظف</label>
                     <input type="number" name="employeeId" class="form-control"
-                           placeholder="مثال: 7300"
+                           placeholder="مثال: 7821"
                            value="@(Model?.Employee?.EmployeeId.ToString() ?? lastEmployeeId ?? "")"
                            required />
                 </div>
@@ -261,6 +261,22 @@
                                                             <i class="fa-solid fa-map-pin"></i> @regionName
                                                             &bull;
                                                             <i class="fa-solid fa-hashtag"></i> @terminalId
+                                                        </div>
+
+                                                        <div class="small mb-1">
+                                                            @if (d.IsOnline)
+                                                            {
+                                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                                    <i class="fa-solid fa-circle-check"></i> Online
+                                                                </span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                                                    <i class="fa-solid fa-circle-xmark"></i> Offline
+                                                                </span>
+                                                            }
+                                                            <span class="text-muted ms-2">@d.IsOnline</span>
                                                         </div>
 
                                                         @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)

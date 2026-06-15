@@ -9,4 +9,5 @@ public class DelegationTerminal
 
     public string TerminalId { get; set; } = default!;
     public bool WasAssignedBefore { get; set; }
+    public bool IsManuallyRemoved { get; set; }
 }

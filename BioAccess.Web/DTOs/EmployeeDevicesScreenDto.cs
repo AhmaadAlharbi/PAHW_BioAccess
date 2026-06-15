@@ -12,6 +12,7 @@ public class DeviceRowDto
     public string DeviceId { get; set; } = "";
     public string DeviceName { get; set; } = "";
     public string Location { get; set; } = "";
+    public bool IsOnline { get; set; }
     public bool IsAssigned { get; set; }
 
     // ✅ جديد

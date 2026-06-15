@@ -152,47 +152,73 @@ public class DelegationService : IDelegationService
 
         var successCount = 0;
         var unassignedCount = 0;
-        foreach (var row in matchedRows)
-        {
-            var terminalId = (row.Terminal.TerminalId ?? "").Trim();
-            var success = true;
-            var coveredByAnotherDelegation = await IsCoveredByAnotherActiveDelegationAsync(
-                row.Delegation.Id,
-                employeeId,
-                terminalId,
-                ct);
-
-            if (!row.Terminal.WasAssignedBefore && !coveredByAnotherDelegation)
-            {
-                success = await _alpetaSync.EnsureUnassignedAsync(
-                    row.Delegation.Id,
-                    employeeId,
-                    terminalId,
-                    "manual",
-                    ct);
-                if (success)
-                    unassignedCount++;
-            }
-
-            if (!success) continue;
-
-            successCount++;
-            row.Delegation.Terminals.Remove(row.Terminal);
-            _db.DelegationTerminals.Remove(row.Terminal);
-        }
-
-        if (successCount == 0) return false;
-
-        // If a delegation no longer has terminals, mark it as ended.
         var now = DateTime.Now;
-        foreach (var delegation in delegations)
+
+        foreach (var group in matchedRows.GroupBy(x => x.Delegation))
         {
-            if ((delegation.Terminals?.Count ?? 0) == 0)
+            var delegation = group.Key;
+            var terminalsToEnd = group.Select(x => x.Terminal).ToList();
+            var endingWholeDelegation = (delegation.Terminals?.Count ?? 0) == terminalsToEnd.Count;
+
+            Delegation cleanupDelegation;
+            if (endingWholeDelegation)
             {
                 delegation.Status = "ManuallyEnded";
                 delegation.ExpiredAt = now;
+                cleanupDelegation = delegation;
+            }
+            else
+            {
+                cleanupDelegation = new Delegation
+                {
+                    EmployeeId = delegation.EmployeeId,
+                    StartDate = delegation.StartDate,
+                    EndDate = delegation.EndDate,
+                    Status = "ManuallyEnded",
+                    CreatedAt = delegation.CreatedAt,
+                    ActivatedAt = delegation.ActivatedAt,
+                    ExpiredAt = now,
+                    Terminals = terminalsToEnd
+                        .Select(t => new DelegationTerminal
+                        {
+                            TerminalId = t.TerminalId,
+                            WasAssignedBefore = t.WasAssignedBefore
+                        })
+                        .ToList()
+                };
+
+                _db.Delegations.Add(cleanupDelegation);
+            }
+
+            var cleanedTerminalIds = await _alpetaSync.CleanupDelegationAsync(
+                cleanupDelegation,
+                cleanupDelegation.Terminals,
+                "manual",
+                ct);
+
+            successCount += cleanedTerminalIds.Count;
+            unassignedCount += (cleanupDelegation.Terminals ?? new()).Count(t =>
+                cleanedTerminalIds.Contains(t.TerminalId.Trim(), StringComparer.OrdinalIgnoreCase) &&
+                !t.WasAssignedBefore);
+
+            if (!endingWholeDelegation)
+            {
+                var remainingTerminals = delegation.Terminals ?? new();
+                foreach (var terminal in terminalsToEnd)
+                {
+                    remainingTerminals.Remove(terminal);
+                    _db.DelegationTerminals.Remove(terminal);
+                }
+
+                if (remainingTerminals.Count == 0)
+                {
+                    delegation.Status = "ManuallyEnded";
+                    delegation.ExpiredAt = now;
+                }
             }
         }
+
+        if (successCount == 0) return false;
 
         var employeeName = await _db.AllowedUsers
             .AsNoTracking()
@@ -235,6 +261,7 @@ public class DelegationService : IDelegationService
         if (delegationId <= 0) return false;
 
         var delegation = await _db.Delegations
+            .Include(x => x.Terminals)
             .FirstOrDefaultAsync(x => x.Id == delegationId, ct);
 
         if (delegation is null) return false;
@@ -243,6 +270,7 @@ public class DelegationService : IDelegationService
         var now = DateTime.Now;
         delegation.Status = "Cancelled";
         delegation.ExpiredAt = now;
+
         await _db.SaveChangesAsync(ct);
 
         var employeeName = await _db.AllowedUsers
@@ -269,21 +297,6 @@ public class DelegationService : IDelegationService
     private string GetActorText()
         // Read the current user from session for audit logs.
         => FormatActorText(_http.HttpContext?.Session.GetString("EmpName"), _http.HttpContext?.Session.GetString("EmpId"));
-
-    private Task<bool> IsCoveredByAnotherActiveDelegationAsync(
-        int delegationId,
-        int employeeId,
-        string terminalId,
-        CancellationToken ct)
-        => _db.DelegationTerminals.AnyAsync(
-            x => x.DelegationId != delegationId &&
-                 x.Delegation != null &&
-                 x.Delegation.EmployeeId == employeeId &&
-                 x.TerminalId == terminalId &&
-                 x.Delegation.Status == "Active" &&
-                 x.Delegation.StartDate <= DateTime.Now &&
-                 x.Delegation.EndDate > DateTime.Now,
-            ct);
 
     private static string FormatEmployeeText(string? employeeName, int employeeId)
         => string.IsNullOrWhiteSpace(employeeName)
