@@ -93,13 +93,20 @@ public sealed class EmployeesController : Controller
     public async Task<IActionResult> Unassign(int employeeId, string terminalId, CancellationToken ct)
     {
         // Remove one terminal from the employee in Alpeta.
-        var result = await _employees.UnassignOneAsync(employeeId, terminalId, ct);
-        TempData["ToastType"] = result.Success ? "success" : "danger";
-        TempData["ToastMsg"] = (result.Success ? "✅ " : "❌ ") + result.Message;
+        await _employees.UnassignOneAsync(employeeId, terminalId, ct);
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         var screen = await LoadScreenAsync(employeeId, ct);
-        if (result.Success)
+        if (!string.IsNullOrWhiteSpace(screen?.Error))
+            return View("Search", screen);
+
+        var stillAssigned = IsStillAssigned(screen?.Devices, terminalId);
+        TempData["ToastType"] = stillAssigned ? "warning" : "success";
+        TempData["ToastMsg"] = stillAssigned
+            ? "⚠️ لم تتم إزالة الجهاز بسبب إعدادات خارجية (Alpeta)"
+            : "✅ تم فك الربط بنجاح";
+
+        if (!stillAssigned)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
             var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
@@ -168,45 +175,55 @@ public sealed class EmployeesController : Controller
     {
         // Run bulk unassignment one terminal at a time.
         terminalIds ??= new List<string>();
-        var successCount = 0;
-        var totalCount = terminalIds.Count;
-        var successfulTerminalIds = new List<string>();
         foreach (var terminalId in terminalIds)
-        {
-            if ((await _employees.UnassignOneAsync(employeeId, terminalId, ct)).Success)
-            {
-                successCount++;
-                successfulTerminalIds.Add(terminalId);
-            }
-        }
+            await _employees.UnassignOneAsync(employeeId, terminalId, ct);
 
-        if (successCount == 0)
+        var screen = await LoadScreenAsync(employeeId, ct);
+        if (!string.IsNullOrWhiteSpace(screen?.Error))
+            return View("Search", screen);
+
+        var requestedTerminalIds = terminalIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var stillAssignedIds = GetStillAssignedTerminalIds(screen?.Devices, requestedTerminalIds);
+        var removedTerminalIds = requestedTerminalIds
+            .Where(id => !stillAssignedIds.Contains(id, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        if (requestedTerminalIds.Count == 0)
         {
             TempData["ToastType"] = "danger";
             TempData["ToastMsg"] = "❌ لم يتم تنفيذ أي عملية";
         }
-        else if (successCount < totalCount)
+        else if (stillAssignedIds.Count == requestedTerminalIds.Count)
         {
             TempData["ToastType"] = "warning";
-            TempData["ToastMsg"] = $"⚠️ تم تنفيذ جزئي ({successCount}/{totalCount})";
+            TempData["ToastMsg"] = "⚠️ لم تتم إزالة الأجهزة بسبب إعدادات خارجية (Alpeta)";
+        }
+        else if (stillAssignedIds.Count > 0)
+        {
+            TempData["ToastType"] = "warning";
+            TempData["ToastMsg"] = $"⚠️ تمت إزالة {removedTerminalIds.Count} أجهزة، وما زال {stillAssignedIds.Count} جهازاً مرتبطاً في Alpeta";
         }
         else
         {
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {successCount} جهاز";
+            TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {removedTerminalIds.Count} جهاز";
         }
 
-        var screen = await LoadScreenAsync(employeeId, ct);
-        if (successCount > 0)
+        if (removedTerminalIds.Count > 0)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
             var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
-            var regionLine = FormatRegionLine(screen?.Devices, successfulTerminalIds);
+            var regionLine = FormatRegionLine(screen?.Devices, removedTerminalIds);
             await _activityLog.LogAsync(
                 "EmployeeTerminal.BulkUnassigned",
                 "EmployeeTerminal",
                 null,
-                $"تم فك ربط أجهزة عددها ({successCount}) عن الموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
+                $"تم فك ربط أجهزة عددها ({removedTerminalIds.Count}) عن الموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
         }
         return View("Search", screen);
     }
@@ -309,5 +326,26 @@ public sealed class EmployeesController : Controller
         return regionNames.Count == 0
             ? ""
             : $"\nفي المناطق: {string.Join("، ", regionNames)}";
+    }
+
+    private static bool IsStillAssigned(IEnumerable<DeviceRowDto>? devices, string terminalId)
+        => GetStillAssignedTerminalIds(devices, new[] { terminalId }).Count > 0;
+
+    private static List<string> GetStillAssignedTerminalIds(IEnumerable<DeviceRowDto>? devices, IEnumerable<string> terminalIds)
+    {
+        var requestedIds = terminalIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (requestedIds.Count == 0 || devices is null)
+            return new List<string>();
+
+        return devices
+            .Where(d => d.IsAssigned && !string.IsNullOrWhiteSpace(d.DeviceId))
+            .Select(d => d.DeviceId!.Trim())
+            .Where(id => requestedIds.Contains(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }
