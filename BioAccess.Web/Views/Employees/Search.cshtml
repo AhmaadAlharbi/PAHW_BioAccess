@@ -5,7 +5,9 @@
     var toastMsg       = TempData["ToastMsg"]  as string;
     var lastEmployeeId = TempData["LastEmployeeId"]?.ToString();
     var isAdmin        = Context.Session.GetString("IsAdmin") == "1";
+    var employee       = Model?.Employee;
     var devices        = Model?.Devices ?? new List<BioAccess.Web.DTOs.DeviceRowDto>();
+    var regionGroups   = Model?.RegionGroups;
     var assigned       = devices.Where(x => x.IsEffectivelyAssigned).ToList();
     var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 }
@@ -87,7 +89,7 @@
     </div>
 
     @* ── Card 2: Employee info ──────────────────────────── *@
-    @if (Model?.Employee != null)
+    @if (employee != null)
     {
         <div class="content-card mb-3">
             <h2 class="c-section-title mb-3">معلومات الموظف</h2>
@@ -95,19 +97,19 @@
             <div class="row g-3 mb-3">
                 <div class="col-sm-6 col-lg-3">
                     <div class="text-muted small mb-1">الاسم الكامل</div>
-                    <div class="fw-bold">@Model.Employee.FullNameAr</div>
+                    <div class="fw-bold">@employee.FullNameAr</div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <div class="text-muted small mb-1">الإدارة / القسم</div>
-                    <div class="fw-bold">@Model.Employee.Department</div>
+                    <div class="fw-bold">@employee.Department</div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <div class="text-muted small mb-1">المسمى الوظيفي</div>
-                    <div class="fw-bold">@Model.Employee.JobTitle</div>
+                    <div class="fw-bold">@employee.JobTitle</div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <div class="text-muted small mb-1">الرقم الوظيفي</div>
-                    <div class="fw-bold text-maroon">@Model.Employee.EmployeeId</div>
+                    <div class="fw-bold text-maroon">@employee.EmployeeId</div>
                 </div>
             </div>
 
@@ -129,15 +131,15 @@
         </div>
 
         @* ── Card 3: Regions & Devices ──────────────────── *@
-        @if (Model.RegionGroups != null && Model.RegionGroups.Any())
+        @if (regionGroups != null && regionGroups.Any())
         {
             <div class="content-card">
                 <h2 class="c-section-title mb-3">إدارة أجهزة البصمة</h2>
 
                 <div class="regions-container">
-                    @for (int i = 0; i < Model.RegionGroups.Count; i++)
+                    @for (int i = 0; i < regionGroups.Count; i++)
                     {
-                        var g          = Model.RegionGroups[i];
+                        var g          = regionGroups[i];
                         var collapseId = $"collapse_{i}";
                         var regionKey  = "reg_" + i;
                         var hasAssigned   = g.AssignedDevices > 0;
@@ -179,7 +181,7 @@
                                     {
                                         <form method="post" action="/employees/end-delegation" class="d-inline">
                                             @Html.AntiForgeryToken()
-                                            <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                            <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
                                             @foreach (var terminalId in delegatedActiveTerminalIds)
                                             {
                                                 <input type="hidden" name="terminalIds" value="@terminalId" />
@@ -317,7 +319,7 @@
                                                             <div class="mt-2 pt-2 border-top" onclick="event.stopPropagation();">
                                                                 <form method="post" action="/employees/end-delegation" class="d-inline">
                                                                     @Html.AntiForgeryToken()
-                                                                    <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                    <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
                                                                     <input type="hidden" name="terminalIds" value="@terminalId" />
                                                                     <button type="button" class="btn btn-danger btn-sm u-nowrap"
                                                                             onclick="confirmDelegationScopeAction(this, 'device')">
@@ -331,7 +333,7 @@
                                                             <div class="mt-2 pt-2 border-top" onclick="event.stopPropagation();">
                                                                 <form method="post" action="/employees/cancel-delegation" class="d-inline">
                                                                     @Html.AntiForgeryToken()
-                                                                    <input type="hidden" name="employeeId" value="@Model.Employee.EmployeeId" />
+                                                    <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
                                                                     <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
                                                                     <button type="button" class="btn btn-outline btn-sm u-nowrap"
                                                                             onclick="confirmDelegationCardAction(this, 'cancel')">

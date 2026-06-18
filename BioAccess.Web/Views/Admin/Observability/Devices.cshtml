@@ -1,0 +1,167 @@
+@model DevicesObservabilityViewModel
+
+@{
+    ViewData["Title"] = "لوحة صحة الأجهزة";
+}
+
+@section Styles {
+    <style>
+        .obs-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .obs-summary-card {
+            padding: 1.1rem 1.2rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        }
+
+        .obs-summary-card.is-neutral {
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+        }
+
+        .obs-summary-card.is-success {
+            background: linear-gradient(180deg, #effaf3 0%, #daf5e3 100%);
+        }
+
+        .obs-summary-card.is-warning {
+            background: linear-gradient(180deg, #fff9e8 0%, #fff1bf 100%);
+        }
+
+        .obs-summary-card.is-danger {
+            background: linear-gradient(180deg, #fff2f3 0%, #fde5e8 100%);
+        }
+
+        .obs-summary-label {
+            color: #6c757d;
+            font-size: 0.92rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .obs-summary-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .obs-device-name {
+            font-weight: 800;
+        }
+
+        .obs-device-meta {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 0.2rem;
+        }
+
+        .obs-problem-summary {
+            font-size: 0.92rem;
+            color: #495057;
+            max-width: 420px;
+        }
+    </style>
+}
+
+<div class="content-card fade-in">
+    <div class="page-header">
+        <h1 class="page-title">
+            <span class="page-title-icon">📡</span>
+            <span>لوحة صحة الأجهزة</span>
+        </h1>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="alert alert-error">
+            <span>@Model.Error</span>
+        </div>
+    }
+
+    <div class="obs-summary-grid mb-3">
+        <div class="obs-summary-card is-neutral">
+            <div class="obs-summary-label">إجمالي الأجهزة</div>
+            <div class="obs-summary-value">@Model.TotalDevices</div>
+        </div>
+        <div class="obs-summary-card is-danger">
+            <div class="obs-summary-label">Problem</div>
+            <div class="obs-summary-value">@Model.ProblemDevices</div>
+        </div>
+        <div class="obs-summary-card is-warning">
+            <div class="obs-summary-label">Warning</div>
+            <div class="obs-summary-value">@Model.WarningDevices</div>
+        </div>
+        <div class="obs-summary-card is-success">
+            <div class="obs-summary-label">Healthy</div>
+            <div class="obs-summary-value">@Model.HealthyDevices</div>
+        </div>
+    </div>
+
+    <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
+        <h2 class="c-section-title">حالة الأجهزة خلال آخر 24 ساعة</h2>
+        <span class="text-muted">
+            يتم الاعتماد على terminals و eventLogs و authLogs فقط
+        </span>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>الجهاز</th>
+                    <th class="u-w-120">IP</th>
+                    <th class="u-w-120">الحالة</th>
+                    <th class="u-w-110">ErrorCount</th>
+                    <th class="u-w-110">ActivityCount</th>
+                    <th class="u-w-160">LastSeen</th>
+                    <th>ProblemSummary</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (!Model.Devices.Any())
+            {
+                <tr>
+                    <td colspan="7" class="u-text-center text-muted">لا توجد بيانات أجهزة متاحة حالياً.</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var device in Model.Devices)
+                {
+                    <tr>
+                        <td>
+                            <div class="obs-device-name">@device.Name</div>
+                            <div class="obs-device-meta">@device.TerminalId</div>
+                        </td>
+                        <td>@(string.IsNullOrWhiteSpace(device.Ip) ? "—" : device.Ip)</td>
+                        <td>
+                            @if (device.Status == "Problem")
+                            {
+                                <span class="badge badge-danger">Problem</span>
+                            }
+                            else if (device.Status == "Warning")
+                            {
+                                <span class="badge badge-warning">Warning</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-success">Healthy</span>
+                            }
+                        </td>
+                        <td>@device.ErrorCount</td>
+                        <td>@device.ActivityCount</td>
+                        <td>@(device.LastSeen.HasValue ? device.LastSeen.Value.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                        <td>
+                            <div class="obs-problem-summary">
+                                @(string.IsNullOrWhiteSpace(device.ProblemSummary) ? "—" : device.ProblemSummary)
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

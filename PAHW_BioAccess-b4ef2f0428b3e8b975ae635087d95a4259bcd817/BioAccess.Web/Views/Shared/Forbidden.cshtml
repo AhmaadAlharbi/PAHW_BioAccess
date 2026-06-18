@@ -1,0 +1,38 @@
+﻿@{
+    ViewData["Title"] = "403 - غير مصرح";
+}
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="bg-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <div class="error-page">
+        <div class="error-card card">
+            <div class="error-icon">🚫</div>
+            <h1 class="error-title">غير مصرح</h1>
+            <p class="error-message">
+                عذراً، ليس لديك صلاحية للوصول إلى هذه الصفحة.<br>
+                يرجى التواصل مع المسؤول للحصول على الصلاحيات المطلوبة.
+            </p>
+            <div class="error-actions">
+                <a href="/Employees" class="btn btn-primary">العودة إلى النظام</a>
+                <a href="/" class="btn btn-muted">
+                    الصفحة الرئيسية
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

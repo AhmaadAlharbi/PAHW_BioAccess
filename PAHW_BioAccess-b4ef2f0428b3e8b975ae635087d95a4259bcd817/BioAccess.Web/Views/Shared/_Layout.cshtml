@@ -1,0 +1,124 @@
+@{
+    var currentEmpId   = Context.Session.GetString("EmpId")   ?? "";
+    var currentEmpName = Context.Session.GetString("EmpName") ?? "غير مسجل";
+    var isAdmin        = Context.Session.GetString("IsAdmin")  == "1";
+    var isLoggedIn     = Context.Session.GetString("EmpName")  != null;
+    var controller     = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action         = ViewContext.RouteData.Values["action"]?.ToString();
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - نظام إدارة البصمات PAHW</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+@if (isLoggedIn)
+{
+    <div class="app-layout">
+
+        @* Sidebar (appears on RIGHT in RTL flex flow) *@
+        <aside class="app-sidebar" id="appSidebar">
+
+            <div class="sidebar-header">
+                <a href="/" class="sidebar-brand">
+                    <img src="https://www.pahw.gov.kw/images/PAHW-Logo.png" alt="PAHW" class="sidebar-logo" />
+                </a>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="sidebar-nav-item @(controller == "Dashboard" ? "active" : "")">
+                    <span class="sidebar-nav-icon">📊</span>
+                    <span>لوحة التحكم</span>
+                </a>
+                <a href="/employees/search" class="sidebar-nav-item @(action == "Search" && controller == "Employees" ? "active" : "")">
+                    <span class="sidebar-nav-icon">🔍</span>
+                    <span>بحث موظف</span>
+                </a>
+                <a href="/allowedUsers" class="sidebar-nav-item @(controller == "AllowedUsers" || controller == "Allowlist" ? "active" : "")">
+                    <span class="sidebar-nav-icon">👥</span>
+                    <span>قائمة الصلاحيات</span>
+                </a>
+                @if (isAdmin)
+                {
+                    <div class="sidebar-divider"></div>
+                    <a href="/terminals" class="sidebar-nav-item @(controller == "Terminals" ? "active" : "")">
+                        <span class="sidebar-nav-icon">🗺️</span>
+                        <span>المناطق والأجهزة</span>
+                    </a>
+                }
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar">
+                        @(currentEmpName.Length > 0 ? currentEmpName.Substring(0, 1) : "U")
+                    </div>
+                    <div class="sidebar-user-info">
+                        <span class="sidebar-user-name">@currentEmpName</span>
+                        <span class="sidebar-user-role">@(isAdmin ? "⭐ مدير" : currentEmpId)</span>
+                    </div>
+                    <form asp-controller="Home" asp-action="Logout" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="sidebar-logout-btn" title="تسجيل الخروج">🚪</button>
+                    </form>
+                </div>
+            </div>
+
+        </aside>
+
+        @* Main content *@
+        <div class="app-main">
+
+            <header class="app-topbar">
+                <button class="app-sidebar-toggle" onclick="toggleSidebar()" aria-label="تبديل القائمة">☰</button>
+                <span class="app-topbar-title">@ViewData["Title"]</span>
+            </header>
+
+            <main class="app-content">
+                @RenderBody()
+            </main>
+
+        </div>
+
+    </div>
+}
+else
+{
+    @* Login / unauthenticated pages: full-page layout with decorative background *@
+    <div class="bg-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+    <main class="main-container">
+        @RenderBody()
+    </main>
+}
+
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+
+<script>
+    function toggleSidebar() {
+        var s = document.getElementById('appSidebar');
+        if (s) s.classList.toggle('is-open');
+    }
+    document.addEventListener('click', function (e) {
+        if (window.innerWidth > 900) return;
+        var s = document.getElementById('appSidebar');
+        if (!s || !s.classList.contains('is-open')) return;
+        if (!s.contains(e.target) && !e.target.closest('.app-sidebar-toggle')) {
+            s.classList.remove('is-open');
+        }
+    });
+</script>
+</body>
+</html>

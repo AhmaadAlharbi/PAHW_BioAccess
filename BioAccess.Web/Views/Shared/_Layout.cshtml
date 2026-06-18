@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
-    @await RenderSectionAsync("Styles", required: false)
+    @RenderSection("Styles", required: false)
 </head>
 <body>
 @if (isLoggedIn)
@@ -27,28 +27,28 @@
         <aside class="app-sidebar" id="appSidebar">
 
             <div class="sidebar-header">
-                <a href="/" class="sidebar-brand">
+                <a asp-controller="Home" asp-action="Index" class="sidebar-brand">
                     <img src="https://www.pahw.gov.kw/images/PAHW-Logo.png" alt="PAHW" class="sidebar-logo" />
                 </a>
             </div>
 
             <nav class="sidebar-nav">
-                <a href="/dashboard" class="sidebar-nav-item @(controller == "Dashboard" ? "active" : "")">
+                <a asp-controller="Dashboard" asp-action="Index" class="sidebar-nav-item @(controller == "Dashboard" ? "active" : "")">
                     <span class="sidebar-nav-icon">📊</span>
                     <span>لوحة التحكم</span>
                 </a>
-                <a href="/employees/search" class="sidebar-nav-item @(action == "Search" && controller == "Employees" ? "active" : "")">
+                <a asp-controller="Employees" asp-action="Search" class="sidebar-nav-item @(action == "Search" && controller == "Employees" ? "active" : "")">
                     <span class="sidebar-nav-icon">🔍</span>
                     <span>بحث موظف</span>
                 </a>
-                <a href="/allowedUsers" class="sidebar-nav-item @(controller == "AllowedUsers" || controller == "Allowlist" ? "active" : "")">
+                <a asp-controller="AllowedUsers" asp-action="Index" class="sidebar-nav-item @(controller == "AllowedUsers" || controller == "Allowlist" ? "active" : "")">
                     <span class="sidebar-nav-icon">👥</span>
                     <span>قائمة الصلاحيات</span>
                 </a>
                 @if (isAdmin)
                 {
                     <div class="sidebar-divider"></div>
-                    <a href="/terminals" class="sidebar-nav-item @(controller == "Terminals" ? "active" : "")">
+                    <a asp-controller="Terminals" asp-action="Index" class="sidebar-nav-item @(controller == "Terminals" ? "active" : "")">
                         <span class="sidebar-nav-icon">🗺️</span>
                         <span>المناطق والأجهزة</span>
                     </a>
@@ -104,7 +104,7 @@ else
 }
 
 <script src="~/js/site.js" asp-append-version="true"></script>
-@await RenderSectionAsync("Scripts", required: false)
+@RenderSection("Scripts", required: false)
 
 <script>
     function toggleSidebar() {

@@ -1,0 +1,122 @@
+@model BioAccess.Web.DTOs.AllowedUserDto?
+@{
+    ViewData["Title"] = "إضافة مستخدم";
+    var currentEmpId = Context.Session.GetString("EmpId") ?? "";
+}
+
+@if (TempData["ErrorMsg"] != null)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <span>@TempData["ErrorMsg"]</span>
+    </div>
+}
+@if (TempData["SuccessMsg"] != null)
+{
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>@TempData["SuccessMsg"]</span>
+    </div>
+}
+
+@* ── Step 1: Fetch employee data ─────────────────────── *@
+<div class="content-card mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="c-section-title">الخطوة 1 — جلب بيانات المستخدم</h2>
+        <a href="/allowedUsers" class="btn btn-outline btn-sm">
+            <span>↩</span> العودة للقائمة
+        </a>
+    </div>
+    <p class="text-muted small mb-3">أدخل الرقم الوظيفي لجلب بيانات المستخدم من النظام.</p>
+
+    <form method="post" asp-action="Fetch">
+        <div class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+                <label class="form-label fw-bold">الرقم الوظيفي</label>
+                <input type="number" name="employeeId" required
+                       placeholder="مثال: 7300" class="form-control" />
+            </div>
+            <button type="submit" class="btn btn-primary u-nowrap">جلب البيانات</button>
+        </div>
+    </form>
+</div>
+
+@* ── Step 2: Review and save ──────────────────────────── *@
+@if (Model != null)
+{
+    <div class="content-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="c-section-title">الخطوة 2 — مراجعة وحفظ البيانات</h2>
+            <span class="badge badge-success">✓ تم جلب البيانات</span>
+        </div>
+
+        <form method="post" asp-action="Save">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">الاسم الكامل</label>
+                    <input type="text" name="fullName" value="@Model.FullName"
+                           class="form-control" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">البريد الإلكتروني</label>
+                    <input type="email" name="email" value="@Model.Email"
+                           class="form-control" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">القسم</label>
+                    <input type="text" name="department" value="@Model.Department"
+                           class="form-control" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">الرقم الوظيفي</label>
+                    <input type="text" value="@Model.EmployeeId"
+                           class="form-control" readonly disabled />
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <div class="form-check">
+                    <input type="checkbox" name="isAdmin" id="isAdmin"
+                           value="true" class="form-check-input" />
+                    <label for="isAdmin" class="form-check-label fw-bold">
+                        ⭐ منح صلاحية مدير
+                    </label>
+                </div>
+                <small class="text-muted">المدير لديه صلاحيات كاملة لإدارة النظام والمستخدمين.</small>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <a href="/allowedUsers" class="btn btn-outline">إلغاء</a>
+                <button type="submit" class="btn btn-primary">✓ حفظ المستخدم</button>
+            </div>
+        </form>
+    </div>
+}
+else
+{
+    <div class="content-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-text">أدخل الرقم الوظيفي في الخطوة الأولى أعلاه لجلب بيانات المستخدم</div>
+        </div>
+    </div>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+}
+
+@section Scripts {
+    <script>
+        document.querySelector('form[asp-action="Save"]')?.addEventListener('submit', function (e) {
+            const email = this.querySelector('input[name="email"]')?.value || '';
+            if (email && !email.includes('@@')) {
+                e.preventDefault();
+                alert('يرجى إدخال بريد إلكتروني صحيح');
+            }
+        });
+    </script>
+}

@@ -9,7 +9,7 @@
         <h2 class="c-section-title">البحث عن موظف</h2>
     </div>
     <p class="text-muted small mb-3">ابدأ بإدخال الرقم الوظيفي للوصول إلى بيانات الموظف وربط الأجهزة.</p>
-    <form method="get" action="/employees/search">
+    <form method="get" asp-controller="Employees" asp-action="Search">
         <div class="d-flex gap-2 align-items-end">
             <div class="flex-grow-1">
                 <label class="form-label fw-bold" for="employeeId">الرقم الوظيفي</label>
@@ -51,8 +51,8 @@ else
 
     @* Quick links *@
     <div class="c-actionbar mb-3">
-        <a class="btn btn-outline btn-sm u-nowrap" href="/terminals">🗺️ المناطق والأجهزة</a>
-        <a class="btn btn-outline btn-sm u-nowrap" href="/allowedUsers">👥 قائمة الصلاحيات</a>
+        <a asp-controller="Terminals" asp-action="Index" class="btn btn-outline btn-sm u-nowrap">🗺️ المناطق والأجهزة</a>
+        <a asp-controller="AllowedUsers" asp-action="Index" class="btn btn-outline btn-sm u-nowrap">👥 قائمة الصلاحيات</a>
     </div>
 
     @* ── Two-column panels ────────────────────────────── *@
@@ -99,11 +99,11 @@ else
                     <h2 class="c-section-title">الانتدابات</h2>
                     <div class="d-flex gap-1">
                         <a class="btn btn-sm @(Model.DelegationsFilter == "Active"    ? "btn-secondary" : "btn-muted") u-nowrap"
-                           href="/dashboard?delegations=active">نشطة</a>
+                           asp-controller="Dashboard" asp-action="Index" asp-route-delegations="active">نشطة</a>
                         <a class="btn btn-sm @(Model.DelegationsFilter == "Scheduled" ? "btn-secondary" : "btn-muted") u-nowrap"
-                           href="/dashboard?delegations=scheduled">مجدولة</a>
+                           asp-controller="Dashboard" asp-action="Index" asp-route-delegations="scheduled">مجدولة</a>
                         <a class="btn btn-sm @(Model.DelegationsFilter == "All"       ? "btn-secondary" : "btn-muted") u-nowrap"
-                           href="/dashboard?delegations=all">الكل</a>
+                           asp-controller="Dashboard" asp-action="Index" asp-route-delegations="all">الكل</a>
                     </div>
                 </div>
 

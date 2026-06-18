@@ -1,0 +1,244 @@
+@model TerminalsViewModel
+
+@{
+    ViewData["Title"] = "المناطق والأجهزة";
+}
+
+<style>
+    .trm-rename-form {
+        display: none;
+    }
+
+    .trm-region-card.is-editing .trm-rename-form {
+        display: flex;
+    }
+</style>
+
+<div class="content-card fade-in">
+    <div class="page-header">
+        <h1 class="page-title">
+            <span class="page-title-icon">🗺️</span>
+            <span>المناطق والأجهزة</span>
+        </h1>
+    </div>
+
+    @if (TempData["ToastMsg"] is string toastMessage)
+    {
+        var isSuccess = TempData["ToastType"] as string == "success";
+        <div class="alert @(isSuccess ? "alert-success" : "alert-error") trm-toast">
+            <span>@toastMessage</span>
+        </div>
+    }
+
+    @if (Model.ApiUnavailable)
+    {
+        <div class="alert alert-warning">
+            <span>
+                تعذّر الاتصال بـ Alpeta — البيانات المعروضة من آخر نسخة محفوظة.
+                حاول تحديث الصفحة، وإذا استمرت المشكلة تحقق من اتصال الخادم بـ Alpeta.
+            </span>
+        </div>
+    }
+
+    @if (Model.StaleMappingsCount > 0)
+    {
+        <div class="alert alert-warning">
+            <span>يوجد @Model.StaleMappingsCount ربط قديم لأجهزة غير موجودة في Alpeta.</span>
+        </div>
+    }
+
+    <div class="terminals-layout">
+
+        @* Left: Regions *@
+        <section class="trm-regions-panel">
+            <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
+                <h2 class="c-section-title">المناطق</h2>
+                <button type="button" class="btn btn-primary btn-sm u-nowrap"
+                        onclick="document.getElementById('create-region-form').classList.toggle('d-none')">
+                    + إضافة منطقة
+                </button>
+            </div>
+
+            @if (!Model.Regions.Any())
+            {
+                <div class="c-empty-panel">
+                    <div class="c-empty-icon">🗺️</div>
+                    <p class="c-empty-title">لا توجد مناطق بعد</p>
+                    <p class="c-empty-text">أضف منطقة لتبدأ بتعيين الأجهزة إليها.</p>
+                </div>
+            }
+            else
+            {
+                <div class="trm-region-list terminals-regions-table">
+                    @foreach (var region in Model.Regions)
+                    {
+                        <div class="trm-region-card">
+                            <div class="trm-region-header">
+                                <span class="trm-region-name">@region.Name</span>
+                                <span class="text-muted trm-region-count">@region.DeviceCount جهاز</span>
+                                <button type="button" class="btn btn-sm btn-secondary u-nowrap"
+                                        onclick="this.closest('.trm-region-card').classList.toggle('is-editing')">
+                                    تعديل
+                                </button>
+                            </div>
+
+                            <form asp-controller="Terminals" asp-action="RenameRegion" method="post"
+                                  class="trm-rename-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="regionId" value="@region.Id" />
+                                <input name="name"
+                                       value="@region.Name"
+                                       data-original="@region.Name"
+                                       class="form-control form-control-compact trm-rename-input"
+                                       placeholder="اسم المنطقة"
+                                       required
+                                       oninput="var b=this.form.querySelector('[data-rename-btn]');b.disabled=(!this.value.trim()||this.value.trim()===this.dataset.original)" />
+                                <button type="submit" data-rename-btn
+                                        class="btn btn-sm btn-secondary u-nowrap" disabled>
+                                    تعديل
+                                </button>
+                            </form>
+
+                            <form asp-controller="Terminals" asp-action="DeleteRegion" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="regionId" value="@region.Id" />
+                                @if (region.DeviceCount > 0)
+                                {
+                                    <button type="button" class="btn btn-sm btn-danger u-w-100" disabled
+                                            title="حذف المنطقة نهائياً - فك ربط الأجهزة أولاً قبل الحذف">
+                                        حذف
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-danger u-w-100"
+                                            title="حذف المنطقة نهائياً"
+                                            onclick="return confirm('هل أنت متأكد من حذف منطقة &quot;@region.Name&quot;؟')">
+                                        حذف
+                                    </button>
+                                }
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+
+            <form id="create-region-form" asp-controller="Terminals" asp-action="CreateRegion" method="post"
+                  class="d-none mt-2">
+                @Html.AntiForgeryToken()
+                <input type="text" name="name" class="form-control mb-2" placeholder="اسم المنطقة" required />
+                <button type="submit" class="btn btn-primary btn-sm">حفظ</button>
+            </form>
+        </section>
+
+        @* Right: Devices *@
+        <section class="trm-devices-panel">
+            <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
+                <h2 class="c-section-title">الأجهزة</h2>
+                <span class="text-muted trm-devices-summary">
+                    @Model.Devices.Count(d => d.Status == "Assigned") مرتبط ·
+                    @Model.Devices.Count(d => d.Status != "Assigned") غير مرتبط ·
+                    المجموع: @Model.Devices.Count
+                </span>
+            </div>
+
+            @if (!Model.Devices.Any())
+            {
+                <div class="c-empty-panel">
+                    <div class="c-empty-icon">📱</div>
+                    <p class="c-empty-title">لا توجد أجهزة</p>
+                    <p class="c-empty-text">لم يتم العثور على أجهزة في النظام.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-container terminals-devices-table">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>الجهاز</th>
+                                <th class="u-w-120">الحالة</th>
+                                <th>تعيين منطقة</th>
+                                <th class="u-w-110 u-text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var device in Model.Devices)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="u-fw-900">@device.DeviceName</div>
+                                        <div class="text-muted trm-device-meta">
+                                            @device.DeviceId
+                                            @if (!string.IsNullOrWhiteSpace(device.Location))
+                                            {
+                                                <span> · @device.Location</span>
+                                            }
+                                        </div>
+                                        @if (device.RegionName is not null)
+                                        {
+                                            <div class="trm-device-region">@device.RegionName</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (device.Status == "Assigned")
+                                        {
+                                            <span class="badge badge-success">مرتبط</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-muted">غير مرتبط</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <form asp-controller="Terminals" asp-action="AssignRegion"
+                                              method="post" class="u-flex u-gap-8">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="terminalId" value="@device.DeviceId" />
+                                            <select name="regionId"
+                                                    class="form-control form-control-compact u-flex-1">
+                                                <option value="">اختر منطقة...</option>
+                                                @foreach (var region in Model.Regions)
+                                                {
+                                                    <option value="@region.Id"
+                                                            selected="@(device.RegionId == region.Id)">
+                                                        @region.Name
+                                                    </option>
+                                                }
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-primary u-nowrap">
+                                                تعيين
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="u-text-center">
+                                        <form asp-controller="Terminals" asp-action="ClearRegion" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="terminalId" value="@device.DeviceId" />
+                                            @if (device.RegionId is null)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-secondary" disabled
+                                                        title="إزالة ربط الجهاز من المنطقة (لن يتم حذف الجهاز)">
+                                                    فك الربط
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="submit" class="btn btn-sm btn-secondary"
+                                                        title="إزالة ربط الجهاز من المنطقة (لن يتم حذف الجهاز)"
+                                                        onclick="return confirm('فك ربط الجهاز من منطقته؟')">
+                                                    فك الربط
+                                                </button>
+                                            }
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+    </div>
+</div>

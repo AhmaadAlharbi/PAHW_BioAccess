@@ -1,0 +1,161 @@
+@model BioAccess.Web.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "لوحة التحكم";
+}
+
+@* ── Search card (all users) ─────────────────────────── *@
+<div class="content-card mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="c-section-title">البحث عن موظف</h2>
+    </div>
+    <p class="text-muted small mb-3">ابدأ بإدخال الرقم الوظيفي للوصول إلى بيانات الموظف وربط الأجهزة.</p>
+    <form method="get" action="/employees/search">
+        <div class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+                <label class="form-label fw-bold" for="employeeId">الرقم الوظيفي</label>
+                <input id="employeeId" name="employeeId" type="number"
+                       class="form-control" placeholder="مثال: 8989" />
+            </div>
+            <button type="submit" class="btn btn-primary u-nowrap">بحث</button>
+        </div>
+    </form>
+</div>
+
+@if (!Model.IsAdmin)
+{
+    @* Non-admin: just a help prompt *@
+    <div class="content-card">
+        <div class="empty-state">
+            <div class="empty-state-icon">🔎</div>
+            <div class="empty-state-text">استخدم مربع البحث أعلاه للوصول إلى بيانات الموظف وربط الأجهزة والانتدابات.</div>
+        </div>
+    </div>
+}
+else
+{
+    @* ── Stats ───────────────────────────────────────── *@
+    <div class="c-stats-grid mb-3">
+        <div class="stat-card">
+            <div class="stat-value">@Model.RegionsCount</div>
+            <div class="stat-label">المناطق</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@Model.MappingsCount</div>
+            <div class="stat-label">الأجهزة المربوطة</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">@Model.ActiveDelegationsCount</div>
+            <div class="stat-label">انتدابات نشطة</div>
+        </div>
+    </div>
+
+    @* Quick links *@
+    <div class="c-actionbar mb-3">
+        <a class="btn btn-outline btn-sm u-nowrap" href="/terminals">🗺️ المناطق والأجهزة</a>
+        <a class="btn btn-outline btn-sm u-nowrap" href="/allowedUsers">👥 قائمة الصلاحيات</a>
+    </div>
+
+    @* ── Two-column panels ────────────────────────────── *@
+    <div class="row g-3">
+
+        @* Activity log *@
+        <div class="col-lg-6">
+            <div class="content-card h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h2 class="c-section-title">آخر العمليات</h2>
+                </div>
+
+                @if (Model.LatestActivity == null || Model.LatestActivity.Count == 0)
+                {
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🗒️</div>
+                        <div class="empty-state-text">لا توجد عمليات مسجلة بعد</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="c-activity-list">
+                        @foreach (var a in Model.LatestActivity)
+                        {
+                            <div class="c-activity-item">
+                                <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold">@a.ActionText</span>
+                                    </div>
+                                    <span class="text-muted small u-nowrap">@a.TimeText</span>
+                                </div>
+                                <div class="text-muted small" style="white-space: pre-line;">@a.Summary</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* Delegations *@
+        <div class="col-lg-6">
+            <div class="content-card h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h2 class="c-section-title">الانتدابات</h2>
+                    <div class="d-flex gap-1">
+                        <a class="btn btn-sm @(Model.DelegationsFilter == "Active"    ? "btn-secondary" : "btn-muted") u-nowrap"
+                           href="/dashboard?delegations=active">نشطة</a>
+                        <a class="btn btn-sm @(Model.DelegationsFilter == "Scheduled" ? "btn-secondary" : "btn-muted") u-nowrap"
+                           href="/dashboard?delegations=scheduled">مجدولة</a>
+                        <a class="btn btn-sm @(Model.DelegationsFilter == "All"       ? "btn-secondary" : "btn-muted") u-nowrap"
+                           href="/dashboard?delegations=all">الكل</a>
+                    </div>
+                </div>
+
+                @if (Model.LatestDelegations == null || Model.LatestDelegations.Count == 0)
+                {
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🗒️</div>
+                        <div class="empty-state-text">لا توجد انتدابات متاحة حاليًا</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table data-table--compact">
+                            <thead>
+                                <tr>
+                                    <th>الموظف</th>
+                                    <th class="u-nowrap">الحالة</th>
+                                    <th class="u-nowrap">البداية</th>
+                                    <th class="u-nowrap">النهاية</th>
+                                    <th class="u-nowrap">الأجهزة</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in Model.LatestDelegations)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="u-nowrap">@d.EmployeeText</div>
+                                            @if (!string.IsNullOrWhiteSpace(d.RegionText))
+                                            {
+                                                <div class="text-muted small">@d.RegionText</div>
+                                            }
+                                        </td>
+                                        <td class="u-nowrap"><span class="@d.StatusBadgeClass">@d.StatusText</span></td>
+                                        <td class="u-nowrap">@d.StartDateText</td>
+                                        <td class="u-nowrap">@d.EndDateText</td>
+                                        <td class="u-nowrap">
+                                            <div class="fw-bold">@d.TerminalsCountText</div>
+                                            @if (!string.IsNullOrWhiteSpace(d.DevicesHintText))
+                                            {
+                                                <div class="text-muted small">@d.DevicesHintText</div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+}
