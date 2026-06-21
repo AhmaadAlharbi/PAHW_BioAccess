@@ -12,6 +12,28 @@ namespace BioAccess.Web.External;
 // Low-level client for Alpeta login, device list, and user-terminal assignment.
 public class AlpetaClient
 {
+    private sealed class AuthLogItem
+    {
+        public string TerminalId { get; init; } = "";
+        public string TerminalName { get; init; } = "";
+        public DateTime EventTime { get; init; }
+    }
+
+    private sealed class EventLogItem
+    {
+        public string TerminalId { get; init; } = "";
+        public DateTime EventTime { get; init; }
+        public string Message { get; init; } = "";
+    }
+
+    public sealed class TerminalLogEntry
+    {
+        public string TerminalId { get; init; } = "";
+        public DateTime Timestamp { get; init; }
+        public string EventType { get; init; } = "";
+        public string Message { get; init; } = "";
+    }
+
     public sealed class AllDevicesSnapshot
     {
         public List<DeviceDto> Devices { get; init; } = new();
@@ -316,6 +338,12 @@ public class AlpetaClient
     public Task<JsonDocument?> GetTerminalsDocumentAsync(CancellationToken ct = default)
         => GetCatalogDocumentAsync($"{BaseUrl}/terminals?offset=0&limit=500", "terminals", ct);
 
+    public Task<List<TerminalLogEntry>> GetAuthLogsAsync(DateTime sinceUtc, CancellationToken ct = default)
+        => GetAuthLogsInternalAsync(sinceUtc, DateTime.UtcNow, ct);
+
+    public Task<List<TerminalLogEntry>> GetEventLogsAsync(DateTime sinceUtc, CancellationToken ct = default)
+        => GetEventLogsInternalAsync(sinceUtc, DateTime.UtcNow, ct);
+
     private async Task<(bool Success, List<DeviceDto> Devices, JsonDocument? Document, HttpStatusCode? StatusCode, bool InvalidPayload, bool SessionExpired)> TryReadAllDevicesResponseAsync(
         string url,
         CancellationToken ct)
@@ -436,6 +464,95 @@ public class AlpetaClient
             _logger.LogWarning(ex, "ALPETA_CATALOG_INVALID_JSON");
             return (null, res.StatusCode);
         }
+    }
+
+    private async Task<List<TerminalLogEntry>> GetAuthLogsInternalAsync(
+        DateTime startTimeUtc,
+        DateTime endTimeUtc,
+        CancellationToken ct)
+    {
+        var url = BuildLogUrl("authLogs", startTimeUtc, endTimeUtc, 0, 500);
+        var items = await GetLogsAsync(
+            url,
+            "authLogs",
+            ParseAuthLogs,
+            ct);
+
+        var logs = items
+            .Select(x => new TerminalLogEntry
+            {
+                TerminalId = x.TerminalId,
+                Timestamp = x.EventTime,
+                EventType = "AuthLog",
+                Message = x.TerminalName
+            })
+            .ToList();
+
+        _logger.LogInformation(
+            "OBS_AUTH_CLIENT_COUNT count={Count} sampleName={SampleName} sampleId={SampleId}",
+            logs.Count,
+            logs.Select(x => x.Message).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? "<none>",
+            logs.Select(x => x.TerminalId).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? "<none>");
+
+        return logs;
+    }
+
+    private async Task<List<TerminalLogEntry>> GetEventLogsInternalAsync(
+        DateTime startTimeUtc,
+        DateTime endTimeUtc,
+        CancellationToken ct)
+    {
+        var url = BuildLogUrl("logs/event_log", startTimeUtc, endTimeUtc, 0, 500);
+        var items = await GetLogsAsync(
+            url,
+            "eventLogs",
+            ParseEventLogs,
+            ct);
+
+        return items
+            .Select(x => new TerminalLogEntry
+            {
+                TerminalId = x.TerminalId,
+                Timestamp = x.EventTime,
+                EventType = "EventLog",
+                Message = x.Message
+            })
+            .ToList();
+    }
+
+    private async Task<List<TItem>> GetLogsAsync<TItem>(
+        string url,
+        string scope,
+        Func<JsonElement, List<TItem>> parse,
+        CancellationToken ct)
+    {
+        await EnsureLoggedInAsync(ct);
+
+        var firstAttempt = await TryReadLogsAsync(url, scope, parse, ct);
+        if (firstAttempt.Success)
+            return firstAttempt.Items;
+
+        if (firstAttempt.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            _logger.LogWarning(
+                "ALPETA_SESSION_EXPIRED scope={Scope} statusCode={StatusCode}",
+                scope,
+                (int)firstAttempt.StatusCode.Value);
+
+            ClearCachedSession();
+            await EnsureLoggedInAsync(ct);
+
+            var retryAttempt = await TryReadLogsAsync(url, scope, parse, ct);
+            if (retryAttempt.Success)
+                return retryAttempt.Items;
+        }
+
+        _logger.LogWarning(
+            "ALPETA_LOG_READ_FAILED scope={Scope} statusCode={StatusCode}",
+            scope,
+            firstAttempt.StatusCode.HasValue ? (int)firstAttempt.StatusCode.Value : -1);
+
+        return new List<TItem>();
     }
 
     // Assign one employee to one terminal in Alpeta.
@@ -741,13 +858,221 @@ public class AlpetaClient
 
     private static bool IsValidAllDevicesPayload(JsonElement root, List<DeviceDto> devices)
     {
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var wrapper in root.EnumerateArray())
+            {
+                if (wrapper.ValueKind == JsonValueKind.Object &&
+                    wrapper.TryGetProperty("TerminalInfo", out var terminalInfo) &&
+                    terminalInfo.ValueKind == JsonValueKind.Array)
+                {
+                    return devices.Count > 0 || terminalInfo.GetArrayLength() == 0;
+                }
+            }
+
+            return false;
+        }
+
+        if (root.ValueKind == JsonValueKind.Object &&
+            root.TryGetProperty("TerminalList", out var terminals) &&
+            terminals.ValueKind == JsonValueKind.Array)
+        {
+            return devices.Count > 0 || terminals.GetArrayLength() == 0;
+        }
+
+        return false;
+    }
+
+    private async Task<(bool Success, List<TItem> Items, HttpStatusCode? StatusCode)> TryReadLogsAsync<TItem>(
+        string url,
+        string scope,
+        Func<JsonElement, List<TItem>> parse,
+        CancellationToken ct)
+    {
+        using var timeoutCts = CreateTimeoutTokenSource(ct);
+        using var res = await _http.GetAsync(url, timeoutCts.Token);
+        if (!res.IsSuccessStatusCode)
+            return (false, new List<TItem>(), res.StatusCode);
+
+        var json = await res.Content.ReadAsStringAsync(timeoutCts.Token);
+        if (string.IsNullOrWhiteSpace(json))
+            return (true, new List<TItem>(), res.StatusCode);
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return (true, parse(doc.RootElement), res.StatusCode);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "ALPETA_LOG_INVALID_JSON scope={Scope}", scope);
+            return (false, new List<TItem>(), res.StatusCode);
+        }
+    }
+
+    private string BuildLogUrl(string path, DateTime startTimeUtc, DateTime endTimeUtc, int offset, int limit)
+    {
+        var start = Uri.EscapeDataString(FormatLogTime(startTimeUtc));
+        var end = Uri.EscapeDataString(FormatLogTime(endTimeUtc));
+        return $"{BaseUrl}/{path}?startTime={start}&endTime={end}&offset={offset}&limit={limit}";
+    }
+
+    private static string FormatLogTime(DateTime valueUtc)
+        => valueUtc.ToLocalTime().ToString("yyyy-MM-dd");
+
+    private static List<AuthLogItem> ParseAuthLogs(JsonElement root)
+    {
+        var items = new List<AuthLogItem>();
+        foreach (var authLog in EnumerateAuthLogObjects(root))
+        {
+            TryReadRequiredString(authLog, "TerminalID", out var terminalId);
+            TryReadRequiredString(authLog, "TerminalName", out var terminalName);
+
+            terminalId = terminalId.Trim();
+            terminalName = terminalName.Trim();
+
+            if (string.IsNullOrWhiteSpace(terminalId) && string.IsNullOrWhiteSpace(terminalName))
+                continue;
+
+            if (!TryReadRequiredDateTime(authLog, "EventTime", out var eventTime))
+                continue;
+
+            items.Add(new AuthLogItem
+            {
+                TerminalId = terminalId,
+                TerminalName = terminalName,
+                EventTime = eventTime
+            });
+        }
+
+        return items;
+    }
+
+    private static List<EventLogItem> ParseEventLogs(JsonElement root)
+    {
+        var items = new List<EventLogItem>();
+        if (root.ValueKind != JsonValueKind.Array)
+            return items;
+
+        foreach (var eventLog in root.EnumerateArray())
+        {
+            if (eventLog.ValueKind != JsonValueKind.Object)
+                continue;
+
+            if (!TryReadRequiredString(eventLog, "DeviceID", out var deviceId))
+                continue;
+
+            if (!TryReadRequiredDateTime(eventLog, "EventTime", out var eventTime))
+                continue;
+
+            if (!TryReadRequiredString(eventLog, "Detail", out var detail))
+                detail = "EventLog";
+
+            items.Add(new EventLogItem
+            {
+                TerminalId = deviceId,
+                EventTime = eventTime,
+                Message = detail
+            });
+        }
+
+        return items;
+    }
+
+    private static bool TryReadRequiredString(JsonElement obj, string propertyName, out string value)
+    {
+        value = "";
+        if (!obj.TryGetProperty(propertyName, out var element))
+            return false;
+
+        value = element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? "",
+            JsonValueKind.Number => element.ToString(),
+            _ => ""
+        };
+
+        value = value.Trim();
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool TryReadRequiredDateTime(JsonElement obj, string propertyName, out DateTime value)
+    {
+        value = default;
+        if (!obj.TryGetProperty(propertyName, out var element))
+            return false;
+
+        if (element.ValueKind == JsonValueKind.String)
+            return DateTime.TryParse(element.GetString(), out value);
+
+        if (element.ValueKind == JsonValueKind.Number)
+        {
+            if (element.TryGetInt64(out var unixValue))
+            {
+                // Accept both Unix seconds and Unix milliseconds.
+                value = unixValue > 10_000_000_000
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(unixValue).UtcDateTime
+                    : DateTimeOffset.FromUnixTimeSeconds(unixValue).UtcDateTime;
+                return true;
+            }
+
+            if (double.TryParse(element.ToString(), out var doubleValue))
+            {
+                var unixValueDouble = Convert.ToInt64(doubleValue);
+                value = unixValueDouble > 10_000_000_000
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(unixValueDouble).UtcDateTime
+                    : DateTimeOffset.FromUnixTimeSeconds(unixValueDouble).UtcDateTime;
+                return true;
+            }
+        }
+
+        return DateTime.TryParse(element.ToString(), out value);
+    }
+
+    private static IEnumerable<JsonElement> EnumerateAuthLogObjects(JsonElement root)
+    {
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in root.EnumerateArray())
+            {
+                foreach (var child in EnumerateAuthLogObjects(item))
+                    yield return child;
+            }
+
+            yield break;
+        }
+
         if (root.ValueKind != JsonValueKind.Object)
-            return false;
+            yield break;
 
-        if (!root.TryGetProperty("TerminalList", out var terminals) || terminals.ValueKind != JsonValueKind.Array)
-            return false;
+        if (root.TryGetProperty("AuthLogList", out var authLogs))
+        {
+            if (authLogs.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var authLog in authLogs.EnumerateArray())
+                {
+                    if (authLog.ValueKind == JsonValueKind.Object)
+                        yield return authLog;
+                }
 
-        return devices.Count > 0 || terminals.GetArrayLength() == 0;
+                yield break;
+            }
+
+            if (authLogs.ValueKind == JsonValueKind.Object)
+            {
+                yield return authLogs;
+                yield break;
+            }
+        }
+
+        foreach (var prop in root.EnumerateObject())
+        {
+            if (prop.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+            {
+                foreach (var child in EnumerateAuthLogObjects(prop.Value))
+                    yield return child;
+            }
+        }
     }
 
     private static string CreatePayloadSnippet(string payload)
@@ -763,15 +1088,50 @@ public class AlpetaClient
     {
         var list = new List<DeviceDto>();
 
-        if (root.TryGetProperty("TerminalList", out var terminals) &&
-            terminals.ValueKind == JsonValueKind.Array)
+        if (root.ValueKind == JsonValueKind.Array)
         {
-            foreach (var t in terminals.EnumerateArray())
+            foreach (var wrapper in root.EnumerateArray())
+            {
+                if (wrapper.ValueKind != JsonValueKind.Object ||
+                    !wrapper.TryGetProperty("TerminalInfo", out var terminals) ||
+                    terminals.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var t in terminals.EnumerateArray())
+                {
+                    var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
+                    var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
+                    var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
+                    var ipAddress = t.TryGetProperty("IPAddress", out var ipEl) ? (ipEl.GetString() ?? "") : "";
+                    var terminalStatus = TryReadOptionalInt(t, "Status");
+
+                    if (string.IsNullOrWhiteSpace(id))
+                        continue;
+
+                    list.Add(new DeviceDto
+                    {
+                        DeviceId = id.Trim(),
+                        DeviceName = name,
+                        Location = location,
+                        IPAddress = ipAddress
+                        ,TerminalStatus = terminalStatus
+                    });
+                }
+            }
+        }
+        else if (root.ValueKind == JsonValueKind.Object &&
+                 root.TryGetProperty("TerminalList", out var terminalList) &&
+                 terminalList.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var t in terminalList.EnumerateArray())
             {
                 var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
                 var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
                 var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
                 var ipAddress = t.TryGetProperty("IPAddress", out var ipEl) ? (ipEl.GetString() ?? "") : "";
+                var terminalStatus = TryReadOptionalInt(t, "Status");
 
                 if (string.IsNullOrWhiteSpace(id))
                     continue;
@@ -782,6 +1142,7 @@ public class AlpetaClient
                     DeviceName = name,
                     Location = location,
                     IPAddress = ipAddress
+                    ,TerminalStatus = terminalStatus
                 });
             }
         }
@@ -890,6 +1251,20 @@ public class AlpetaClient
             JsonValueKind.Null => "<null>",
             _ => value.GetRawText()
         };
+    }
+
+    private static int? TryReadOptionalInt(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+            return null;
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number))
+            return number;
+
+        if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out number))
+            return number;
+
+        return null;
     }
 
     private void ApplyUuidHeaders(string uuid)

@@ -9,6 +9,8 @@ public sealed class DeviceHealthItem
     public int ErrorCount { get; set; }
     public int ActivityCount { get; set; }
     public DateTime? LastSeen { get; set; }
+    public bool IsOffline { get; set; }
+    public string ProblemReason { get; set; } = "";
     public string ProblemSummary { get; set; } = "";
 }
 

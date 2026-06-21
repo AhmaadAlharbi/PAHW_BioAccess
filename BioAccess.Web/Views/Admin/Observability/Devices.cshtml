@@ -137,7 +137,11 @@
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(device.Ip) ? "—" : device.Ip)</td>
                         <td>
-                            @if (device.Status == "Problem")
+                            @if (device.Status == "Offline")
+                            {
+                                <span class="badge badge-danger">Offline</span>
+                            }
+                            else if (device.Status == "Problem")
                             {
                                 <span class="badge badge-danger">Problem</span>
                             }
@@ -155,7 +159,7 @@
                         <td>@(device.LastSeen.HasValue ? device.LastSeen.Value.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                         <td>
                             <div class="obs-problem-summary">
-                                @(string.IsNullOrWhiteSpace(device.ProblemSummary) ? "—" : device.ProblemSummary)
+                                @(string.IsNullOrWhiteSpace(device.ProblemReason) ? "—" : device.ProblemReason)
                             </div>
                         </td>
                     </tr>

@@ -10,6 +10,7 @@ namespace BioAccess.Web.DTOs
         public string DeviceName { get; set; } = "";
         public string Location { get; set; } = "";
         public string IPAddress { get; set; } = "";
+        public int? TerminalStatus { get; set; }
         public bool IsOnline { get; set; }
         public bool IsRestricted { get; set; }
         public string? RestrictionReason { get; set; }

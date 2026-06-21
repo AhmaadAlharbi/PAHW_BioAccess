@@ -52,6 +52,10 @@
                         <span class="sidebar-nav-icon">🗺️</span>
                         <span>المناطق والأجهزة</span>
                     </a>
+                    <a asp-controller="AdminObservability" asp-action="Devices" class="sidebar-nav-item @(controller == "AdminObservability" && action == "Devices" ? "active" : "")">
+                        <span class="sidebar-nav-icon">📡</span>
+                        <span>Device Health</span>
+                    </a>
                 }
             </nav>
 
