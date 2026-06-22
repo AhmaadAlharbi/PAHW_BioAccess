@@ -42,11 +42,11 @@ public sealed class AdminObservabilityController : Controller
         {
             model = await _observability.GetDevicesAsync(ct);
             _logger.LogInformation(
-                "OBS_CONTROLLER_MODEL devices={Devices} healthy={Healthy} warning={Warning} problem={Problem} error={Error}",
+                "OBS_CONTROLLER_MODEL devices={Devices} activeToday={ActiveToday} activeWeek={ActiveWeek} noActivity={NoActivity} error={Error}",
                 model.Devices.Count,
-                model.HealthyDevices,
-                model.WarningDevices,
-                model.ProblemDevices,
+                model.ActiveTodayDevices,
+                model.ActiveThisWeekDevices,
+                model.NoActivityDevices,
                 model.Error ?? "<none>");
         }
         catch (Exception ex)

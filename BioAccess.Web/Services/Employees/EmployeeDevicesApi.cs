@@ -2,6 +2,7 @@ using BioAccess.Web.Contracts;
 using BioAccess.Web.DTOs;
 using BioAccess.Web.External;
 using BioAccess.Web.Persistence;
+using BioAccess.Web.Services.Observability;
 using BioAccess.Web.Services.Restrictions;
 using BioAccess.Web.Services.Terminals;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
     private readonly RegionMappingService _regions;
     private readonly LocalAppDbContext _db;
     private readonly DeviceRestrictionService _restrictionService;
+    private readonly DeviceObservabilityService _observability;
     private readonly ILogger<EmployeeDevicesApi> _logger;
 
     public EmployeeDevicesApi(
@@ -25,6 +27,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         RegionMappingService regions,
         LocalAppDbContext db,
         DeviceRestrictionService restrictionService,
+        DeviceObservabilityService observability,
         ILogger<EmployeeDevicesApi> logger)
     {
         _soap = soap;
@@ -32,6 +35,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         _regions = regions;
         _db = db;
         _restrictionService = restrictionService;
+        _observability = observability;
         _logger = logger;
     }
 
@@ -154,6 +158,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         );
 
         var mappings = await _regions.GetAllMappingsAsync(ct);
+        var observabilityById = await LoadObservabilityByDeviceIdAsync(ct);
         var rows = new List<DeviceRowDto>(all.Count);
 
         foreach (var d in all)
@@ -168,12 +173,14 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             var isDelegatedActive = activeDelegatedTerminalIds.Contains(id);
             delegatedRowsByTerminal.TryGetValue(id, out var delRow);
             var isDelegated = delRow != null;
+            observabilityById.TryGetValue(id, out var health);
 
             rows.Add(new DeviceRowDto
             {
                 DeviceId = id,
                 DeviceName = d.DeviceName,
-                IsOnline = d.IsOnline,
+                Status = health?.Status ?? "Active",
+                LastSeen = health?.LastSeen,
                 IsRestricted = d.IsRestricted,
                 RestrictionReason = d.RestrictionReason,
                 RestrictionSource = d.RestrictionSource,
@@ -206,12 +213,14 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
             regionNameById.TryGetValue(regId, out var regName);
             var isDelegatedActive = activeDelegatedTerminalIds.Contains(id);
             delegatedRowsByTerminal.TryGetValue(id, out var delRow);
+            observabilityById.TryGetValue(id, out var health);
 
             rows.Add(new DeviceRowDto
             {
                 DeviceId = id,
                 DeviceName = d.DeviceName,
-                IsOnline = d.IsOnline,
+                Status = health?.Status ?? "Active",
+                LastSeen = health?.LastSeen,
                 IsRestricted = d.IsRestricted,
                 RestrictionReason = d.RestrictionReason,
                 RestrictionSource = d.RestrictionSource,
@@ -256,6 +265,23 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         };
     }
 
+    private async Task<Dictionary<string, ViewModels.DeviceHealthItem>> LoadObservabilityByDeviceIdAsync(CancellationToken ct)
+    {
+        try
+        {
+            var model = await _observability.GetDevicesAsync(ct);
+            return model.Devices
+                .Where(x => !string.IsNullOrWhiteSpace(x.TerminalId))
+                .GroupBy(x => x.TerminalId.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "EMPLOYEE_DEVICE_OBSERVABILITY_LOAD_FAILED");
+            return new Dictionary<string, ViewModels.DeviceHealthItem>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
     public Task<OperationResult> AssignOneAsync(int employeeId, string terminalId, CancellationToken ct = default)
         // Permanent assignment goes straight to Alpeta.
        => _alpeta.AssignUserToTerminalAsync(terminalId, employeeId, ct);
@@ -291,7 +317,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         if (message.Contains("session", StringComparison.OrdinalIgnoreCase) ||
             message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
         {
-            return "فشل الاتصال بالنظام الخارجي (Alpeta)، يرجى إعادة المحاولة";
+            return "فشل الاتصال بالنظام الخارجي، يرجى إعادة المحاولة";
         }
 
         return "تعذر تحميل الأجهزة حالياً، يرجى المحاولة لاحقاً";

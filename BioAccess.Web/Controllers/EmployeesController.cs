@@ -103,7 +103,7 @@ public sealed class EmployeesController : Controller
         var stillAssigned = IsStillAssigned(screen?.Devices, terminalId);
         TempData["ToastType"] = stillAssigned ? "warning" : "success";
         TempData["ToastMsg"] = stillAssigned
-            ? "⚠️ لم تتم إزالة الجهاز بسبب إعدادات خارجية (Alpeta)"
+            ? "⚠️ لم تتم إزالة الجهاز بسبب إعدادات في النظام الخارجي"
             : "✅ تم فك الربط بنجاح";
 
         if (!stillAssigned)
@@ -201,12 +201,12 @@ public sealed class EmployeesController : Controller
         else if (stillAssignedIds.Count == requestedTerminalIds.Count)
         {
             TempData["ToastType"] = "warning";
-            TempData["ToastMsg"] = "⚠️ لم تتم إزالة الأجهزة بسبب إعدادات خارجية (Alpeta)";
+            TempData["ToastMsg"] = "⚠️ لم تتم إزالة الأجهزة بسبب إعدادات في النظام الخارجي";
         }
         else if (stillAssignedIds.Count > 0)
         {
             TempData["ToastType"] = "warning";
-            TempData["ToastMsg"] = $"⚠️ تمت إزالة {removedTerminalIds.Count} أجهزة، وما زال {stillAssignedIds.Count} جهازاً مرتبطاً في Alpeta";
+            TempData["ToastMsg"] = $"⚠️ تمت إزالة {removedTerminalIds.Count} أجهزة، وما زال {stillAssignedIds.Count} جهازاً مرتبطاً في النظام الخارجي";
         }
         else
         {

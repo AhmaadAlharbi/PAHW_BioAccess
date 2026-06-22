@@ -11,7 +11,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - نظام إدارة البصمات PAHW</title>
+    <title>@ViewData["Title"] - نظام إدارة البصمات</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -28,7 +28,7 @@
 
             <div class="sidebar-header">
                 <a asp-controller="Home" asp-action="Index" class="sidebar-brand">
-                    <img src="https://www.pahw.gov.kw/images/PAHW-Logo.png" alt="PAHW" class="sidebar-logo" />
+                    <img src="https://www.pahw.gov.kw/images/PAHW-Logo.png" alt="شعار المؤسسة" class="sidebar-logo" />
                 </a>
             </div>
 
@@ -54,7 +54,7 @@
                     </a>
                     <a asp-controller="AdminObservability" asp-action="Devices" class="sidebar-nav-item @(controller == "AdminObservability" && action == "Devices" ? "active" : "")">
                         <span class="sidebar-nav-icon">📡</span>
-                        <span>Device Health</span>
+                        <span>نشاط الأجهزة</span>
                     </a>
                 }
             </nav>
@@ -62,7 +62,7 @@
             <div class="sidebar-footer">
                 <div class="sidebar-user">
                     <div class="sidebar-user-avatar">
-                        @(currentEmpName.Length > 0 ? currentEmpName.Substring(0, 1) : "U")
+                        @(currentEmpName.Length > 0 ? currentEmpName.Substring(0, 1) : "م")
                     </div>
                     <div class="sidebar-user-info">
                         <span class="sidebar-user-name">@currentEmpName</span>

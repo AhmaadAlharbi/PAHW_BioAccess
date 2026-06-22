@@ -61,9 +61,6 @@ builder.Services.AddScoped<IDelegationService, DelegationService>();
 // -------------------------
 builder.Services.AddScoped<EmployeeSoapClient>();
 
-// -------------------------
-// ✅ Alpeta client (HttpClient)
-// -------------------------
 builder.Services.AddHttpClient<AlpetaClient>(http =>
 {
     http.Timeout = TimeSpan.FromSeconds(15);

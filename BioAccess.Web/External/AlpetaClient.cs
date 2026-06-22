@@ -17,6 +17,7 @@ public class AlpetaClient
         public string TerminalId { get; init; } = "";
         public string TerminalName { get; init; } = "";
         public DateTime EventTime { get; init; }
+        public bool IsSuccess { get; init; }
     }
 
     private sealed class EventLogItem
@@ -24,6 +25,7 @@ public class AlpetaClient
         public string TerminalId { get; init; } = "";
         public DateTime EventTime { get; init; }
         public string Message { get; init; } = "";
+        public int Content { get; init; }
     }
 
     public sealed class TerminalLogEntry
@@ -32,6 +34,7 @@ public class AlpetaClient
         public DateTime Timestamp { get; init; }
         public string EventType { get; init; } = "";
         public string Message { get; init; } = "";
+        public bool IsSuccess { get; init; }
     }
 
     public sealed class AllDevicesSnapshot
@@ -54,7 +57,11 @@ public class AlpetaClient
     // True when the device list came from local cache instead of live Alpeta data.
     public bool LastCallUsedFallback { get; private set; }
 
-    public AlpetaClient(HttpClient http, IConfiguration config, ILogger<AlpetaClient> logger, IMemoryCache cache)
+    public AlpetaClient(
+        HttpClient http,
+        IConfiguration config,
+        ILogger<AlpetaClient> logger,
+        IMemoryCache cache)
     {
         _http = http;
         _config = config;
@@ -139,7 +146,6 @@ public class AlpetaClient
         _uuid = null;
         _cache.Remove(UuidCacheKey);
         _http.DefaultRequestHeaders.Remove("Uuid");
-        _http.DefaultRequestHeaders.Remove("UUID");
     }
 
     public async Task<bool> PingAsync(CancellationToken ct = default)
@@ -168,57 +174,63 @@ public class AlpetaClient
         ct.ThrowIfCancellationRequested();
 
         await EnsureLoggedInAsync(ct);
-        var url = $"{BaseUrl}/terminals?offset=0&limit=500";
-        var firstAttempt = await TryReadAllDevicesResponseAsync(url, ct);
-        if (firstAttempt.Success)
+
+        var (devices, lastDocument) = await FetchAllTerminalsPaginatedAsync(ct);
+        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", devices.Count, true);
+        return new AllDevicesSnapshot
         {
-            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", firstAttempt.Devices.Count, true);
-            return new AllDevicesSnapshot
+            Devices = devices,
+            TerminalsDocument = lastDocument
+        };
+    }
+
+    private async Task<(List<DeviceDto> Devices, JsonDocument? LastDocument)> FetchAllTerminalsPaginatedAsync(CancellationToken ct)
+    {
+        const int pageLimit = 500;
+        var allDevices = new List<DeviceDto>();
+        JsonDocument? lastDocument = null;
+        var offset = 0;
+
+        while (true)
+        {
+            var url = $"{BaseUrl}/terminals?offset={offset}&limit={pageLimit}";
+            var attempt = await TryReadAllDevicesResponseAsync(url, ct);
+            var wasSessionExpired = false;
+
+            if (!attempt.Success && attempt.SessionExpired)
             {
-                Devices = firstAttempt.Devices,
-                TerminalsDocument = firstAttempt.Document
-            };
+                wasSessionExpired = true;
+                if (attempt.InvalidPayload)
+                    _logger.LogWarning("ALPETA_INVALID_PAYLOAD_TREATED_AS_SESSION_EXPIRED scope=all");
+                else
+                    _logger.LogWarning("ALPETA_SESSION_EXPIRED scope=all statusCode={StatusCode}", (int)attempt.StatusCode!.Value);
+
+                ClearCachedSession();
+                await EnsureLoggedInAsync(ct);
+                attempt = await TryReadAllDevicesResponseAsync(url, ct);
+            }
+
+            if (!attempt.Success)
+            {
+                _logger.LogWarning("ALPETA_READ_FAILED scope=all statusCode={StatusCode}",
+                    attempt.StatusCode.HasValue ? (int)attempt.StatusCode.Value : -1);
+                _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", 0, false);
+                throw new InvalidOperationException(wasSessionExpired
+                    ? "تعذر قراءة الأجهزة من النظام الخارجي بعد تجديد الجلسة."
+                    : "تعذر قراءة الأجهزة من النظام الخارجي.");
+            }
+
+            allDevices.AddRange(attempt.Devices);
+            lastDocument?.Dispose();
+            lastDocument = attempt.Document;
+
+            if (attempt.Devices.Count < pageLimit)
+                break;
+
+            offset += pageLimit;
         }
 
-        if (firstAttempt.SessionExpired)
-        {
-            if (firstAttempt.InvalidPayload)
-            {
-                _logger.LogWarning("ALPETA_INVALID_PAYLOAD_TREATED_AS_SESSION_EXPIRED scope=all");
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "ALPETA_SESSION_EXPIRED scope=all statusCode={StatusCode}",
-                    (int)firstAttempt.StatusCode!.Value);
-            }
-
-            ClearCachedSession();
-            await EnsureLoggedInAsync(ct);
-
-            var retryAttempt = await TryReadAllDevicesResponseAsync(url, ct);
-            if (retryAttempt.Success)
-            {
-                _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", retryAttempt.Devices.Count, true);
-                return new AllDevicesSnapshot
-                {
-                    Devices = retryAttempt.Devices,
-                    TerminalsDocument = retryAttempt.Document
-                };
-            }
-
-            _logger.LogWarning(
-                "ALPETA_READ_FAILED scope=all statusCode={StatusCode}",
-                retryAttempt.StatusCode.HasValue ? (int)retryAttempt.StatusCode.Value : -1);
-            _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", 0, false);
-            throw new InvalidOperationException("Failed to read Alpeta terminals after session refresh.");
-        }
-
-        _logger.LogWarning(
-            "ALPETA_READ_FAILED scope=all statusCode={StatusCode}",
-            firstAttempt.StatusCode.HasValue ? (int)firstAttempt.StatusCode.Value : -1);
-        _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, scope=all", 0, false);
-        throw new InvalidOperationException("Failed to read Alpeta terminals.");
+        return (allDevices, lastDocument);
     }
 
     // Load the terminals linked to one employee from Alpeta.
@@ -231,7 +243,7 @@ public class AlpetaClient
         if (!result.Success)
         {
             _logger.LogWarning("DEVICE_READ_RESULT count={count}, success={success}, employeeId={employeeId}", 0, false, employeeId);
-            throw new InvalidOperationException($"Failed to read Alpeta devices for employee {employeeId}.");
+            throw new InvalidOperationException($"تعذر قراءة أجهزة الموظف {employeeId} من النظام الخارجي.");
         }
 
         return result.Devices;
@@ -471,12 +483,16 @@ public class AlpetaClient
         DateTime endTimeUtc,
         CancellationToken ct)
     {
-        var url = BuildLogUrl("authLogs", startTimeUtc, endTimeUtc, 0, 500);
+        const int authLogLimit = 5000;
+        var url = BuildLogUrl("authLogs", startTimeUtc, endTimeUtc, 0, authLogLimit);
         var items = await GetLogsAsync(
             url,
             "authLogs",
             ParseAuthLogs,
             ct);
+
+        if (items.Count >= authLogLimit)
+            _logger.LogWarning("AUTHLOGS_TRUNCATED count={Count} limit={Limit} — increase limit or implement pagination", items.Count, authLogLimit);
 
         var logs = items
             .Select(x => new TerminalLogEntry
@@ -484,7 +500,8 @@ public class AlpetaClient
                 TerminalId = x.TerminalId,
                 Timestamp = x.EventTime,
                 EventType = "AuthLog",
-                Message = x.TerminalName
+                Message = x.TerminalName,
+                IsSuccess = x.IsSuccess
             })
             .ToList();
 
@@ -823,9 +840,8 @@ public class AlpetaClient
                 list.Add(new DeviceDto
                 {
                     DeviceId = id,
-                    DeviceName = $"Terminal {id}",
-                    Location = "",
-                    IsOnline = false
+                    DeviceName = $"جهاز {id}",
+                    Location = ""
                 });
             }
         }
@@ -941,7 +957,8 @@ public class AlpetaClient
             {
                 TerminalId = terminalId,
                 TerminalName = terminalName,
-                EventTime = eventTime
+                EventTime = eventTime,
+                IsSuccess = TryReadOptionalInt(authLog, "AuthResult") == 0
             });
         }
 
@@ -951,28 +968,35 @@ public class AlpetaClient
     private static List<EventLogItem> ParseEventLogs(JsonElement root)
     {
         var items = new List<EventLogItem>();
-        if (root.ValueKind != JsonValueKind.Array)
+
+        JsonElement logArray;
+        if (root.ValueKind == JsonValueKind.Array)
+            logArray = root;
+        else if (root.ValueKind == JsonValueKind.Object &&
+                 root.TryGetProperty("EventLogList", out var nested) &&
+                 nested.ValueKind == JsonValueKind.Array)
+            logArray = nested;
+        else
             return items;
 
-        foreach (var eventLog in root.EnumerateArray())
+        foreach (var eventLog in logArray.EnumerateArray())
         {
             if (eventLog.ValueKind != JsonValueKind.Object)
                 continue;
 
-            if (!TryReadRequiredString(eventLog, "DeviceID", out var deviceId))
+            if (!TryReadRequiredString(eventLog, "TerminalID", out var terminalId))
                 continue;
 
             if (!TryReadRequiredDateTime(eventLog, "EventTime", out var eventTime))
                 continue;
 
-            if (!TryReadRequiredString(eventLog, "Detail", out var detail))
-                detail = "EventLog";
+            var content = TryReadOptionalInt(eventLog, "Content") ?? 0;
 
             items.Add(new EventLogItem
             {
-                TerminalId = deviceId,
+                TerminalId = terminalId,
                 EventTime = eventTime,
-                Message = detail
+                Content = content
             });
         }
 
@@ -1103,7 +1127,6 @@ public class AlpetaClient
                 {
                     var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
                     var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
-                    var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
                     var ipAddress = t.TryGetProperty("IPAddress", out var ipEl) ? (ipEl.GetString() ?? "") : "";
                     var terminalStatus = TryReadOptionalInt(t, "Status");
 
@@ -1114,7 +1137,7 @@ public class AlpetaClient
                     {
                         DeviceId = id.Trim(),
                         DeviceName = name,
-                        Location = location,
+                        Location = "",
                         IPAddress = ipAddress
                         ,TerminalStatus = terminalStatus
                     });
@@ -1129,7 +1152,6 @@ public class AlpetaClient
             {
                 var id = t.TryGetProperty("ID", out var idEl) ? idEl.ToString() : "";
                 var name = t.TryGetProperty("Name", out var nEl) ? (nEl.GetString() ?? "") : "";
-                var location = t.TryGetProperty("Location", out var lEl) ? (lEl.GetString() ?? "") : "";
                 var ipAddress = t.TryGetProperty("IPAddress", out var ipEl) ? (ipEl.GetString() ?? "") : "";
                 var terminalStatus = TryReadOptionalInt(t, "Status");
 
@@ -1140,17 +1162,13 @@ public class AlpetaClient
                 {
                     DeviceId = id.Trim(),
                     DeviceName = name,
-                    Location = location,
+                    Location = "",
                     IPAddress = ipAddress
                     ,TerminalStatus = terminalStatus
                 });
             }
         }
 
-        var tasks = list.Select(device =>
-            Task.Run(() => device.IsOnline = CheckDeviceOnline(device.IPAddress), ct));
-
-        await Task.WhenAll(tasks);
         return list;
     }
 
@@ -1270,9 +1288,7 @@ public class AlpetaClient
     private void ApplyUuidHeaders(string uuid)
     {
         _http.DefaultRequestHeaders.Remove("Uuid");
-        _http.DefaultRequestHeaders.Remove("UUID");
         _http.DefaultRequestHeaders.Add("Uuid", uuid);
-        _http.DefaultRequestHeaders.Add("UUID", uuid);
     }
 
 }

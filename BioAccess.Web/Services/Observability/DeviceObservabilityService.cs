@@ -1,50 +1,38 @@
 using BioAccess.Web.External;
 using BioAccess.Web.ViewModels;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace BioAccess.Web.Services.Observability;
 
 public sealed class DeviceObservabilityService
 {
-    private static readonly TimeSpan OfflineThreshold = TimeSpan.FromHours(2);
     private readonly AlpetaClient _alpeta;
     private readonly ILogger<DeviceObservabilityService> _logger;
+    private readonly IMemoryCache _cache;
+    private const string TerminalsCacheKey = "Observability:Terminals";
 
     public DeviceObservabilityService(
         AlpetaClient alpeta,
-        ILogger<DeviceObservabilityService> logger)
+        ILogger<DeviceObservabilityService> logger,
+        IMemoryCache cache)
     {
         _alpeta = alpeta;
         _logger = logger;
+        _cache = cache;
     }
 
     public async Task<DevicesObservabilityViewModel> GetDevicesAsync(CancellationToken ct = default)
     {
-        var now = DateTime.Now;
-        var sinceUtc = DateTime.UtcNow.AddDays(-3);
-        List<AlpetaClient.TerminalLogEntry> authLogs;
-        try
-        {
-            authLogs = await _alpeta.GetAuthLogsAsync(sinceUtc, ct);
-            _logger.LogInformation("OBSERVABILITY_AUTHLOGS_COUNT count={Count}", authLogs.Count);
-            _logger.LogInformation("OBS_AUTH_COUNT count={Count}", authLogs.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "OBSERVABILITY_AUTHLOGS_LOAD_FAILED");
-            authLogs = new List<AlpetaClient.TerminalLogEntry>();
-        }
+        var nowUtc = DateTime.UtcNow;
+        var sinceUtc = nowUtc.AddDays(-7);
 
-        List<AlpetaClient.TerminalLogEntry> eventLogs;
-        try
-        {
-            eventLogs = await _alpeta.GetEventLogsAsync(sinceUtc, ct);
-            _logger.LogInformation("OBS_EVENT_COUNT count={Count}", eventLogs.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "OBSERVABILITY_EVENTLOGS_LOAD_FAILED");
-            eventLogs = new List<AlpetaClient.TerminalLogEntry>();
-        }
+        var authLogsTask = FetchAuthLogsSafeAsync(sinceUtc, ct);
+        var terminalsTask = LoadTerminalsAsync(ct);
+
+        await Task.WhenAll(authLogsTask, terminalsTask);
+
+        var authLogs = authLogsTask.Result;
+        var terminals = terminalsTask.Result;
 
         var authByTerminal = authLogs
             .Select(log => new
@@ -56,59 +44,47 @@ public sealed class DeviceObservabilityService
             .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Select(x => x.Log).ToList(), StringComparer.OrdinalIgnoreCase);
 
-        _logger.LogInformation("OBS_GROUP_COUNT count={Count}", authByTerminal.Count);
-        foreach (var group in authByTerminal.Take(3))
-        {
-            _logger.LogInformation("OBS_GROUP_KEY key={Key} count={Count}", group.Key, group.Value.Count);
-        }
-
-        LogAuthGroups(authByTerminal);
-
-        var terminals = await LoadTerminalsAsync(ct);
-        var terminalsByName = terminals
-            .Where(x => !string.IsNullOrWhiteSpace(x.DeviceName))
-            .GroupBy(x => NormalizeTerminalName(x.DeviceName), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
         var devices = terminals
             .Select(terminal =>
             {
-                var authKey = NormalizeTerminalName(terminal.DeviceName);
+                var authKey = !string.IsNullOrWhiteSpace(terminal.DeviceId)
+                    ? $"id:{NormalizeTerminalId(terminal.DeviceId)}"
+                    : NormalizeTerminalName(terminal.DeviceName);
                 authByTerminal.TryGetValue(authKey, out var terminalAuthLogs);
                 terminalAuthLogs ??= new List<AlpetaClient.TerminalLogEntry>();
 
-                LogTerminalMapping(terminal, authKey, terminalAuthLogs);
+                var activityCount = terminalAuthLogs.Count(log => log.IsSuccess);
+                var failedAuthCount = terminalAuthLogs.Count(log => !log.IsSuccess);
+                var lastSeenUtc = activityCount > 0
+                    ? terminalAuthLogs.Where(log => log.IsSuccess).Max(log => (DateTime?)log.Timestamp)
+                    : null;
+                var lastSeen = lastSeenUtc?.ToLocalTime();
 
-                var activityCount = terminalAuthLogs.Count;
-                var errorCount = 0;
-                var lastSeen = terminalAuthLogs
-                    .Select(log => (DateTime?)log.Timestamp.ToLocalTime())
-                    .OrderByDescending(x => x)
-                    .FirstOrDefault();
-
-                var isOffline = IsOffline(terminal.TerminalStatus, terminal.IsOnline, lastSeen, now);
-                var status = GetStatus(isOffline, errorCount, activityCount);
+                var status = GetStatus(lastSeenUtc, nowUtc);
+                var reason = BuildProblemReason(status, failedAuthCount);
 
                 return new DeviceHealthItem
                 {
                     TerminalId = terminal.DeviceId?.Trim() ?? "",
                     Name = string.IsNullOrWhiteSpace(terminal.DeviceName)
-                        ? $"Terminal {terminal.DeviceId?.Trim()}"
+                        ? $"جهاز {terminal.DeviceId?.Trim()}"
                         : terminal.DeviceName.Trim(),
                     Ip = terminal.IPAddress?.Trim() ?? "",
                     Status = status,
-                    ErrorCount = errorCount,
+                    ErrorCount = 0,
                     ActivityCount = activityCount,
+                    FailedAuthCount = failedAuthCount,
                     LastSeen = lastSeen,
-                    IsOffline = isOffline,
-                    ProblemReason = BuildProblemReason(status, terminal.IsOnline, lastSeen),
-                    ProblemSummary = BuildProblemSummary(status, terminal.IsOnline, lastSeen)
+                    ProblemReason = reason,
+                    ProblemSummary = reason
                 };
             })
             .ToList();
 
         var existingDeviceKeys = devices
-            .Select(x => NormalizeTerminalName(x.Name))
+            .Select(x => !string.IsNullOrWhiteSpace(x.TerminalId)
+                ? $"id:{NormalizeTerminalId(x.TerminalId)}"
+                : NormalizeTerminalName(x.Name))
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -118,15 +94,14 @@ public sealed class DeviceObservabilityService
             {
                 var terminalAuthLogs = group.Value;
                 var terminalName = GetAuthDeviceDisplayName(terminalAuthLogs);
-                var activityCount = terminalAuthLogs.Count;
-                var lastSeen = terminalAuthLogs
-                    .Select(log => (DateTime?)log.Timestamp.ToLocalTime())
-                    .OrderByDescending(x => x)
-                    .FirstOrDefault();
-                var isOffline = IsOffline(null, null, lastSeen, now);
-                var status = GetStatus(isOffline, 0, activityCount);
-
-                LogTerminalMapping(null, group.Key, terminalAuthLogs);
+                var activityCount = terminalAuthLogs.Count(log => log.IsSuccess);
+                var failedAuthCount = terminalAuthLogs.Count(log => !log.IsSuccess);
+                var lastSeenUtc = activityCount > 0
+                    ? terminalAuthLogs.Where(log => log.IsSuccess).Max(log => (DateTime?)log.Timestamp)
+                    : null;
+                var lastSeen = lastSeenUtc?.ToLocalTime();
+                var status = GetStatus(lastSeenUtc, nowUtc);
+                var reason = BuildProblemReason(status, failedAuthCount);
 
                 return new DeviceHealthItem
                 {
@@ -136,10 +111,10 @@ public sealed class DeviceObservabilityService
                     Status = status,
                     ErrorCount = 0,
                     ActivityCount = activityCount,
+                    FailedAuthCount = failedAuthCount,
                     LastSeen = lastSeen,
-                    IsOffline = isOffline,
-                    ProblemReason = BuildProblemReason(status, null, lastSeen),
-                    ProblemSummary = BuildProblemSummary(status, null, lastSeen)
+                    ProblemReason = reason,
+                    ProblemSummary = reason
                 };
             })
             .OrderBy(x => GetStatusRank(x.Status))
@@ -162,55 +137,43 @@ public sealed class DeviceObservabilityService
         {
             Devices = devices,
             TotalDevices = devices.Count,
-            HealthyDevices = devices.Count(x => x.Status == "Healthy"),
-            WarningDevices = devices.Count(x => x.Status == "Warning"),
-            ProblemDevices = devices.Count(x => x.Status == "Problem")
+            ActiveTodayDevices = devices.Count(x => x.Status == "Active Today"),
+            ActiveThisWeekDevices = devices.Count(x => x.Status == "Active This Week"),
+            NoActivityDevices = devices.Count(x => x.Status == "No Activity")
         };
+    }
+
+    private async Task<List<AlpetaClient.TerminalLogEntry>> FetchAuthLogsSafeAsync(DateTime sinceUtc, CancellationToken ct)
+    {
+        try
+        {
+            var logs = await _alpeta.GetAuthLogsAsync(sinceUtc, ct);
+            _logger.LogInformation("OBSERVABILITY_AUTHLOGS_COUNT count={Count}", logs.Count);
+            return logs;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OBSERVABILITY_AUTHLOGS_LOAD_FAILED");
+            return new List<AlpetaClient.TerminalLogEntry>();
+        }
     }
 
     private async Task<List<DTOs.DeviceDto>> LoadTerminalsAsync(CancellationToken ct)
     {
+        if (_cache.TryGetValue(TerminalsCacheKey, out List<DTOs.DeviceDto>? cached) && cached != null)
+            return cached;
+
         try
         {
-            return await _alpeta.GetAllDevicesAsync(ct);
+            var terminals = await _alpeta.GetAllDevicesAsync(ct);
+            _cache.Set(TerminalsCacheKey, terminals, TimeSpan.FromMinutes(5));
+            return terminals;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "OBSERVABILITY_TERMINALS_LOAD_FAILED");
-            return new List<DTOs.DeviceDto>();
+            throw;
         }
-    }
-
-    private void LogAuthGroups(IReadOnlyDictionary<string, List<AlpetaClient.TerminalLogEntry>> authByTerminal)
-    {
-        var sample = authByTerminal
-            .OrderByDescending(x => x.Value.Count)
-            .Take(10)
-            .Select(x => $"{x.Key}:{x.Value.Count}")
-            .ToArray();
-
-        _logger.LogInformation(
-            "OBSERVABILITY_AUTHLOG_GROUPS count={Count} sample={Sample}",
-            authByTerminal.Count,
-            sample.Length == 0 ? "<none>" : string.Join(", ", sample));
-    }
-
-    private void LogTerminalMapping(
-        DTOs.DeviceDto? terminal,
-        string authKey,
-        IReadOnlyList<AlpetaClient.TerminalLogEntry> terminalAuthLogs)
-    {
-        var sampleLogTerminalName = terminalAuthLogs
-            .Select(x => x.Message)
-            .FirstOrDefault();
-
-        _logger.LogInformation(
-            "OBSERVABILITY_TERMINAL_MAPPING deviceId={DeviceId} deviceName={DeviceName} authKey={AuthKey} activityCount={ActivityCount} sampleLogTerminalName={SampleLogTerminalName}",
-            terminal?.DeviceId ?? "<none>",
-            terminal?.DeviceName ?? "<none>",
-            authKey,
-            terminalAuthLogs.Count,
-            string.IsNullOrWhiteSpace(sampleLogTerminalName) ? "<none>" : sampleLogTerminalName);
     }
 
     private static string NormalizeTerminalName(string? value)
@@ -218,13 +181,13 @@ public sealed class DeviceObservabilityService
 
     private static string BuildAuthDeviceKey(AlpetaClient.TerminalLogEntry log)
     {
-        var terminalName = NormalizeTerminalName(log.Message);
-        if (!string.IsNullOrWhiteSpace(terminalName))
-            return terminalName;
-
         var terminalId = NormalizeTerminalId(log.TerminalId);
         if (!string.IsNullOrWhiteSpace(terminalId))
             return $"id:{terminalId}";
+
+        var terminalName = NormalizeTerminalName(log.Message);
+        if (!string.IsNullOrWhiteSpace(terminalName))
+            return terminalName;
 
         return "";
     }
@@ -241,9 +204,9 @@ public sealed class DeviceObservabilityService
             .Select(x => NormalizeTerminalId(x.TerminalId))
             .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
         if (!string.IsNullOrWhiteSpace(terminalId))
-            return $"Terminal {terminalId}";
+            return $"جهاز {terminalId}";
 
-        return "Unknown Terminal";
+        return "جهاز غير معروف";
     }
 
     private static string NormalizeTerminalId(string? value)
@@ -272,48 +235,35 @@ public sealed class DeviceObservabilityService
         return compact;
     }
 
-    private static bool IsOffline(int? terminalStatus, bool? isOnline, DateTime? lastSeen, DateTime now)
+    private static string GetStatus(DateTime? lastSeenUtc, DateTime nowUtc)
     {
-        if (terminalStatus.HasValue && terminalStatus.Value != 0)
-            return true;
+        if (!lastSeenUtc.HasValue)
+            return "No Activity";
 
-        return false;
-    }
+        var age = nowUtc - lastSeenUtc.Value;
 
-    private static string GetStatus(bool isOffline, int errorCount, int activityCount)
-    {
-        if (isOffline)
-            return "Offline";
+        if (age.TotalHours <= 24)
+            return "Active Today";
 
-        return "Healthy";
+        if (age.TotalDays <= 7)
+            return "Active This Week";
+
+        return "No Activity";
     }
 
     private static int GetStatusRank(string status) => status switch
     {
-        "Offline" => 0,
-        "Problem" => 1,
-        "Warning" => 2,
-        _ => 3
+        "No Activity" => 0,
+        "Active This Week" => 1,
+        _ => 2
     };
 
-    private static string BuildProblemSummary(
-        string status,
-        bool? isOnline,
-        DateTime? lastSeen)
+    private static string BuildProblemReason(string status, int failedAuthCount) => status switch
     {
-        return BuildProblemReason(status, isOnline, lastSeen);
-    }
-
-    private static string BuildProblemReason(string status, bool? isOnline, DateTime? lastSeen)
-    {
-        if (status == "Offline")
-            return "Device not connected to server";
-
-        if (isOnline.HasValue && !isOnline.Value)
-            return "Connected but network issue detected (ping failed)";
-
-        return lastSeen.HasValue
-            ? "Device active"
-            : "Device connected";
-    }
+        "Active Today" => "نشط اليوم",
+        "Active This Week" => "نشط هذا الأسبوع",
+        _ => failedAuthCount >= 5
+            ? "⚠️ ارتفاع في المحاولات الفاشلة"
+            : "⚠️ لا يوجد استخدام خلال الـ 7 أيام الماضية"
+    };
 }

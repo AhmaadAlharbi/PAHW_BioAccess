@@ -13,7 +13,8 @@ public class DeviceRowDto
     public string DeviceId { get; set; } = "";
     public string DeviceName { get; set; } = "";
     public string Location { get; set; } = "";
-    public bool IsOnline { get; set; }
+    public string Status { get; set; } = "Active";
+    public DateTime? LastSeen { get; set; }
     public bool IsRestricted { get; set; }
     public string? RestrictionReason { get; set; }
     public string? RestrictionSource { get; set; }
