@@ -1,6 +1,7 @@
 using BioAccess.Web.Contracts;
 using BioAccess.Web.DTOs;
 using BioAccess.Web.Services.Activity;
+using BioAccess.Web.Services.Auth;
 using BioAccess.Web.Services.Employees;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,12 +14,14 @@ public sealed class EmployeesController : Controller
     private readonly EmployeeDevicesApi _employees;
     private readonly IDelegationService _delegations;
     private readonly IActivityLogService _activityLog;
+    private readonly ICurrentUser _currentUser;
 
-    public EmployeesController(EmployeeDevicesApi employees, IDelegationService delegations, IActivityLogService activityLog)
+    public EmployeesController(EmployeeDevicesApi employees, IDelegationService delegations, IActivityLogService activityLog, ICurrentUser currentUser)
     {
         _employees = employees;
         _delegations = delegations;
         _activityLog = activityLog;
+        _currentUser = currentUser;
     }
 
     [HttpGet("")]
@@ -77,7 +80,7 @@ public sealed class EmployeesController : Controller
         {
             // Log only after reloading the screen so the log can include region info.
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
-            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var actorText = FormatActorText(_currentUser.EmployeeName, _currentUser.EmployeeId.ToString());
             var regionLine = FormatRegionLine(screen?.Devices, new[] { terminalId });
             await _activityLog.LogAsync(
                 "EmployeeTerminal.Assigned",
@@ -109,7 +112,7 @@ public sealed class EmployeesController : Controller
         if (!stillAssigned)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
-            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var actorText = FormatActorText(_currentUser.EmployeeName, _currentUser.EmployeeId.ToString());
             var regionLine = FormatRegionLine(screen?.Devices, new[] { terminalId });
             await _activityLog.LogAsync(
                 "EmployeeTerminal.Unassigned",
@@ -158,7 +161,7 @@ public sealed class EmployeesController : Controller
         if (successCount > 0)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
-            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var actorText = FormatActorText(_currentUser.EmployeeName, _currentUser.EmployeeId.ToString());
             var regionLine = FormatRegionLine(screen?.Devices, successfulTerminalIds);
             await _activityLog.LogAsync(
                 "EmployeeTerminal.BulkAssigned",
@@ -217,7 +220,7 @@ public sealed class EmployeesController : Controller
         if (removedTerminalIds.Count > 0)
         {
             var employeeText = FormatEmployeeText(screen?.Employee?.FullNameAr, employeeId);
-            var actorText = FormatActorText(HttpContext.Session.GetString("EmpName"), HttpContext.Session.GetString("EmpId"));
+            var actorText = FormatActorText(_currentUser.EmployeeName, _currentUser.EmployeeId.ToString());
             var regionLine = FormatRegionLine(screen?.Devices, removedTerminalIds);
             await _activityLog.LogAsync(
                 "EmployeeTerminal.BulkUnassigned",

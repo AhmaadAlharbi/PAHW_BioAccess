@@ -59,6 +59,7 @@ public sealed class DeviceObservabilityService
                     ? terminalAuthLogs.Where(log => log.IsSuccess).Max(log => (DateTime?)log.Timestamp)
                     : null;
                 var lastSeen = lastSeenUtc?.ToLocalTime();
+                var topFailedUsers = BuildTopFailedUsers(terminalAuthLogs);
 
                 var status = GetStatus(lastSeenUtc, nowUtc);
                 var reason = BuildProblemReason(status, failedAuthCount);
@@ -74,6 +75,7 @@ public sealed class DeviceObservabilityService
                     ErrorCount = 0,
                     ActivityCount = activityCount,
                     FailedAuthCount = failedAuthCount,
+                    TopFailedUsers = topFailedUsers,
                     LastSeen = lastSeen,
                     ProblemReason = reason,
                     ProblemSummary = reason
@@ -100,6 +102,7 @@ public sealed class DeviceObservabilityService
                     ? terminalAuthLogs.Where(log => log.IsSuccess).Max(log => (DateTime?)log.Timestamp)
                     : null;
                 var lastSeen = lastSeenUtc?.ToLocalTime();
+                var topFailedUsers = BuildTopFailedUsers(terminalAuthLogs);
                 var status = GetStatus(lastSeenUtc, nowUtc);
                 var reason = BuildProblemReason(status, failedAuthCount);
 
@@ -112,6 +115,7 @@ public sealed class DeviceObservabilityService
                     ErrorCount = 0,
                     ActivityCount = activityCount,
                     FailedAuthCount = failedAuthCount,
+                    TopFailedUsers = topFailedUsers,
                     LastSeen = lastSeen,
                     ProblemReason = reason,
                     ProblemSummary = reason
@@ -234,6 +238,20 @@ public sealed class DeviceObservabilityService
 
         return compact;
     }
+
+    private static List<FailedUserEntry> BuildTopFailedUsers(List<AlpetaClient.TerminalLogEntry> logs)
+        => logs
+            .Where(log => !log.IsSuccess && !string.IsNullOrWhiteSpace(log.UserId))
+            .GroupBy(log => log.UserId)
+            .OrderByDescending(g => g.Count())
+            .Take(3)
+            .Select(g => new FailedUserEntry
+            {
+                UserId = g.Key,
+                UserName = g.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.UserName))?.UserName ?? "",
+                Count = g.Count()
+            })
+            .ToList();
 
     private static string GetStatus(DateTime? lastSeenUtc, DateTime nowUtc)
     {

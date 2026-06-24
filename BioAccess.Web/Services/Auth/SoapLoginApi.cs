@@ -3,6 +3,7 @@ using BioAccess.Web.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Oracle.ManagedDataAccess.Client;
+using System.Security;
 using System.Text;
 using System.Xml.Linq;
 
@@ -184,8 +185,8 @@ public class SoapLoginApi : ILoginApi
   <soapenv:Header/>
   <soapenv:Body>
     <ws:login>
-      <empId>{empId}</empId>
-      <password>{password}</password>
+      <empId>{SecurityElement.Escape(empId)}</empId>
+      <password>{SecurityElement.Escape(password)}</password>
       <userType>{UserType}</userType>
       <applicationId>{ApplicationId}</applicationId>
       <clientIdentifier></clientIdentifier>

@@ -21,7 +21,7 @@ public class AllowedUsersController : Controller
 
         if (!isAdmin)
         {
-            context.Result = Forbid();
+            context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
             return;
         }
 

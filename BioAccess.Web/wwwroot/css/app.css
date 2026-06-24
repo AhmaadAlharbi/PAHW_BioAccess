@@ -124,6 +124,7 @@
   align-items: center;
   gap: 10px;
   color: white;
+  margin-bottom: 10px;
 }
 
 .sidebar-user-avatar {
@@ -159,22 +160,40 @@
   display: block;
 }
 
+.sidebar-logout-form {
+  margin: 0;
+  display: block;
+  width: 100%;
+}
+
 .sidebar-logout-btn {
-  background: none;
+  width: 100%;
   border: none;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 1.15em;
+  background: none;
+  color: rgba(255, 226, 226, 0.82);
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
-  transition: color 0.2s, background 0.2s;
-  flex-shrink: 0;
-  line-height: 1;
+  font-family: inherit;
+  text-align: right;
+  justify-content: flex-start;
 }
 
 .sidebar-logout-btn:hover {
-  color: var(--rose-light);
-  background: rgba(255, 255, 255, 0.1);
+  color: #ffe9e9;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-logout-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 2px;
+}
+
+.sidebar-logout-icon {
+  color: rgba(255, 204, 204, 0.92);
+}
+
+.sidebar-logout-btn:hover .sidebar-logout-icon,
+.sidebar-logout-btn:focus-visible .sidebar-logout-icon {
+  color: #ffd6d6;
 }
 
 /* --- Main area --- */

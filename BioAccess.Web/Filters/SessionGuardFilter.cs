@@ -7,6 +7,11 @@ public class SessionGuardFilter : IActionFilter
 {
     public void OnActionExecuting(ActionExecutingContext context)
     {
+        // API routes handle their own authentication — do not intercept them here.
+        var path = context.HttpContext.Request.Path;
+        if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+            return;
+
         var controller = context.ActionDescriptor.RouteValues["controller"];
         var action = context.ActionDescriptor.RouteValues["action"];
 

@@ -176,6 +176,19 @@
                             <div class="obs-problem-summary">
                                 @(string.IsNullOrWhiteSpace(device.ProblemReason) ? "—" : device.ProblemReason)
                             </div>
+                            @if (device.TopFailedUsers.Any())
+                            {
+                                <div style="margin-top:0.4rem;font-size:0.82rem;color:#6c757d;">
+                                    <div style="font-weight:600;margin-bottom:0.2rem;">أكثر المستخدمين إخفاقاً:</div>
+                                    @foreach (var user in device.TopFailedUsers)
+                                    {
+                                        <div>
+                                            @(string.IsNullOrWhiteSpace(user.UserName) ? user.UserId : $"{user.UserName} ({user.UserId})")
+                                            <span style="color:#c0392b;font-weight:600;"> — @user.Count مرة</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
                         </td>
                     </tr>
                 }

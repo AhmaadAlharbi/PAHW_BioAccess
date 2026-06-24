@@ -1,5 +1,6 @@
 using BioAccess.Web.Contracts;
 using BioAccess.Web.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 
@@ -33,7 +34,13 @@ namespace BioAccess.Web.Controllers
             // فشل
             if (result.ResultCode != 1)
             {
-                TempData["ErrorMsg"] = result.Message;
+                string userMessage =
+                    result.Message.StartsWith("Error:") ||
+                    result.Message.StartsWith("SOAP Error:")
+                        ? "حدث خطأ في النظام، الرجاء المحاولة لاحقًا."
+                        : result.Message;
+
+                TempData["ErrorMsg"] = userMessage;
                 return RedirectToAction("Index");
             }
 
@@ -74,6 +81,17 @@ namespace BioAccess.Web.Controllers
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();
+            Response.Cookies.Delete(".AspNetCore.Session", new CookieOptions
+            {
+                Path = "/",
+                Secure = true,
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict
+            });
+
+            Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+            Response.Headers.Pragma = "no-cache";
+            Response.Headers.Expires = "0";
             TempData["SuccessMsg"] = "تم تسجيل الخروج بنجاح";
             return RedirectToAction("Index", "Home");
         }

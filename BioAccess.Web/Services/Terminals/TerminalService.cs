@@ -1,3 +1,4 @@
+using BioAccess.Web.Contracts;
 using BioAccess.Web.External;
 using BioAccess.Web.DTOs;
 using BioAccess.Web.Persistence;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BioAccess.Web.Services.Terminals;
 
-public sealed class TerminalService
+public sealed class TerminalService : IRegionService
 {
     private readonly LocalAppDbContext _db;
     private readonly AlpetaClient _alpeta;
@@ -196,4 +197,30 @@ public sealed class TerminalService
             .AsNoTracking()
             .CountAsync(x => !deviceIds.Contains(x.TerminalId ?? ""), ct);
     }
+
+    // IRegionService — explicit implementations for methods whose return types differ from
+    // the existing public overloads or whose signatures don't match directly.
+
+    async Task<IReadOnlyList<BioAccess.Web.Contracts.RegionDto>> IRegionService.GetRegionsAsync(CancellationToken ct)
+        => await _db.Regions
+            .AsNoTracking()
+            .OrderBy(r => r.Id)
+            .Select(r => new BioAccess.Web.Contracts.RegionDto(r.Id, r.Name))
+            .ToListAsync(ct);
+
+    async Task<IReadOnlyList<TerminalRegionDto>> IRegionService.GetRegionTerminalsAsync(int regionId, CancellationToken ct)
+        => await _db.TerminalRegionMaps
+            .Where(x => x.RegionId == regionId)
+            .OrderBy(x => x.TerminalId)
+            .Select(x => new TerminalRegionDto(x.TerminalId, x.RegionId))
+            .ToListAsync(ct);
+
+    Task IRegionService.AssignTerminalToRegionAsync(int terminalId, int regionId, CancellationToken ct)
+        => AssignRegionAsync(terminalId.ToString(), regionId, ct);
+
+    Task<int?> IRegionService.GetTerminalRegionAsync(int terminalId, CancellationToken ct)
+        => _db.TerminalRegionMaps
+            .Where(x => x.TerminalId == terminalId.ToString())
+            .Select(x => (int?)x.RegionId)
+            .FirstOrDefaultAsync(ct);
 }

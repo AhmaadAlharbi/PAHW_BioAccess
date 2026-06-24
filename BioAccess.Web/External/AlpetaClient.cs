@@ -18,6 +18,8 @@ public class AlpetaClient
         public string TerminalName { get; init; } = "";
         public DateTime EventTime { get; init; }
         public bool IsSuccess { get; init; }
+        public string UserId { get; init; } = "";
+        public string UserName { get; init; } = "";
     }
 
     private sealed class EventLogItem
@@ -35,6 +37,8 @@ public class AlpetaClient
         public string EventType { get; init; } = "";
         public string Message { get; init; } = "";
         public bool IsSuccess { get; init; }
+        public string UserId { get; init; } = "";
+        public string UserName { get; init; } = "";
     }
 
     public sealed class AllDevicesSnapshot
@@ -69,7 +73,9 @@ public class AlpetaClient
         _cache = cache;
     }
 
-    private string BaseUrl => _config["Alpeta:BaseUrl"] ?? "http://192.168.120.56:9004/v1";
+    private string BaseUrl =>
+        _config["Alpeta:BaseUrl"]
+        ?? throw new InvalidOperationException("Missing configuration: Alpeta:BaseUrl");
     private string UserId => _config["Alpeta:UserId"]
         ?? throw new InvalidOperationException("Missing configuration: Alpeta:UserId");
     private string Password => _config["Alpeta:Password"]
@@ -501,7 +507,9 @@ public class AlpetaClient
                 Timestamp = x.EventTime,
                 EventType = "AuthLog",
                 Message = x.TerminalName,
-                IsSuccess = x.IsSuccess
+                IsSuccess = x.IsSuccess,
+                UserId = x.UserId,
+                UserName = x.UserName
             })
             .ToList();
 
@@ -953,12 +961,17 @@ public class AlpetaClient
             if (!TryReadRequiredDateTime(authLog, "EventTime", out var eventTime))
                 continue;
 
+            TryReadRequiredString(authLog, "UserID", out var userId);
+            TryReadRequiredString(authLog, "UserName", out var userName);
+
             items.Add(new AuthLogItem
             {
                 TerminalId = terminalId,
                 TerminalName = terminalName,
                 EventTime = eventTime,
-                IsSuccess = TryReadOptionalInt(authLog, "AuthResult") == 0
+                IsSuccess = TryReadOptionalInt(authLog, "AuthResult") == 0,
+                UserId = userId,
+                UserName = userName
             });
         }
 

@@ -17,6 +17,6 @@ namespace BioAccess.Web.Contracts
     }
 
     public record RegionDto(int Id, string Name);
-    public record TerminalRegionDto(int TerminalId, int RegionId);
+    public record TerminalRegionDto(string TerminalId, int RegionId);
 
 }

@@ -1,5 +1,12 @@
 namespace BioAccess.Web.ViewModels;
 
+public sealed class FailedUserEntry
+{
+    public string UserId { get; init; } = "";
+    public string UserName { get; init; } = "";
+    public int Count { get; init; }
+}
+
 public sealed class DeviceHealthItem
 {
     public string TerminalId { get; set; } = "";
@@ -9,6 +16,7 @@ public sealed class DeviceHealthItem
     public int ErrorCount { get; set; }
     public int ActivityCount { get; set; }
     public int FailedAuthCount { get; set; }
+    public List<FailedUserEntry> TopFailedUsers { get; set; } = new();
     public DateTime? LastSeen { get; set; }
     public string ProblemReason { get; set; } = "";
     public string ProblemSummary { get; set; } = "";
