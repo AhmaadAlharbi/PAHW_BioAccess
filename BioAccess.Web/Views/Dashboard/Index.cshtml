@@ -28,6 +28,27 @@
     }
 }
 
+@section Styles {
+<style>
+    .c-activity-summary {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        line-height: 1.5;
+        white-space: normal;
+    }
+    .c-activity-summary.is-expanded { -webkit-line-clamp: unset; display: block; white-space: pre-line; }
+    .c-summary-toggle {
+        background: none; border: none; padding: 0;
+        font-size: 0.75rem; color: #692f39;
+        cursor: pointer; text-decoration: underline;
+    }
+    .stat-card[onclick] { transition: transform 0.15s, box-shadow 0.15s; }
+    .stat-card[onclick]:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(105,47,57,0.13); }
+</style>
+}
+
 @* ══════════════════════════════════════════════════════
    PAGE HEADER  — title + identity inline
    ══════════════════════════════════════════════════════ *@
@@ -44,20 +65,31 @@
    SEARCH  (all users)
    ══════════════════════════════════════════════════════ *@
 <div class="content-card mb-4">
-    <h2 class="c-section-title mb-2">البحث عن موظف</h2>
-    <p class="text-muted small mb-3">
-        أدخل الرقم الوظيفي للوصول إلى بيانات الموظف وربط الأجهزة.
-    </p>
-    <form method="get" asp-controller="Employees" asp-action="Search">
-        <div class="d-flex gap-2 align-items-end">
-            <div class="flex-grow-1">
-                <label class="form-label fw-bold" for="employeeId">الرقم الوظيفي</label>
-                <input id="employeeId" name="employeeId" type="number"
-                       class="form-control" placeholder="مثال: 8989" />
+    <div class="d-flex align-items-center justify-content-between @(Model.IsAdmin ? "" : "mb-3")">
+        <h2 class="c-section-title mb-0">البحث عن موظف</h2>
+        @if (Model.IsAdmin)
+        {
+            <button type="button" class="btn btn-sm btn-outline" onclick="toggleSearchPanel()" id="searchToggleBtn">
+                <i class="fa-solid fa-chevron-down" id="searchToggleIcon" style="transition:transform 0.2s"></i>
+                <span id="searchToggleLabel">فتح</span>
+            </button>
+        }
+    </div>
+    <div id="searchPanel" @(Model.IsAdmin ? Html.Raw("style=\"display:none\"") : Html.Raw(""))>
+        <p class="text-muted small mb-3 @(Model.IsAdmin ? "mt-3" : "")">
+            أدخل الرقم الوظيفي للوصول إلى بيانات الموظف وربط الأجهزة.
+        </p>
+        <form method="get" asp-controller="Employees" asp-action="Search">
+            <div class="d-flex gap-2 align-items-end">
+                <div class="flex-grow-1">
+                    <label class="form-label fw-bold" for="employeeId">الرقم الوظيفي</label>
+                    <input id="employeeId" name="employeeId" type="number"
+                           class="form-control" placeholder="مثال: 8989" />
+                </div>
+                <button type="submit" class="btn btn-primary u-nowrap">بحث</button>
             </div>
-            <button type="submit" class="btn btn-primary u-nowrap">بحث</button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 @if (!Model.IsAdmin)
@@ -78,6 +110,7 @@
         }
     </div>
 }
+
 else
 {
     @* ══════════════════════════════════════════════════════
@@ -88,13 +121,14 @@ else
             <div class="stat-value">@todayActivityCount</div>
             <div class="stat-label">عمليات اليوم</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" onclick="scrollToDelegations()" style="cursor:pointer" title="انقر لعرض الانتدابات">
             <div class="stat-value">@Model.ActiveDelegationsCount</div>
-            <div class="stat-label">انتدابات نشطة</div>
+            <div class="stat-label">انتدابات نشطة ↗</div>
         </div>
-        <div class="stat-card @(expiringSoonCount > 0 ? "stat-card--alert" : "")">
+        <div class="stat-card @(expiringSoonCount > 0 ? "stat-card--alert" : "")"
+             @(expiringSoonCount > 0 ? Html.Raw("onclick=\"scrollToDelegations()\" style=\"cursor:pointer\" title=\"انقر لعرض الانتدابات\"") : Html.Raw(""))>
             <div class="stat-value">@expiringSoonCount</div>
-            <div class="stat-label">تنتهي خلال 48 س</div>
+            <div class="stat-label">تنتهي خلال 48 س@(expiringSoonCount > 0 ? " ↗" : "")</div>
         </div>
     </div>
 
@@ -138,8 +172,12 @@ else
                                 </div>
                                 @if (!string.IsNullOrWhiteSpace(a.Summary))
                                 {
-                                    <div class="text-muted small mt-1" style="white-space: pre-line; line-height: 1.6;">
-                                        @a.Summary
+                                    <div class="c-activity-summary-wrap">
+                                        <div class="c-activity-summary text-muted small mt-1">@a.Summary</div>
+                                        @if (a.Summary.Length > 60)
+                                        {
+                                            <button type="button" class="c-summary-toggle" onclick="toggleSummary(this)">عرض الكل</button>
+                                        }
                                     </div>
                                 }
                             </div>
@@ -150,7 +188,7 @@ else
         </div>
 
         @* ── Delegations (compact column) ─────────────── *@
-        <div class="col-lg-5">
+        <div class="col-lg-5" id="delegations-section">
             <div class="content-card h-100">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h2 class="c-section-title">الانتدابات</h2>
@@ -217,7 +255,16 @@ else
                                             @d.EndDateText.Split(' ').First()
                                         }
                                     </span>
-                                    <span class="text-muted small">@d.TerminalsCountText جهاز</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-muted small">@d.TerminalsCountText جهاز</span>
+                                        @if (d.EmployeeId > 0)
+                                        {
+                                            <a href="/employees/search?employeeId=@d.EmployeeId"
+                                               class="small u-nowrap"
+                                               style="color:#692f39; text-decoration:none;"
+                                               title="عرض الموظف في صفحة البحث">↗ عرض</a>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         }
@@ -227,4 +274,32 @@ else
         </div>
 
     </div>
+}
+
+@section Scripts {
+<script>
+    function toggleSearchPanel() {
+        var panel = document.getElementById('searchPanel');
+        var icon  = document.getElementById('searchToggleIcon');
+        var label = document.getElementById('searchToggleLabel');
+        if (!panel) return;
+        var isHidden = panel.style.display === 'none';
+        panel.style.display = isHidden ? '' : 'none';
+        if (icon)  icon.style.transform = isHidden ? 'rotate(180deg)' : '';
+        if (label) label.textContent    = isHidden ? 'إغلاق' : 'فتح';
+    }
+
+    function scrollToDelegations() {
+        var el = document.getElementById('delegations-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function toggleSummary(btn) {
+        var wrap    = btn.closest('.c-activity-summary-wrap');
+        var summary = wrap && wrap.querySelector('.c-activity-summary');
+        if (!summary) return;
+        var expanded = summary.classList.toggle('is-expanded');
+        btn.textContent = expanded ? 'عرض أقل' : 'عرض الكل';
+    }
+</script>
 }

@@ -15,6 +15,25 @@
 @section Styles {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+    <style>
+        .access-summary-strip { background: #f8fafc; border: 1px solid #e9ecef; border-radius: 0.6rem; padding: 0.55rem 1rem; font-size: 0.88rem; color: #495057; }
+        .access-summary-strip strong { color: #692f39; }
+        .device-details-toggle { margin-top: 0.5rem; }
+        .device-details-toggle summary { font-size: 0.78rem; color: #6c757d; cursor: pointer; user-select: none; list-style: none; }
+        .device-details-toggle summary::-webkit-details-marker { display: none; }
+        .device-details-toggle summary::before { content: '▸ '; }
+        .device-details-toggle[open] summary::before { content: '▾ '; }
+        .device-details-body { padding-top: 0.4rem; margin-top: 0.4rem; border-top: 1px solid #f1f3f5; }
+        .recent-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+        .recent-chip-label { font-size: 0.75rem; color: #6c757d; white-space: nowrap; }
+        .recent-chip { display: inline-flex; align-items: center; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 50px; padding: 0.1rem 0.55rem; font-size: 0.78rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+        .recent-chip:hover { background: #692f39; color: white; border-color: #692f39; }
+        .device-quick-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.18rem 0.55rem; font-size: 0.78rem; border-radius: 0.35rem; border: 1px solid; cursor: pointer; font-weight: 600; transition: background 0.15s; line-height: 1.4; background: none; }
+        .device-quick-assign { color: #198754; border-color: rgba(25,135,84,0.35); }
+        .device-quick-assign:hover { background: #198754; color: white; }
+        .device-quick-unassign { color: #b02a37; border-color: rgba(176,42,55,0.35); }
+        .device-quick-unassign:hover { background: #b02a37; color: white; }
+    </style>
 }
 
 <div class="employees-search-page"
@@ -86,11 +105,13 @@
                 </button>
             </div>
         </form>
+        <div id="recentEmployees" class="mt-2 recent-chips" style="display:none"></div>
     </div>
 
     @* ── Card 2: Employee info ──────────────────────────── *@
     @if (employee != null)
     {
+        var assignedRegionCount = regionGroups?.Count(g => g.Devices.Any(x => x.IsEffectivelyAssigned)) ?? 0;
         <div class="content-card mb-3">
             <h2 class="c-section-title mb-3">معلومات الموظف</h2>
 
@@ -113,21 +134,13 @@
                 </div>
             </div>
 
-            @* Filter pills — also act as device stats *@
-            <div class="region-filters d-flex gap-2 flex-wrap">
-                <button type="button" class="btn btn-sm btn-outline filter-pill active" data-filter="all"
-                        onclick="setRegionFilter('all')">
-                    <i class="fa-solid fa-desktop"></i> @devices.Count إجمالي
-                </button>
-                <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="assigned"
-                        onclick="setRegionFilter('assigned')">
-                    <i class="fa-solid fa-circle-check"></i> @assigned.Count مرتبطة
-                </button>
-                <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="unassigned"
-                        onclick="setRegionFilter('unassigned')">
-                    <i class="fa-solid fa-circle-minus"></i> @unassigned.Count غير مرتبطة
-                </button>
-            </div>
+        </div>
+        <div class="access-summary-strip mb-3">
+            مرتبط بـ <strong>@assigned.Count جهاز</strong> في <strong>@assignedRegionCount منطقة</strong>
+            @if (unassigned.Count > 0)
+            {
+                <span class="text-muted"> — @unassigned.Count غير مرتبطة</span>
+            }
         </div>
 
         @* ── Card 3: Regions & Devices ──────────────────── *@
@@ -140,6 +153,21 @@
                         <button type="button" class="btn btn-sm btn-outline" onclick="expandAllRegions()">فتح الكل</button>
                         <button type="button" class="btn btn-sm btn-outline" onclick="collapseAllRegions()">إغلاق الكل</button>
                     </div>
+                </div>
+
+                <div class="region-filters d-flex gap-2 flex-wrap mb-3">
+                    <button type="button" class="btn btn-sm btn-outline filter-pill active" data-filter="all"
+                            onclick="setRegionFilter('all')">
+                        <i class="fa-solid fa-desktop"></i> @devices.Count إجمالي
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="assigned"
+                            onclick="setRegionFilter('assigned')">
+                        <i class="fa-solid fa-circle-check"></i> @assigned.Count مرتبطة
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="unassigned"
+                            onclick="setRegionFilter('unassigned')">
+                        <i class="fa-solid fa-circle-minus"></i> @unassigned.Count غير مرتبطة
+                    </button>
                 </div>
 
                 <div class="regions-container">
@@ -266,10 +294,8 @@
                                                             <span class="c-employee-device-state @stateClass">@stateText</span>
                                                         </div>
 
-                                                         <div class="text-muted small mb-1">
-                                                             <i class="fa-solid fa-map-pin"></i> @regionName
-                                                             &bull;
-                                                             <i class="fa-solid fa-hashtag"></i> @terminalId
+                                                        <div class="text-muted small mb-1">
+                                                            <i class="fa-solid fa-map-pin"></i> @regionName
                                                         </div>
 
                                                         <div class="small mb-2">
@@ -291,35 +317,63 @@
 
                                                       
 
-                                                         @if (d.IsRestricted)
-                                                         {
-                                                             <div class="small mb-1">
-                                                                 <span class="badge bg-warning-subtle text-dark border border-warning-subtle"
-                                                                       title="@d.RestrictionReason">
-                                                                     <i class="fa-solid fa-triangle-exclamation"></i>
-                                                                     جهاز مُدار
-                                                                 </span>
-                                                                 @if (!string.IsNullOrWhiteSpace(d.RestrictionSource))
-                                                                 {
-                                                                     <span class="text-muted ms-2">(@d.RestrictionSource)</span>
-                                                                 }
-                                                             </div>
-                                                             @if (!string.IsNullOrWhiteSpace(d.RestrictionReason))
-                                                             {
-                                                                 <div class="text-muted small">
-                                                                     <i class="fa-regular fa-circle-question"></i> @d.RestrictionReason
-                                                                 </div>
-                                                             }
-                                                         }
+                                                        @if (stateKey == "unassigned")
+                                                        {
+                                                            <button type="button" class="device-quick-btn device-quick-assign mb-2"
+                                                                    data-terminal-id="@terminalId" data-device-name="@d.DeviceName"
+                                                                    onclick="event.stopPropagation(); assignSingle(this)">
+                                                                <i class="fa-solid fa-link"></i> ربط
+                                                            </button>
+                                                        }
+                                                        else if (stateKey == "assigned")
+                                                        {
+                                                            <button type="button" class="device-quick-btn device-quick-unassign mb-2"
+                                                                    data-terminal-id="@terminalId" data-device-name="@d.DeviceName"
+                                                                    onclick="event.stopPropagation(); unassignSingle(this)">
+                                                                <i class="fa-solid fa-link-slash"></i> فك الربط
+                                                            </button>
+                                                        }
 
-                                                         @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
-                                                         {
-                                                            <div class="text-muted small">
-                                                                <i class="fa-regular fa-calendar"></i>
-                                                                من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
-                                                                &rarr;
-                                                                إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
-                                                            </div>
+                                                        @if (!string.IsNullOrWhiteSpace(terminalId) || d.IsRestricted || (d.IsDelegated && d.DelegationStartDate.HasValue))
+                                                        {
+                                                            <details class="device-details-toggle">
+                                                                <summary>عرض التفاصيل</summary>
+                                                                <div class="device-details-body">
+                                                                    @if (!string.IsNullOrWhiteSpace(terminalId))
+                                                                    {
+                                                                        <div class="text-muted small"><i class="fa-solid fa-hashtag"></i> @terminalId</div>
+                                                                    }
+                                                                    @if (d.IsRestricted)
+                                                                    {
+                                                                        <div class="small mt-1">
+                                                                            <span class="badge bg-warning-subtle text-dark border border-warning-subtle"
+                                                                                  title="@d.RestrictionReason">
+                                                                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                                                                جهاز مُدار
+                                                                            </span>
+                                                                            @if (!string.IsNullOrWhiteSpace(d.RestrictionSource))
+                                                                            {
+                                                                                <span class="text-muted ms-2">(@d.RestrictionSource)</span>
+                                                                            }
+                                                                        </div>
+                                                                        @if (!string.IsNullOrWhiteSpace(d.RestrictionReason))
+                                                                        {
+                                                                            <div class="text-muted small mt-1">
+                                                                                <i class="fa-regular fa-circle-question"></i> @d.RestrictionReason
+                                                                            </div>
+                                                                        }
+                                                                    }
+                                                                    @if (d.IsDelegated && d.DelegationStartDate.HasValue && d.DelegationEndDate.HasValue)
+                                                                    {
+                                                                        <div class="text-muted small mt-1">
+                                                                            <i class="fa-regular fa-calendar"></i>
+                                                                            من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
+                                                                            &rarr;
+                                                                            إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </details>
                                                         }
 
                                                         @* Per-device delegation actions *@
@@ -498,6 +552,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         updateBulkBar();
         onBulkOperationChange();
+        loadRecentEmployees();
 
         // Auto-expand the first region so results are immediately visible
         var firstCollapse = document.querySelector('.rgn-collapse');
@@ -511,6 +566,9 @@
         var searchForm = document.getElementById('employeeSearchForm');
         if (searchForm) {
             searchForm.addEventListener('submit', function () {
+                var input = searchForm.querySelector('input[name="employeeId"]');
+                var val = (input?.value || '').trim();
+                if (val && val !== '0') saveRecentEmployee(val);
                 var btn = searchForm.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = true;
@@ -806,6 +864,92 @@
         if (confirmResult.isConfirmed) form.submit();
     }
 
+    function assignSingle(btn) {
+        var terminalId = (btn.dataset.terminalId || '').trim();
+        var deviceName = (btn.dataset.deviceName || '').trim();
+        if (!terminalId) return;
+        Swal.fire({
+            title: 'تأكيد الربط',
+            html: `<div class="c-swal-body">
+                    <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-link text-maroon"></i></div>
+                    <p class="c-swal-lead c-swal-lead--sm">ربط دائم</p>
+                    <p class="c-swal-title">${getEmployeeText()}</p>
+                    <div class="c-swal-meta"><div>الجهاز: <strong>${deviceName || terminalId}</strong></div></div>
+                </div>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#692f39',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: '<i class="fa-solid fa-check"></i> ربط',
+            cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                fillAndSubmitBulkForm('/employees/AssignBulk', [{ name: 'terminalIds', value: terminalId }]);
+            }
+        });
+    }
+
+    function unassignSingle(btn) {
+        var terminalId = (btn.dataset.terminalId || '').trim();
+        var deviceName = (btn.dataset.deviceName || '').trim();
+        if (!terminalId) return;
+        Swal.fire({
+            title: 'تأكيد فك الربط',
+            html: `<div class="c-swal-body">
+                    <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-link-slash text-maroon"></i></div>
+                    <p class="c-swal-lead c-swal-lead--sm">فك الربط</p>
+                    <p class="c-swal-title">${getEmployeeText()}</p>
+                    <div class="c-swal-meta"><div>الجهاز: <strong>${deviceName || terminalId}</strong></div></div>
+                </div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#692f39',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: '<i class="fa-solid fa-check"></i> فك الربط',
+            cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                fillAndSubmitBulkForm('/employees/UnassignBulk', [{ name: 'terminalIds', value: terminalId }]);
+            }
+        });
+    }
+
+    function fillAndSearch(employeeId) {
+        var form = document.getElementById('employeeSearchForm');
+        if (!form) return;
+        var input = form.querySelector('input[name="employeeId"]');
+        if (input) input.value = employeeId;
+        form.submit();
+    }
+
+    function saveRecentEmployee(employeeId) {
+        try {
+            var recent = JSON.parse(localStorage.getItem('ba_recent_employees') || '[]');
+            recent = recent.filter(function(id) { return id !== String(employeeId); });
+            recent.unshift(String(employeeId));
+            if (recent.length > 5) recent = recent.slice(0, 5);
+            localStorage.setItem('ba_recent_employees', JSON.stringify(recent));
+        } catch (e) {}
+    }
+
+    function loadRecentEmployees() {
+        try {
+            var recent = JSON.parse(localStorage.getItem('ba_recent_employees') || '[]');
+            var container = document.getElementById('recentEmployees');
+            if (!container || recent.length === 0) return;
+            container.style.display = '';
+            container.innerHTML = '<span class="recent-chip-label">بحث سابق:</span>';
+            recent.forEach(function(id) {
+                var chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'recent-chip';
+                chip.textContent = id;
+                chip.onclick = function() { fillAndSearch(id); };
+                container.appendChild(chip);
+            });
+        } catch (e) {}
+    }
+
     function setRegionFilter(mode) {
         const pills = document.querySelectorAll('.region-filters .filter-pill');
         pills.forEach(p => p.classList.remove('active'));
@@ -843,6 +987,14 @@
             if (selectAll) selectAll.checked = false;
             updateBulkBar();
         });
+
+        if (mode === 'unassigned') {
+            var op = document.getElementById('bulkOperation');
+            if (op) { op.value = 'assign'; onBulkOperationChange(); }
+        } else if (mode === 'assigned') {
+            var op = document.getElementById('bulkOperation');
+            if (op) { op.value = 'unassign'; onBulkOperationChange(); }
+        }
     }
 
     document.addEventListener('change', function (e) {

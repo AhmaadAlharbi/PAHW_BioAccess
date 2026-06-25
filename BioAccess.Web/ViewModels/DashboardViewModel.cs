@@ -10,6 +10,7 @@ public sealed class ActivityLogRowViewModel
 
 public sealed class DelegationRowViewModel
 {
+    public int EmployeeId { get; set; }
     public string EmployeeText { get; set; } = "";
     public string? RegionText { get; set; }
 

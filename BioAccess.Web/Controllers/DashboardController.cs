@@ -33,6 +33,7 @@ public sealed class DashboardController : Controller
             DelegationsFilter = dto.DelegationsFilter,
             LatestDelegations = dto.LatestDelegations.Select(x => new DelegationRowViewModel
             {
+                EmployeeId = x.EmployeeId,
                 EmployeeText = string.IsNullOrWhiteSpace(x.EmployeeName)
                     ? $"الموظف رقم {x.EmployeeId}"
                     : $"{x.EmployeeName} ({x.EmployeeId})",
