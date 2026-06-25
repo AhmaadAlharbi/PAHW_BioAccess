@@ -2,13 +2,14 @@
 
 @{
     ViewData["Title"] = "لوحة نشاط الأجهزة";
+    var zeroSuccessCount = Model.Devices.Count(x => x.ActivityCount == 0 && x.FailedAuthCount > 0);
 }
 
 @section Styles {
     <style>
         .obs-summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 1rem;
         }
 
@@ -19,21 +20,16 @@
             box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
         }
 
-        .obs-summary-card.is-neutral {
-            background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+        .obs-summary-card.is-neutral  { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%); }
+        .obs-summary-card.is-success  { background: linear-gradient(180deg, #effaf3 0%, #daf5e3 100%); }
+        .obs-summary-card.is-inactive { background: linear-gradient(180deg, #f1f3f5 0%, #dee2e6 100%); }
+        .obs-summary-card.is-week     { background: linear-gradient(180deg, #fff8e1 0%, #ffe082 100%); }
+        .obs-summary-card.is-alert {
+            background: linear-gradient(180deg, #fff3f4 0%, #fde5e8 100%);
+            border-color: rgba(220, 53, 69, 0.18);
         }
-
-        .obs-summary-card.is-success {
-            background: linear-gradient(180deg, #effaf3 0%, #daf5e3 100%);
-        }
-
-        .obs-summary-card.is-inactive {
-            background: linear-gradient(180deg, #f1f3f5 0%, #dee2e6 100%);
-        }
-
-        .obs-summary-card.is-week {
-            background: linear-gradient(180deg, #fff8e1 0%, #ffe082 100%);
-        }
+        .obs-summary-card.is-alert .obs-summary-value { color: #b02a37; }
+        .obs-alert-sub { font-size: 0.78rem; color: #b02a37; margin-top: 0.4rem; opacity: 0.85; }
 
         .badge-week {
             background-color: #e6a817;
@@ -45,33 +41,49 @@
             font-weight: 600;
         }
 
-        .obs-summary-label {
-            color: #6c757d;
-            font-size: 0.92rem;
-            margin-bottom: 0.4rem;
+        .obs-summary-label { color: #6c757d; font-size: 0.92rem; margin-bottom: 0.4rem; }
+        .obs-summary-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+
+        .obs-device-name { font-weight: 800; }
+        .obs-device-meta { color: #6c757d; font-size: 0.9rem; margin-top: 0.2rem; }
+
+        /* Zero-success badge */
+        .badge-zero-success {
+            display: inline-block;
+            background: rgba(220, 53, 69, 0.1);
+            color: #b02a37;
+            border: 1px solid rgba(220, 53, 69, 0.2);
+            padding: 0.18em 0.45em;
+            border-radius: 0.35em;
+            font-size: 0.78em;
+            font-weight: 700;
+            margin-top: 0.3rem;
         }
 
-        .obs-summary-value {
-            font-size: 2rem;
-            font-weight: 800;
-            line-height: 1;
-        }
+        /* Row risk indicators */
+        tr.obs-row-danger  { background: rgba(220, 53, 69, 0.05) !important; }
+        tr.obs-row-warning { background: rgba(230, 168, 23, 0.07) !important; }
 
-        .obs-device-name {
-            font-weight: 800;
+        /* Failure rate pill */
+        .obs-rate-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
         }
+        .obs-rate-pill.is-danger  { background: rgba(220, 53, 69, 0.12); color: #b02a37; }
+        .obs-rate-pill.is-warning { background: rgba(230, 168, 23, 0.15); color: #997404; }
+        .obs-rate-pill.is-ok      { background: rgba(108, 117, 125, 0.09); color: #6c757d; }
 
-        .obs-device-meta {
-            color: #6c757d;
-            font-size: 0.9rem;
-            margin-top: 0.2rem;
-        }
+        .obs-count-minor { font-size: 0.78rem; color: #adb5bd; }
 
-        .obs-problem-summary {
-            font-size: 0.92rem;
-            color: #495057;
-            max-width: 420px;
-        }
+        /* Sortable column header */
+        .obs-th-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+        .obs-th-sortable:hover { color: #692f39; }
+        .obs-sort-arrow { font-size: 0.75rem; opacity: 0.5; margin-right: 0.2rem; }
     </style>
 }
 
@@ -107,45 +119,66 @@
             <div class="obs-summary-label">نشط اليوم</div>
             <div class="obs-summary-value">@Model.ActiveTodayDevices</div>
         </div>
+        <div class="obs-summary-card is-alert">
+            <div class="obs-summary-label">⚠️ تحذيرات أمنية</div>
+            <div class="obs-summary-value">@Model.SecurityAlertDevices</div>
+            @if (zeroSuccessCount > 0)
+            {
+                <div class="obs-alert-sub">منها @zeroSuccessCount بلا أي نجاحات</div>
+            }
+        </div>
     </div>
 
     <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
         <h2 class="c-section-title">نشاط الأجهزة خلال آخر 7 أيام</h2>
-        <span class="text-muted">
-            يتم الاعتماد على سجل المصادقة فقط لقياس نشاط الاستخدام
-        </span>
+        <span class="text-muted small">مرتب حسب أعلى نسبة فشل</span>
     </div>
 
     <div class="table-container">
-        <table class="data-table">
+        <table class="data-table" id="devicesTable">
             <thead>
                 <tr>
                     <th>الجهاز</th>
-                    <th class="u-w-120">عنوان الشبكة</th>
-                    <th class="u-w-120">نشاط الجهاز</th>
-                    <th class="u-w-110">محاولات ناجحة</th>
-                    <th class="u-w-110">محاولات فاشلة</th>
-                    <th class="u-w-160">آخر نشاط</th>
-                    <th>التفاصيل</th>
+                    <th class="u-w-160">حالة النشاط</th>
+                    <th class="obs-th-sortable u-w-160" onclick="sortByRate()" title="اضغط للترتيب">
+                        نسبة الفشل
+                        <span class="obs-sort-arrow" id="sortArrow">▼</span>
+                    </th>
+                    <th class="u-w-150">آخر نشاط</th>
+                    <th class="u-w-150">آخر فشل</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="devicesTableBody">
             @if (!Model.Devices.Any())
             {
                 <tr>
-                    <td colspan="7" class="u-text-center text-muted">لا توجد بيانات أجهزة متاحة حالياً.</td>
+                    <td colspan="5" class="u-text-center text-muted">لا توجد بيانات أجهزة متاحة حالياً.</td>
                 </tr>
             }
             else
             {
                 @foreach (var device in Model.Devices)
                 {
-                    <tr>
+                    var total = device.ActivityCount + device.FailedAuthCount;
+                    var failureRate = total > 0 ? (device.FailedAuthCount * 100 / total) : 0;
+                    var isZeroSuccess = device.ActivityCount == 0 && device.FailedAuthCount > 0;
+
+                    var rowClass = failureRate >= 80 ? "obs-row-danger"
+                                 : failureRate >= 30 ? "obs-row-warning"
+                                 : "";
+
+                    var ratePillClass = failureRate >= 80 ? "is-danger"
+                                      : failureRate >= 30 ? "is-warning"
+                                      : "is-ok";
+
+                    <tr class="@rowClass" data-rate="@failureRate">
                         <td>
                             <div class="obs-device-name">@device.Name</div>
-                            <div class="obs-device-meta">@device.TerminalId</div>
+                            @if (!string.IsNullOrWhiteSpace(device.TerminalId))
+                            {
+                                <div class="obs-device-meta">@device.TerminalId</div>
+                            }
                         </td>
-                        <td>@(string.IsNullOrWhiteSpace(device.Ip) ? "—" : device.Ip)</td>
                         <td>
                             @if (device.Status == "Active Today")
                             {
@@ -157,37 +190,37 @@
                             }
                             else
                             {
-                                <span class="badge badge-dark">لا يوجد استخدام</span>
+                                <span class="badge badge-muted">لا يوجد استخدام</span>
+                            }
+                            @if (isZeroSuccess)
+                            {
+                                <div><span class="badge-zero-success">⚠️ لا توجد نجاحات</span></div>
                             }
                         </td>
-                        <td>@device.ActivityCount</td>
                         <td>
-                            @if (device.FailedAuthCount > 0)
+                            @if (total > 0)
                             {
-                                <span style="color:#c0392b;font-weight:700;">@device.FailedAuthCount</span>
+                                <div><span class="obs-rate-pill @ratePillClass">@failureRate٪ فشل</span></div>
+                                <div class="obs-count-minor">✓ @device.ActivityCount / ✗ @device.FailedAuthCount</div>
                             }
                             else
                             {
-                                @:0
+                                <span class="text-muted">—</span>
                             }
                         </td>
-                        <td>@(device.LastSeen.HasValue ? device.LastSeen.Value.ToString("dd/MM/yyyy HH:mm") : "—")</td>
+                        <td class="text-muted small">
+                            @(device.LastSeen.HasValue ? device.LastSeen.Value.ToString("dd/MM/yyyy HH:mm") : "—")
+                        </td>
                         <td>
-                            <div class="obs-problem-summary">
-                                @(string.IsNullOrWhiteSpace(device.ProblemReason) ? "—" : device.ProblemReason)
-                            </div>
-                            @if (device.TopFailedUsers.Any())
+                            @if (device.LastFailedAt.HasValue)
                             {
-                                <div style="margin-top:0.4rem;font-size:0.82rem;color:#6c757d;">
-                                    <div style="font-weight:600;margin-bottom:0.2rem;">أكثر المستخدمين إخفاقاً:</div>
-                                    @foreach (var user in device.TopFailedUsers)
-                                    {
-                                        <div>
-                                            @(string.IsNullOrWhiteSpace(user.UserName) ? user.UserId : $"{user.UserName} ({user.UserId})")
-                                            <span style="color:#c0392b;font-weight:600;"> — @user.Count مرة</span>
-                                        </div>
-                                    }
-                                </div>
+                                <span class="@(failureRate >= 30 ? "text-danger fw-bold" : "text-muted") small">
+                                    @device.LastFailedAt.Value.ToString("dd/MM/yyyy HH:mm")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
                             }
                         </td>
                     </tr>
@@ -197,3 +230,23 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    var _sortDesc = true;
+
+    function sortByRate() {
+        var tbody = document.getElementById('devicesTableBody');
+        var rows = Array.from(tbody.querySelectorAll('tr[data-rate]'));
+        _sortDesc = !_sortDesc;
+        rows.sort(function (a, b) {
+            var av = parseInt(a.dataset.rate, 10) || 0;
+            var bv = parseInt(b.dataset.rate, 10) || 0;
+            return _sortDesc ? bv - av : av - bv;
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
+        var arrow = document.getElementById('sortArrow');
+        if (arrow) arrow.textContent = _sortDesc ? '▼' : '▲';
+    }
+</script>
+}

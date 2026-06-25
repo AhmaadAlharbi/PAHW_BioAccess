@@ -60,6 +60,10 @@ public sealed class DeviceObservabilityService
                     : null;
                 var lastSeen = lastSeenUtc?.ToLocalTime();
                 var topFailedUsers = BuildTopFailedUsers(terminalAuthLogs);
+                var lastFailedAtUtc = failedAuthCount > 0
+                    ? terminalAuthLogs.Where(log => !log.IsSuccess).Max(log => (DateTime?)log.Timestamp)
+                    : null;
+                var lastFailedAt = lastFailedAtUtc?.ToLocalTime();
 
                 var status = GetStatus(lastSeenUtc, nowUtc);
                 var reason = BuildProblemReason(status, failedAuthCount);
@@ -77,6 +81,7 @@ public sealed class DeviceObservabilityService
                     FailedAuthCount = failedAuthCount,
                     TopFailedUsers = topFailedUsers,
                     LastSeen = lastSeen,
+                    LastFailedAt = lastFailedAt,
                     ProblemReason = reason,
                     ProblemSummary = reason
                 };
@@ -103,6 +108,10 @@ public sealed class DeviceObservabilityService
                     : null;
                 var lastSeen = lastSeenUtc?.ToLocalTime();
                 var topFailedUsers = BuildTopFailedUsers(terminalAuthLogs);
+                var lastFailedAtUtc = failedAuthCount > 0
+                    ? terminalAuthLogs.Where(log => !log.IsSuccess).Max(log => (DateTime?)log.Timestamp)
+                    : null;
+                var lastFailedAt = lastFailedAtUtc?.ToLocalTime();
                 var status = GetStatus(lastSeenUtc, nowUtc);
                 var reason = BuildProblemReason(status, failedAuthCount);
 
@@ -117,6 +126,7 @@ public sealed class DeviceObservabilityService
                     FailedAuthCount = failedAuthCount,
                     TopFailedUsers = topFailedUsers,
                     LastSeen = lastSeen,
+                    LastFailedAt = lastFailedAt,
                     ProblemReason = reason,
                     ProblemSummary = reason
                 };
@@ -129,8 +139,10 @@ public sealed class DeviceObservabilityService
 
         devices = devices
             .Concat(authOnlyDevices)
-            .OrderBy(x => GetStatusRank(x.Status))
-            .ThenBy(x => x.ActivityCount == 0 ? 0 : 1)
+            .OrderByDescending(x => x.ActivityCount + x.FailedAuthCount > 0
+                ? (double)x.FailedAuthCount / (x.ActivityCount + x.FailedAuthCount)
+                : 0.0)
+            .ThenByDescending(x => x.FailedAuthCount)
             .ThenBy(x => x.Name)
             .ThenBy(x => x.TerminalId)
             .ToList();
@@ -143,7 +155,8 @@ public sealed class DeviceObservabilityService
             TotalDevices = devices.Count,
             ActiveTodayDevices = devices.Count(x => x.Status == "Active Today"),
             ActiveThisWeekDevices = devices.Count(x => x.Status == "Active This Week"),
-            NoActivityDevices = devices.Count(x => x.Status == "No Activity")
+            NoActivityDevices = devices.Count(x => x.Status == "No Activity"),
+            SecurityAlertDevices = devices.Count(x => x.FailedAuthCount >= 5)
         };
     }
 

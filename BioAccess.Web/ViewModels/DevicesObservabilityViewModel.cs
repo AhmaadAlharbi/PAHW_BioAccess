@@ -18,6 +18,7 @@ public sealed class DeviceHealthItem
     public int FailedAuthCount { get; set; }
     public List<FailedUserEntry> TopFailedUsers { get; set; } = new();
     public DateTime? LastSeen { get; set; }
+    public DateTime? LastFailedAt { get; set; }
     public string ProblemReason { get; set; } = "";
     public string ProblemSummary { get; set; } = "";
 }
@@ -28,6 +29,7 @@ public sealed class DevicesObservabilityViewModel
     public int ActiveTodayDevices { get; set; }
     public int ActiveThisWeekDevices { get; set; }
     public int NoActivityDevices { get; set; }
+    public int SecurityAlertDevices { get; set; }
     public List<DeviceHealthItem> Devices { get; set; } = new();
     public string? Error { get; set; }
 }
