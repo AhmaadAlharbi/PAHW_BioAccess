@@ -3,24 +3,23 @@
     ViewData["Title"] = "خطأ";
 }
 
-<h1 class="text-danger">حدث خطأ.</h1>
-<h2 class="text-danger">حدث خطأ أثناء معالجة الطلب.</h2>
-
-@if (Model.ShowRequestId)
-{
-    <p>
-        <strong>رقم الطلب:</strong> <code>@Model.RequestId</code>
+<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; text-align:center; padding:2rem;">
+    <div style="font-size:3.5rem; margin-bottom:1rem;">⚠️</div>
+    <h1 style="font-size:1.4rem; font-weight:700; color:#692f39; margin-bottom:0.6rem;">
+        حدث خطأ غير متوقع
+    </h1>
+    <p class="text-muted" style="max-width:420px; margin-bottom:2rem; line-height:1.7;">
+        حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى،
+        أو التواصل مع الدعم الفني إذا استمرت المشكلة.
     </p>
-}
-
-<h3>وضع التطوير</h3>
-<p>
-    عند التشغيل في <strong>بيئة التطوير</strong> ستظهر تفاصيل أكثر عن الخطأ.
-</p>
-<p>
-    <strong>لا يُنصح بتفعيل بيئة التطوير في الإنتاج.</strong>
-    لأن ذلك قد يُظهر معلومات حساسة للمستخدمين.
-    للتصحيح المحلي، فعّل <strong>بيئة التطوير</strong> عبر ضبط متغير بيئة التطبيق
-    على وضع <strong>التطوير</strong>
-    ثم أعد تشغيل التطبيق.
-</p>
+    @if (Model?.ShowRequestId == true && !string.IsNullOrEmpty(Model.RequestId))
+    {
+        <p class="text-muted" style="font-size:0.78rem; margin-bottom:1.5rem;">
+            رمز الطلب: <code>@Model.RequestId</code>
+        </p>
+    }
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+        <button type="button" class="btn btn-outline" onclick="history.back()">↩ العودة</button>
+        <a href="/" class="btn btn-primary">الصفحة الرئيسية</a>
+    </div>
+</div>

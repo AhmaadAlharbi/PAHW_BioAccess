@@ -17,6 +17,32 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     @RenderSection("Styles", required: false)
+    <style>
+        /* Auto-dismiss alert close button */
+        .alert { position: relative; }
+        .js-alert-close {
+            position: absolute;
+            left: 0.6rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            padding: 0.15rem 0.4rem;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+            opacity: 0.45;
+            color: currentColor;
+            border-radius: 0.25rem;
+        }
+        .js-alert-close:hover { opacity: 1; background: rgba(0,0,0,0.07); }
+        .alert-dismissing {
+            transition: opacity 0.35s ease, transform 0.35s ease !important;
+            opacity: 0 !important;
+            transform: translateY(-6px) !important;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
 @if (isLoggedIn)
@@ -41,12 +67,12 @@
                     <span class="sidebar-nav-icon">🔍</span>
                     <span>بحث موظف</span>
                 </a>
-                <a asp-controller="AllowedUsers" asp-action="Index" class="sidebar-nav-item @(controller == "AllowedUsers" || controller == "Allowlist" ? "active" : "")">
-                    <span class="sidebar-nav-icon">👥</span>
-                    <span>قائمة الصلاحيات</span>
-                </a>
                 @if (isAdmin)
                 {
+                    <a asp-controller="AllowedUsers" asp-action="Index" class="sidebar-nav-item @(controller == "AllowedUsers" || controller == "Allowlist" ? "active" : "")">
+                        <span class="sidebar-nav-icon">👥</span>
+                        <span>قائمة الصلاحيات</span>
+                    </a>
                     <div class="sidebar-divider"></div>
                     <a asp-controller="Terminals" asp-action="Index" class="sidebar-nav-item @(controller == "Terminals" ? "active" : "")">
                         <span class="sidebar-nav-icon">🗺️</span>
@@ -119,6 +145,7 @@ else
 }
 
 <script src="~/js/site.js" asp-append-version="true"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @RenderSection("Scripts", required: false)
 
 <script>
@@ -134,6 +161,27 @@ else
             s.classList.remove('is-open');
         }
     });
+
+    // Auto-dismiss alerts: adds close button + 4-second fade-out
+    (function () {
+        function dismissAlert(el) {
+            el.classList.add('alert-dismissing');
+            setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 380);
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.app-content .alert').forEach(function (a) {
+                a.style.paddingLeft = '2.5rem';
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'js-alert-close';
+                btn.setAttribute('aria-label', 'إغلاق');
+                btn.textContent = '×';
+                btn.addEventListener('click', function () { dismissAlert(a); });
+                a.appendChild(btn);
+                setTimeout(function () { dismissAlert(a); }, 4000);
+            });
+        });
+    }());
 </script>
 </body>
 </html>

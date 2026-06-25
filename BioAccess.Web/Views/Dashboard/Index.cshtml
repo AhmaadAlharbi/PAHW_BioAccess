@@ -24,19 +24,18 @@
         if (diff.TotalMinutes < 1)  return "الآن";
         if (diff.TotalMinutes < 60) return $"منذ {(int)diff.TotalMinutes} د";
         if (diff.TotalHours   < 24) return $"منذ {(int)diff.TotalHours} س";
-        return dt.ToString("MM/dd HH:mm");
+        return dt.ToString("dd/MM/yyyy HH:mm");
     }
 }
 
 @* ══════════════════════════════════════════════════════
    PAGE HEADER  — title + identity inline
    ══════════════════════════════════════════════════════ *@
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h5 class="mb-0 fw-bold">لوحة التحكم</h5>
+<div class="d-flex align-items-center justify-content-end mb-4">
     <div class="d-flex align-items-center gap-2 small text-muted">
         <span class="fw-bold text-dark">@empName</span>
         <span class="badge @(isAdmin ? "badge-success" : "badge-muted")">
-            @(isAdmin ? "مشرف" : "موظف")
+            @(isAdmin ? "مدير" : "موظف")
         </span>
     </div>
 </div>
@@ -97,44 +96,6 @@ else
             <div class="stat-value">@expiringSoonCount</div>
             <div class="stat-label">تنتهي خلال 48 س</div>
         </div>
-    </div>
-
-    @* ══════════════════════════════════════════════════════
-       QUICK ACTIONS
-       ══════════════════════════════════════════════════════ *@
-    <div class="c-actionbar mb-4">
-        @* Primary action *@
-        <a asp-controller="Employees" asp-action="Index"
-           class="btn btn-primary btn-sm u-nowrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none"
-                 stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
-                <circle cx="11" cy="11" r="8"/>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            بحث موظف
-        </a>
-
-        @* Secondary actions *@
-        <a asp-controller="Terminals" asp-action="Index"
-           class="btn btn-outline btn-sm u-nowrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none"
-                 stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
-                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-            </svg>
-            المناطق والأجهزة
-        </a>
-        <a asp-controller="AllowedUsers" asp-action="Index"
-           class="btn btn-outline btn-sm u-nowrap">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none"
-                 stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-1">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            قائمة الصلاحيات
-        </a>
     </div>
 
     @* ══════════════════════════════════════════════════════
@@ -244,7 +205,7 @@ else
                                 <div class="d-flex justify-content-between align-items-center mt-1">
                                     <span class="text-muted small">
                                         @d.StartDateText.Split(' ').First()
-                                        ←
+                                        —
                                         @if (isExpiringSoon)
                                         {
                                             <span class="text-warning fw-bold">

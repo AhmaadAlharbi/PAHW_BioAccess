@@ -70,7 +70,7 @@
             @* } *@
         </div>
 
-        <form method="post" action="/employees/search">
+        <form id="employeeSearchForm" method="post" action="/employees/search">
             @Html.AntiForgeryToken()
             <div class="d-flex gap-2 align-items-end">
                 <div class="flex-grow-1">
@@ -134,7 +134,13 @@
         @if (regionGroups != null && regionGroups.Any())
         {
             <div class="content-card">
-                <h2 class="c-section-title mb-3">إدارة أجهزة البصمة</h2>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h2 class="c-section-title mb-0">إدارة أجهزة البصمة</h2>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="expandAllRegions()">فتح الكل</button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="collapseAllRegions()">إغلاق الكل</button>
+                    </div>
+                </div>
 
                 <div class="regions-container">
                     @for (int i = 0; i < regionGroups.Count; i++)
@@ -274,7 +280,7 @@
                                                                 </span>
                                                                 @if (d.LastSeen.HasValue)
                                                                 {
-                                                                    <span class="text-muted d-block mt-1">آخر نشاط: @d.LastSeen.Value.ToString("yyyy-MM-dd HH:mm")</span>
+                                                                    <span class="text-muted d-block mt-1">آخر نشاط: @d.LastSeen.Value.ToString("dd/MM/yyyy HH:mm")</span>
                                                                 }
                                                             }
                                                             else
@@ -403,7 +409,6 @@
 
 @section Scripts {
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
     function getEmployeeText() {
@@ -474,9 +479,45 @@
         updateDeviceSelection(checkbox);
     }
 
+    // Expand / collapse all region cards
+    function expandAllRegions() {
+        document.querySelectorAll('.rgn-collapse').forEach(function (el) {
+            el.classList.add('show');
+            var hdr = el.previousElementSibling;
+            if (hdr) hdr.classList.add('active');
+        });
+    }
+    function collapseAllRegions() {
+        document.querySelectorAll('.rgn-collapse').forEach(function (el) {
+            el.classList.remove('show');
+            var hdr = el.previousElementSibling;
+            if (hdr) hdr.classList.remove('active');
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         updateBulkBar();
         onBulkOperationChange();
+
+        // Auto-expand the first region so results are immediately visible
+        var firstCollapse = document.querySelector('.rgn-collapse');
+        if (firstCollapse) {
+            firstCollapse.classList.add('show');
+            var firstHdr = firstCollapse.previousElementSibling;
+            if (firstHdr) firstHdr.classList.add('active');
+        }
+
+        // Loading state on employee search form
+        var searchForm = document.getElementById('employeeSearchForm');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function () {
+                var btn = searchForm.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري البحث...</span>';
+                }
+            });
+        }
 
         flatpickr('.datepicker', {
             dateFormat: 'd/m/Y',
@@ -844,7 +885,7 @@
         const res = await fetch("/api/terminals/auto-assign-regions", { method: "POST" });
 
         if (res.status === 403) {
-            await Swal.fire({ icon: 'error', title: 'غير مصرح', text: 'غير مصرح لك (Admin فقط).' });
+            await Swal.fire({ icon: 'error', title: 'غير مصرح', text: 'غير مصرح لك (مدير فقط).' });
             return;
         }
 

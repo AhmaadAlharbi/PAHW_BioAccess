@@ -171,7 +171,7 @@
                                 @:0
                             }
                         </td>
-                        <td>@(device.LastSeen.HasValue ? device.LastSeen.Value.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                        <td>@(device.LastSeen.HasValue ? device.LastSeen.Value.ToString("dd/MM/yyyy HH:mm") : "—")</td>
                         <td>
                             <div class="obs-problem-summary">
                                 @(string.IsNullOrWhiteSpace(device.ProblemReason) ? "—" : device.ProblemReason)

@@ -14,7 +14,6 @@ using BioAccess.Web.Services.Auth;
 using BioAccess.Web.Services.Dashboard;
 using BioAccess.Web.Services.Delegations;
 using BioAccess.Web.Services.Employees;
-using BioAccess.Web.Services.Monitoring;
 using BioAccess.Web.Services.Observability;
 using BioAccess.Web.Services.Restrictions;
 using BioAccess.Web.Services.Terminals;
@@ -54,7 +53,6 @@ builder.Services.AddHttpClient<SoapLoginApi>(client =>
 //     client.BaseAddress = new Uri("https://localhost:56497");
 // });
 builder.Services.AddScoped<ILoginApi, SoapLoginApi>();
-builder.Services.AddSingleton<SystemMetrics>();
 builder.Services.AddScoped<ICurrentUser, CompositeCurrentUser>();
 
 builder.Services.AddAuthentication(options =>

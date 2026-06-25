@@ -29,7 +29,7 @@
     </div>
     <p class="text-muted small mb-3">أدخل الرقم الوظيفي لجلب بيانات المستخدم من النظام.</p>
 
-    <form method="post" asp-action="Fetch">
+    <form id="fetchUserForm" method="post" asp-action="Fetch">
         <div class="d-flex gap-2 align-items-end">
             <div class="flex-grow-1">
                 <label class="form-label fw-bold">الرقم الوظيفي</label>
@@ -50,7 +50,7 @@
             <span class="badge badge-success">✓ تم جلب البيانات</span>
         </div>
 
-        <form method="post" asp-action="Save">
+        <form id="saveUserForm" method="post" asp-action="Save">
             @Html.AntiForgeryToken()
             <input type="hidden" name="employeeId" value="@allowedUser.EmployeeId" />
 
@@ -111,12 +111,39 @@ else
 
 @section Scripts {
     <script>
-        document.querySelector('form[asp-action="Save"]')?.addEventListener('submit', function (e) {
-            const email = this.querySelector('input[name="email"]')?.value || '';
-            if (email && !email.includes('@@')) {
-                e.preventDefault();
-                alert('يرجى إدخال بريد إلكتروني صحيح');
-            }
-        });
+        var fetchUserForm = document.getElementById('fetchUserForm');
+        var saveUserForm  = document.getElementById('saveUserForm');
+
+        if (fetchUserForm) {
+            fetchUserForm.addEventListener('submit', function () {
+                var btn = fetchUserForm.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الجلب...';
+                }
+            });
+        }
+
+        if (saveUserForm) {
+            saveUserForm.addEventListener('submit', async function (e) {
+                var email = saveUserForm.querySelector('input[name="email"]')?.value || '';
+                if (email && !email.includes('@@')) {
+                    e.preventDefault();
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'تنبيه',
+                        text: 'يرجى إدخال بريد إلكتروني صحيح',
+                        confirmButtonColor: '#692f39',
+                        confirmButtonText: 'حسناً'
+                    });
+                    return;
+                }
+                var btn = saveUserForm.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الحفظ...';
+                }
+            });
+        }
     </script>
 }

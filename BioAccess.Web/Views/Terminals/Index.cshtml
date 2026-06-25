@@ -111,9 +111,9 @@
                                 }
                                 else
                                 {
-                                    <button type="submit" class="btn btn-sm btn-danger u-w-100"
-                                            title="حذف المنطقة نهائياً"
-                                            onclick="return confirm('هل أنت متأكد من حذف منطقة &quot;@region.Name&quot;؟')">
+                                    <button type="button" class="btn btn-sm btn-danger u-w-100 js-delete-region-btn"
+                                            data-region-name="@region.Name"
+                                            title="حذف المنطقة نهائياً">
                                         حذف
                                     </button>
                                 }
@@ -136,8 +136,8 @@
             <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
                 <h2 class="c-section-title">الأجهزة</h2>
                 <span class="text-muted trm-devices-summary">
-                    @Model.Devices.Count(d => d.Status == "Assigned") مرتبط ·
-                    @Model.Devices.Count(d => d.Status != "Assigned") غير مرتبط ·
+                    @Model.Devices.Count(d => d.Status == "Assigned") مُضاف إلى منطقة ·
+                    @Model.Devices.Count(d => d.Status != "Assigned") غير مُضاف ·
                     المجموع: @Model.Devices.Count
                 </span>
             </div>
@@ -183,11 +183,11 @@
                                     <td>
                                         @if (device.Status == "Assigned")
                                         {
-                                            <span class="badge badge-success">مرتبط</span>
+                                            <span class="badge badge-success">مُضاف إلى منطقة</span>
                                         }
                                         else
                                         {
-                                            <span class="badge badge-muted">غير مرتبط</span>
+                                            <span class="badge badge-muted">غير مُضاف</span>
                                         }
                                     </td>
                                     <td>
@@ -224,9 +224,8 @@
                                             }
                                             else
                                             {
-                                                <button type="submit" class="btn btn-sm btn-secondary"
-                                                        title="إزالة ربط الجهاز من المنطقة (لن يتم حذف الجهاز)"
-                                                        onclick="return confirm('فك ربط الجهاز من منطقته؟')">
+                                                <button type="button" class="btn btn-sm btn-secondary js-clear-region-btn"
+                                                        title="إزالة ربط الجهاز من المنطقة (لن يتم حذف الجهاز)">
                                                     فك الربط
                                                 </button>
                                             }
@@ -242,3 +241,42 @@
 
     </div>
 </div>
+
+@section Scripts {
+<script>
+    document.querySelectorAll('.js-delete-region-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            var name = this.dataset.regionName || 'هذه المنطقة';
+            var form = this.closest('form');
+            var result = await Swal.fire({
+                title: 'تأكيد الحذف',
+                text: 'هل أنت متأكد من حذف منطقة "' + name + '" نهائياً؟',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#692f39',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'حذف',
+                cancelButtonText: 'إلغاء'
+            });
+            if (result.isConfirmed) form.submit();
+        });
+    });
+
+    document.querySelectorAll('.js-clear-region-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            var form = this.closest('form');
+            var result = await Swal.fire({
+                title: 'تأكيد العملية',
+                text: 'هل تريد فك ارتباط هذا الجهاز من منطقته؟ لن يتم حذف الجهاز.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#692f39',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'فك الارتباط',
+                cancelButtonText: 'إلغاء'
+            });
+            if (result.isConfirmed) form.submit();
+        });
+    });
+</script>
+}
