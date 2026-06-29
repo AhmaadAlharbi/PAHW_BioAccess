@@ -46,11 +46,21 @@
     }
     .stat-card[onclick] { transition: transform 0.15s, box-shadow 0.15s; }
     .stat-card[onclick]:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(105,47,57,0.13); }
+    .badge-mine {
+        font-size: 0.65em;
+        padding: 0.15em 0.45em;
+        border-radius: 0.3em;
+        background: #eef2ff;
+        color: #3730a3;
+        font-weight: 700;
+        vertical-align: middle;
+        margin-right: 4px;
+    }
 </style>
 }
 
 @* ══════════════════════════════════════════════════════
-   PAGE HEADER  — title + identity inline
+   PAGE HEADER  — name + role badge
    ══════════════════════════════════════════════════════ *@
 <div class="d-flex align-items-center justify-content-end mb-4">
     <div class="d-flex align-items-center gap-2 small text-muted">
@@ -62,7 +72,7 @@
 </div>
 
 @* ══════════════════════════════════════════════════════
-   SEARCH  (all users)
+   SEARCH  (all users — collapsed by default for admin)
    ══════════════════════════════════════════════════════ *@
 <div class="content-card mb-4">
     <div class="d-flex align-items-center justify-content-between @(Model.IsAdmin ? "" : "mb-3")">
@@ -92,189 +102,172 @@
     </div>
 </div>
 
-@if (!Model.IsAdmin)
-{
-    @* ── Non-admin: access summary ─────────────────── *@
-    <div class="content-card">
-        <h2 class="c-section-title mb-2">ملخص وصولك</h2>
-        <p class="text-muted small mb-3">
-            اعرض الأجهزة المربوطة بحسابك والانتدابات النشطة التي تخصك.
-        </p>
-        @if (!string.IsNullOrWhiteSpace(empId))
-        {
-            <a asp-controller="Employees" asp-action="Search"
-               asp-route-employeeId="@empId"
-               class="btn btn-primary btn-sm">
-                عرض أجهزتي وانتداباتي
-            </a>
-        }
+@* ══════════════════════════════════════════════════════
+   STAT CARDS  — same for all users
+   ══════════════════════════════════════════════════════ *@
+<div class="c-stats-grid mb-4">
+    <div class="stat-card">
+        <div class="stat-value">@todayActivityCount</div>
+        <div class="stat-label">عمليات اليوم</div>
     </div>
-}
-
-else
-{
-    @* ══════════════════════════════════════════════════════
-       STAT CARDS  — operational metrics only
-       ══════════════════════════════════════════════════════ *@
-    <div class="c-stats-grid mb-4">
-        <div class="stat-card">
-            <div class="stat-value">@todayActivityCount</div>
-            <div class="stat-label">عمليات اليوم</div>
-        </div>
-        <div class="stat-card" onclick="scrollToDelegations()" style="cursor:pointer" title="انقر لعرض الانتدابات">
-            <div class="stat-value">@Model.ActiveDelegationsCount</div>
-            <div class="stat-label">انتدابات نشطة ↗</div>
-        </div>
-        <div class="stat-card @(expiringSoonCount > 0 ? "stat-card--alert" : "")"
-             @(expiringSoonCount > 0 ? Html.Raw("onclick=\"scrollToDelegations()\" style=\"cursor:pointer\" title=\"انقر لعرض الانتدابات\"") : Html.Raw(""))>
-            <div class="stat-value">@expiringSoonCount</div>
-            <div class="stat-label">تنتهي خلال 48 س@(expiringSoonCount > 0 ? " ↗" : "")</div>
-        </div>
+    <div class="stat-card" onclick="scrollToDelegations()" style="cursor:pointer" title="انقر لعرض الانتدابات">
+        <div class="stat-value">@Model.ActiveDelegationsCount</div>
+        <div class="stat-label">انتدابات نشطة ↗</div>
     </div>
+    <div class="stat-card @(expiringSoonCount > 0 ? "stat-card--alert" : "")"
+         @(expiringSoonCount > 0 ? Html.Raw("onclick=\"scrollToDelegations()\" style=\"cursor:pointer\" title=\"انقر لعرض الانتدابات\"") : Html.Raw(""))>
+        <div class="stat-value">@expiringSoonCount</div>
+        <div class="stat-label">تنتهي خلال 48 س@(expiringSoonCount > 0 ? " ↗" : "")</div>
+    </div>
+</div>
 
-    @* ══════════════════════════════════════════════════════
-       MAIN GRID
-       — col-lg-7 : Activity Log   (primary / right in RTL)
-       — col-lg-5 : Delegations    (secondary / left in RTL)
-       ══════════════════════════════════════════════════════ *@
-    <div class="row g-4">
+@* ══════════════════════════════════════════════════════
+   MAIN GRID — activity (right) + delegations (left)
+   Same layout for all users, read-only for non-admin
+   ══════════════════════════════════════════════════════ *@
+<div class="row g-4">
 
-        @* ── Activity Log (dominant column) ──────────── *@
-        <div class="col-lg-7">
-            <div class="content-card h-100">
-                <h2 class="c-section-title mb-3">آخر العمليات</h2>
+    @* ── Activity Log ──────────────────────────────── *@
+    <div class="col-lg-7">
+        <div class="content-card h-100">
+            <h2 class="c-section-title mb-3">آخر العمليات</h2>
 
-                @if (Model.LatestActivity == null || Model.LatestActivity.Count == 0)
-                {
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🗒️</div>
-                        <div class="empty-state-text">لا توجد عمليات مسجلة بعد</div>
-                    </div>
-                }
-                else
-                {
-                    <div class="c-activity-list">
-                        @foreach (var a in Model.LatestActivity)
-                        {
-                            <div class="c-activity-item" style="padding-block: 0.75rem;">
-                                <div class="d-flex justify-content-between align-items-start gap-3 mb-1">
-                                    <div>
-                                        <span class="fw-bold d-block mb-1">@a.ActionText</span>
-                                        @if (!string.IsNullOrWhiteSpace(a.ActorText))
-                                        {
-                                            <span class="text-muted small">@a.ActorText</span>
-                                        }
-                                    </div>
-                                    <span class="text-muted small u-nowrap flex-shrink-0"
-                                          title="@a.TimeText">
-                                        @ToRelativeTime(a.TimeText)
-                                    </span>
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(a.Summary))
-                                {
-                                    <div class="c-activity-summary-wrap">
-                                        <div class="c-activity-summary text-muted small mt-1">@a.Summary</div>
-                                        @if (a.Summary.Length > 60)
-                                        {
-                                            <button type="button" class="c-summary-toggle" onclick="toggleSummary(this)">عرض الكل</button>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        @* ── Delegations (compact column) ─────────────── *@
-        <div class="col-lg-5" id="delegations-section">
-            <div class="content-card h-100">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h2 class="c-section-title">الانتدابات</h2>
-                    <div class="d-flex gap-1">
-                        <a class="btn btn-sm @(Model.DelegationsFilter == "Active"    ? "btn-secondary" : "btn-muted") u-nowrap"
-                           asp-controller="Dashboard" asp-action="Index"
-                           asp-route-delegations="active">نشطة</a>
-                        <a class="btn btn-sm @(Model.DelegationsFilter == "Scheduled" ? "btn-secondary" : "btn-muted") u-nowrap"
-                           asp-controller="Dashboard" asp-action="Index"
-                           asp-route-delegations="scheduled">مجدولة</a>
-                        <a class="btn btn-sm @(Model.DelegationsFilter == "All"       ? "btn-secondary" : "btn-muted") u-nowrap"
-                           asp-controller="Dashboard" asp-action="Index"
-                           asp-route-delegations="all">الكل</a>
-                    </div>
+            @if (Model.LatestActivity == null || Model.LatestActivity.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-state-icon">🗒️</div>
+                    <div class="empty-state-text">لا توجد عمليات مسجلة بعد</div>
                 </div>
-
-                @if (Model.LatestDelegations == null || Model.LatestDelegations.Count == 0)
-                {
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🗒️</div>
-                        <div class="empty-state-text">لا توجد انتدابات حاليًا</div>
-                    </div>
-                }
-                else
-                {
-                    <div class="c-activity-list">
-                        @foreach (var d in Model.LatestDelegations)
-                        {
-                            var endDate = DateTime.TryParse(d.EndDateText, out var endDt)
-                                ? endDt : (DateTime?)null;
-                            var isExpiringSoon = endDate.HasValue
-                                && endDate.Value > DateTime.Now
-                                && endDate.Value <= DateTime.Now.AddHours(48);
-
-                            <div class="c-activity-item" style="padding-block: 0.65rem;">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div class="flex-grow-1 overflow-hidden">
-                                        <div class="fw-bold small text-truncate">@d.EmployeeText</div>
-                                        @if (!string.IsNullOrWhiteSpace(d.RegionText))
-                                        {
-                                            <div class="text-muted small text-truncate">@d.RegionText</div>
-                                        }
-                                    </div>
-                                    <div class="text-end flex-shrink-0">
-                                        <span class="@d.StatusBadgeClass d-block">@d.StatusText</span>
-                                        @if (isExpiringSoon)
-                                        {
-                                            <span class="badge badge-warning d-block mt-1">تنتهي قريبًا</span>
-                                        }
-                                    </div>
+            }
+            else
+            {
+                <div class="c-activity-list">
+                    @foreach (var a in Model.LatestActivity)
+                    {
+                        <div class="c-activity-item" style="padding-block: 0.75rem;">
+                            <div class="d-flex justify-content-between align-items-start gap-3 mb-1">
+                                <div>
+                                    <span class="fw-bold d-block mb-1">@a.ActionText</span>
+                                    @if (!string.IsNullOrWhiteSpace(a.ActorText))
+                                    {
+                                        <span class="text-muted small">@a.ActorText</span>
+                                    }
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mt-1">
-                                    <span class="text-muted small">
-                                        @d.StartDateText.Split(' ').First()
-                                        —
-                                        @if (isExpiringSoon)
+                                <span class="text-muted small u-nowrap flex-shrink-0"
+                                      title="@a.TimeText">
+                                    @ToRelativeTime(a.TimeText)
+                                </span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(a.Summary))
+                            {
+                                <div class="c-activity-summary-wrap">
+                                    <div class="c-activity-summary text-muted small mt-1">@a.Summary</div>
+                                    @if (a.Summary.Length > 60)
+                                    {
+                                        <button type="button" class="c-summary-toggle" onclick="toggleSummary(this)">عرض الكل</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ── Delegations ────────────────────────────────── *@
+    <div class="col-lg-5" id="delegations-section">
+        <div class="content-card h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h2 class="c-section-title">الانتدابات</h2>
+                <div class="d-flex gap-1">
+                    <a class="btn btn-sm @(Model.DelegationsFilter == "Active"    ? "btn-secondary" : "btn-muted") u-nowrap"
+                       asp-controller="Dashboard" asp-action="Index"
+                       asp-route-delegations="active">نشطة</a>
+                    <a class="btn btn-sm @(Model.DelegationsFilter == "Scheduled" ? "btn-secondary" : "btn-muted") u-nowrap"
+                       asp-controller="Dashboard" asp-action="Index"
+                       asp-route-delegations="scheduled">مجدولة</a>
+                    <a class="btn btn-sm @(Model.DelegationsFilter == "All"       ? "btn-secondary" : "btn-muted") u-nowrap"
+                       asp-controller="Dashboard" asp-action="Index"
+                       asp-route-delegations="all">الكل</a>
+                </div>
+            </div>
+
+            @if (Model.LatestDelegations == null || Model.LatestDelegations.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-state-icon">🗒️</div>
+                    <div class="empty-state-text">لا توجد انتدابات حاليًا</div>
+                </div>
+            }
+            else
+            {
+                <div class="c-activity-list">
+                    @foreach (var d in Model.LatestDelegations)
+                    {
+                        var endDate = DateTime.TryParse(d.EndDateText, out var endDt)
+                            ? endDt : (DateTime?)null;
+                        var isExpiringSoon = endDate.HasValue
+                            && endDate.Value > DateTime.Now
+                            && endDate.Value <= DateTime.Now.AddHours(48);
+
+                        <div class="c-activity-item" style="padding-block: 0.65rem;">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <div class="fw-bold small text-truncate">
+                                        @if (d.IsCurrentUser)
                                         {
-                                            <span class="text-warning fw-bold">
-                                                @d.EndDateText.Split(' ').First()
-                                            </span>
+                                            <span class="badge-mine">لك</span>
                                         }
-                                        else
-                                        {
-                                            @d.EndDateText.Split(' ').First()
-                                        }
-                                    </span>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="text-muted small">@d.TerminalsCountText جهاز</span>
-                                        @if (d.EmployeeId > 0)
-                                        {
-                                            <a href="/employees/search?employeeId=@d.EmployeeId"
-                                               class="small u-nowrap"
-                                               style="color:#692f39; text-decoration:none;"
-                                               title="عرض الموظف في صفحة البحث">↗ عرض</a>
-                                        }
+                                        @d.EmployeeText
                                     </div>
+                                    @if (!string.IsNullOrWhiteSpace(d.RegionText))
+                                    {
+                                        <div class="text-muted small text-truncate">@d.RegionText</div>
+                                    }
+                                </div>
+                                <div class="text-end flex-shrink-0">
+                                    <span class="@d.StatusBadgeClass d-block">@d.StatusText</span>
+                                    @if (isExpiringSoon)
+                                    {
+                                        <span class="badge badge-warning d-block mt-1">تنتهي قريبًا</span>
+                                    }
                                 </div>
                             </div>
-                        }
-                    </div>
-                }
-            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <span class="text-muted small">
+                                    @d.StartDateText.Split(' ').First()
+                                    —
+                                    @if (isExpiringSoon)
+                                    {
+                                        <span class="text-warning fw-bold">
+                                            @d.EndDateText.Split(' ').First()
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        @d.EndDateText.Split(' ').First()
+                                    }
+                                </span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="text-muted small">@d.TerminalsCountText جهاز</span>
+                                    @if (d.EmployeeId > 0)
+                                    {
+                                        <a href="/employees/search?employeeId=@d.EmployeeId"
+                                           class="small u-nowrap"
+                                           style="color:#692f39; text-decoration:none;"
+                                           title="عرض الموظف في صفحة البحث">↗ عرض</a>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
         </div>
-
     </div>
-}
+
+</div>
 
 @section Scripts {
 <script>

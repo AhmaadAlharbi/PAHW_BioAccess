@@ -13,6 +13,7 @@ public sealed class DelegationRowViewModel
     public int EmployeeId { get; set; }
     public string EmployeeText { get; set; } = "";
     public string? RegionText { get; set; }
+    public bool IsCurrentUser { get; set; }
 
     public string StatusText { get; set; } = "";
     public string StatusBadgeClass { get; set; } = "badge badge-muted";
@@ -23,13 +24,13 @@ public sealed class DelegationRowViewModel
     public int TerminalsCount { get; set; }
     public string TerminalsCountText { get; set; } = "";
 
-    // Optional small extra text under count (regions, or terminal ids fallback)
     public string? DevicesHintText { get; set; }
 }
 
 public sealed class DashboardViewModel
 {
     public bool IsAdmin { get; set; }
+    public int CurrentUserEmpId { get; set; }
 
     public int RegionsCount { get; set; }
     public int MappingsCount { get; set; }
