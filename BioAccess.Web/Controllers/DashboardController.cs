@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace BioAccess.Web.Controllers;
 
+[Route("dashboard")]
 public sealed class DashboardController : Controller
 {
     private readonly DashboardService _dashboardService;
@@ -13,7 +14,7 @@ public sealed class DashboardController : Controller
         _dashboardService = dashboardService;
     }
 
-    [HttpGet("/dashboard")]
+    [HttpGet("")]
     public async Task<IActionResult> Index(string? delegations, CancellationToken ct)
     {
         var isAdmin = HttpContext.Session.GetString("IsAdmin") == "1";

@@ -856,10 +856,12 @@
 }
 
 .trm-rename-form {
-  display: flex;
+  display: none;
   gap: 8px;
   margin-bottom: 8px;
 }
+
+.trm-region-card.is-editing .trm-rename-form { display: flex; }
 
 .trm-rename-input { flex: 1; min-width: 0; }
 
@@ -889,11 +891,8 @@
 }
 
 
-/* ============================== */
 /* =========================================================
-   Employees/Search — minimal page essentials
-   Decoration + layout → Bootstrap. Only keep what Bootstrap
-   cannot express.
+   Employees/Search — page layout and components
    ========================================================= */
 
 /* Device card */
@@ -1107,8 +1106,7 @@
   .bulk-actions { width: 100%; justify-content: center; }
 }
 
-/* Home/Index.cshtml (moved from view) */
-/* Scoped under .login-page */
+/* Login page — scoped under .login-page */
 /* ============================== */
 /* Login Container */
         .login-page .login-container{
@@ -1482,3 +1480,205 @@
   font-size: 0.95em;
   line-height: 1.6;
 }
+
+/* =========================================================
+   Alert dismiss helpers (extracted from _Layout.cshtml)
+   ========================================================= */
+.alert { position: relative; }
+
+.js-alert-close {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0.15rem 0.4rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.45;
+  color: currentColor;
+  border-radius: 0.25rem;
+}
+
+.js-alert-close:hover { opacity: 1; background: rgba(0, 0, 0, 0.07); }
+
+.alert-dismissing {
+  transition: opacity 0.35s ease, transform 0.35s ease !important;
+  opacity: 0 !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none;
+}
+
+/* =========================================================
+   Dashboard (extracted from Dashboard/Index.cshtml)
+   ========================================================= */
+.c-activity-summary {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.c-activity-summary.is-expanded {
+  -webkit-line-clamp: unset;
+  display: block;
+  white-space: pre-line;
+}
+
+.c-summary-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: #692f39;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.stat-card[onclick] { transition: transform 0.15s, box-shadow 0.15s; }
+.stat-card[onclick]:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(105, 47, 57, 0.13); }
+
+.badge-mine {
+  font-size: 0.65em;
+  padding: 0.15em 0.45em;
+  border-radius: 0.3em;
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 700;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* =========================================================
+   Observability / Devices page (extracted from Devices.cshtml)
+   ========================================================= */
+.obs-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.obs-summary-card {
+  padding: 1.1rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.obs-summary-card.is-neutral  { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%); }
+.obs-summary-card.is-success  { background: linear-gradient(180deg, #effaf3 0%, #daf5e3 100%); }
+.obs-summary-card.is-inactive { background: linear-gradient(180deg, #f1f3f5 0%, #dee2e6 100%); }
+.obs-summary-card.is-week     { background: linear-gradient(180deg, #fff8e1 0%, #ffe082 100%); }
+.obs-summary-card.is-alert    { background: linear-gradient(180deg, #fff3f4 0%, #fde5e8 100%); border-color: rgba(220, 53, 69, 0.18); }
+.obs-summary-card.is-alert .obs-summary-value { color: #b02a37; }
+
+.obs-alert-sub { font-size: 0.78rem; color: #b02a37; margin-top: 0.4rem; opacity: 0.85; }
+
+.badge-week {
+  background-color: #e6a817;
+  color: #fff;
+  display: inline-block;
+  padding: 0.25em 0.6em;
+  border-radius: 0.4em;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.obs-summary-label { color: #6c757d; font-size: 0.92rem; margin-bottom: 0.4rem; }
+.obs-summary-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+
+.obs-device-name { font-weight: 800; }
+.obs-device-meta { color: #6c757d; font-size: 0.9rem; margin-top: 0.2rem; }
+
+.badge-zero-success {
+  display: inline-block;
+  background: rgba(220, 53, 69, 0.1);
+  color: #b02a37;
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  padding: 0.18em 0.45em;
+  border-radius: 0.35em;
+  font-size: 0.78em;
+  font-weight: 700;
+  margin-top: 0.3rem;
+}
+
+tr.obs-row-danger  { background: rgba(220, 53, 69, 0.05) !important; }
+tr.obs-row-warning { background: rgba(230, 168, 23, 0.07) !important; }
+
+.obs-rate-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.obs-rate-pill.is-danger  { background: rgba(220, 53, 69, 0.12); color: #b02a37; }
+.obs-rate-pill.is-warning { background: rgba(230, 168, 23, 0.15); color: #997404; }
+.obs-rate-pill.is-ok      { background: rgba(108, 117, 125, 0.09); color: #6c757d; }
+
+.obs-count-minor { font-size: 0.78rem; color: #adb5bd; }
+
+.obs-th-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.obs-th-sortable:hover { color: #692f39; }
+.obs-sort-arrow { font-size: 0.75rem; opacity: 0.5; margin-right: 0.2rem; }
+
+/* =========================================================
+   Employees / Search page (extracted from Search.cshtml)
+   ========================================================= */
+.access-summary-strip {
+  background: #f8fafc;
+  border: 1px solid #e9ecef;
+  border-radius: 0.6rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+  color: #495057;
+}
+
+.access-summary-strip strong { color: #692f39; }
+
+.device-details-toggle { margin-top: 0.5rem; }
+.device-details-toggle summary { font-size: 0.78rem; color: #6c757d; cursor: pointer; user-select: none; list-style: none; }
+.device-details-toggle summary::-webkit-details-marker { display: none; }
+.device-details-toggle summary::before { content: '▸ '; }
+.device-details-toggle[open] summary::before { content: '▾ '; }
+.device-details-body { padding-top: 0.4rem; margin-top: 0.4rem; border-top: 1px solid #f1f3f5; }
+
+.recent-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+.recent-chip-label { font-size: 0.75rem; color: #6c757d; white-space: nowrap; }
+.recent-chip {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f3f5;
+  border: 1px solid #dee2e6;
+  border-radius: 50px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.recent-chip:hover { background: #692f39; color: white; border-color: #692f39; }
+
+.device-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.78rem;
+  border-radius: 0.35rem;
+  border: 1px solid;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+  line-height: 1.4;
+  background: none;
+}
+.device-quick-assign { color: #198754; border-color: rgba(25, 135, 84, 0.35); }
+.device-quick-assign:hover { background: #198754; color: white; }
+.device-quick-unassign { color: #b02a37; border-color: rgba(176, 42, 55, 0.35); }
+.device-quick-unassign:hover { background: #b02a37; color: white; }

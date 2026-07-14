@@ -13,27 +13,7 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
-    <style>
-        .access-summary-strip { background: #f8fafc; border: 1px solid #e9ecef; border-radius: 0.6rem; padding: 0.55rem 1rem; font-size: 0.88rem; color: #495057; }
-        .access-summary-strip strong { color: #692f39; }
-        .device-details-toggle { margin-top: 0.5rem; }
-        .device-details-toggle summary { font-size: 0.78rem; color: #6c757d; cursor: pointer; user-select: none; list-style: none; }
-        .device-details-toggle summary::-webkit-details-marker { display: none; }
-        .device-details-toggle summary::before { content: '▸ '; }
-        .device-details-toggle[open] summary::before { content: '▾ '; }
-        .device-details-body { padding-top: 0.4rem; margin-top: 0.4rem; border-top: 1px solid #f1f3f5; }
-        .recent-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
-        .recent-chip-label { font-size: 0.75rem; color: #6c757d; white-space: nowrap; }
-        .recent-chip { display: inline-flex; align-items: center; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 50px; padding: 0.1rem 0.55rem; font-size: 0.78rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
-        .recent-chip:hover { background: #692f39; color: white; border-color: #692f39; }
-        .device-quick-btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.18rem 0.55rem; font-size: 0.78rem; border-radius: 0.35rem; border: 1px solid; cursor: pointer; font-weight: 600; transition: background 0.15s; line-height: 1.4; background: none; }
-        .device-quick-assign { color: #198754; border-color: rgba(25,135,84,0.35); }
-        .device-quick-assign:hover { background: #198754; color: white; }
-        .device-quick-unassign { color: #b02a37; border-color: rgba(176,42,55,0.35); }
-        .device-quick-unassign:hover { background: #b02a37; color: white; }
-    </style>
 }
 
 <div class="employees-search-page"
@@ -89,7 +69,7 @@
             @* } *@
         </div>
 
-        <form id="employeeSearchForm" method="post" action="/employees/search">
+        <form id="employeeSearchForm" method="post" asp-controller="Employees" asp-action="SearchPost">
             @Html.AntiForgeryToken()
             <div class="d-flex gap-2 align-items-end">
                 <div class="flex-grow-1">
@@ -213,7 +193,7 @@
                                 <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation();">
                                     @if (delegatedActiveTerminalIds.Count > 0)
                                     {
-                                        <form method="post" action="/employees/end-delegation" class="d-inline">
+                                        <form method="post" asp-controller="Employees" asp-action="EndDelegation" class="d-inline">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
                                             @foreach (var terminalId in delegatedActiveTerminalIds)
@@ -380,7 +360,7 @@
                                                         @if (d.IsDelegatedActive && d.DelegationId.HasValue)
                                                         {
                                                             <div class="mt-2 pt-2 border-top" onclick="event.stopPropagation();">
-                                                                <form method="post" action="/employees/end-delegation" class="d-inline">
+                                                                <form method="post" asp-controller="Employees" asp-action="EndDelegation" class="d-inline">
                                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
                                                                     <input type="hidden" name="terminalIds" value="@terminalId" />
@@ -394,7 +374,7 @@
                                                         else if (d.IsDelegated && d.DelegationStatus == "Scheduled" && d.DelegationId.HasValue)
                                                         {
                                                             <div class="mt-2 pt-2 border-top" onclick="event.stopPropagation();">
-                                                                <form method="post" action="/employees/cancel-delegation" class="d-inline">
+                                                                <form method="post" asp-controller="Employees" asp-action="CancelDelegation" class="d-inline">
                                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="employeeId" value="@employee.EmployeeId" />
                                                                     <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
@@ -465,6 +445,14 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
+    const employeeRoutes = {
+        assignBulk: '@Url.Action("AssignBulk", "Employees")',
+        unassignBulk: '@Url.Action("UnassignBulk", "Employees")',
+        delegateRegion: '@Url.Action("DelegateRegion", "Employees")',
+        endDelegation: '@Url.Action("EndDelegation", "Employees")',
+        autoAssignRegions: '@Url.Content("~/api/terminals/auto-assign-regions")'
+    };
+
     function getEmployeeText() {
         const page = document.querySelector('.employees-search-page');
         const employeeId = (page?.dataset?.employeeId || '').trim();
@@ -704,7 +692,7 @@
                 return;
             }
             opText = 'ربط دائم';
-            actionUrl = '/employees/AssignBulk';
+            actionUrl = employeeRoutes.assignBulk;
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
         } else if (op === 'unassign') {
             if (!(selectionState === 'assigned' || selectionState === 'delegated_active')) {
@@ -712,7 +700,7 @@
                 return;
             }
             opText = 'فك الربط';
-            actionUrl = '/employees/UnassignBulk';
+            actionUrl = employeeRoutes.unassignBulk;
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
             iconHtml = '<i class="fa-solid fa-link-slash text-red-500"></i>';
         } else if (op === 'delegate') {
@@ -721,7 +709,7 @@
                 return;
             }
             opText = 'إنشاء ندب';
-            actionUrl = '/employees/DelegateRegion';
+            actionUrl = employeeRoutes.delegateRegion;
             if (!startDisplay || !endDisplay) {
                 await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد تاريخ البداية والنهاية للندب', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
                 return;
@@ -740,7 +728,7 @@
                 return;
             }
             opText = 'إنهاء الندب';
-            actionUrl = '/employees/end-delegation';
+            actionUrl = employeeRoutes.endDelegation;
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
             iconHtml = '<i class="fa-solid fa-ban text-red-500"></i>';
             note = 'سيتم إنهاء الندب فقط للأجهزة المحددة.';
@@ -884,7 +872,7 @@
             cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
         }).then(function(result) {
             if (result.isConfirmed) {
-                fillAndSubmitBulkForm('/employees/AssignBulk', [{ name: 'terminalIds', value: terminalId }]);
+                fillAndSubmitBulkForm(employeeRoutes.assignBulk, [{ name: 'terminalIds', value: terminalId }]);
             }
         });
     }
@@ -909,7 +897,7 @@
             cancelButtonText: '<i class="fa-solid fa-xmark"></i> إلغاء'
         }).then(function(result) {
             if (result.isConfirmed) {
-                fillAndSubmitBulkForm('/employees/UnassignBulk', [{ name: 'terminalIds', value: terminalId }]);
+                fillAndSubmitBulkForm(employeeRoutes.unassignBulk, [{ name: 'terminalIds', value: terminalId }]);
             }
         });
     }
@@ -1034,7 +1022,7 @@
 
         if (!confirmResult.isConfirmed) return;
 
-        const res = await fetch("/api/terminals/auto-assign-regions", { method: "POST" });
+        const res = await fetch(employeeRoutes.autoAssignRegions, { method: "POST" });
 
         if (res.status === 403) {
             await Swal.fire({ icon: 'error', title: 'غير مصرح', text: 'غير مصرح لك (مدير فقط).' });

@@ -28,36 +28,6 @@
     }
 }
 
-@section Styles {
-<style>
-    .c-activity-summary {
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
-        line-height: 1.5;
-        white-space: normal;
-    }
-    .c-activity-summary.is-expanded { -webkit-line-clamp: unset; display: block; white-space: pre-line; }
-    .c-summary-toggle {
-        background: none; border: none; padding: 0;
-        font-size: 0.75rem; color: #692f39;
-        cursor: pointer; text-decoration: underline;
-    }
-    .stat-card[onclick] { transition: transform 0.15s, box-shadow 0.15s; }
-    .stat-card[onclick]:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(105,47,57,0.13); }
-    .badge-mine {
-        font-size: 0.65em;
-        padding: 0.15em 0.45em;
-        border-radius: 0.3em;
-        background: #eef2ff;
-        color: #3730a3;
-        font-weight: 700;
-        vertical-align: middle;
-        margin-right: 4px;
-    }
-</style>
-}
 
 @* ══════════════════════════════════════════════════════
    PAGE HEADER  — name + role badge
@@ -253,7 +223,9 @@
                                     <span class="text-muted small">@d.TerminalsCountText جهاز</span>
                                     @if (d.EmployeeId > 0)
                                     {
-                                        <a href="/employees/search?employeeId=@d.EmployeeId"
+                                        <a asp-controller="Employees"
+                                           asp-action="Search"
+                                           asp-route-employeeId="@d.EmployeeId"
                                            class="small u-nowrap"
                                            style="color:#692f39; text-decoration:none;"
                                            title="عرض الموظف في صفحة البحث">↗ عرض</a>

@@ -20,7 +20,7 @@ namespace BioAccess.Web.Controllers
         {
             if (HttpContext.Session.GetString("EmpName") != null)
             {
-                return Redirect("/dashboard");
+                return RedirectToAction("Index", "Dashboard");
             }
 
             return View();
@@ -73,7 +73,8 @@ namespace BioAccess.Web.Controllers
             HttpContext.Session.SetString("EmpId", empId);
             // TempData["SuccessMsg"] = $"Welcome {result.EmployeeName}";
 
-            return Redirect("/dashboard");
+            return RedirectToAction("Index", "Dashboard");
+
         }
 
         [HttpPost]
@@ -84,7 +85,7 @@ namespace BioAccess.Web.Controllers
             Response.Cookies.Delete(".AspNetCore.Session", new CookieOptions
             {
                 Path = "/",
-                Secure = true,
+                Secure = HttpContext.Request.IsHttps,
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict
             });

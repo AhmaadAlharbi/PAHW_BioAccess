@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace BioAccess.Web.Controllers;
 
+[Route("admin/observability")]
 public sealed class AdminObservabilityController : Controller
 {
     private readonly DeviceObservabilityService _observability;
@@ -33,7 +34,7 @@ public sealed class AdminObservabilityController : Controller
         base.OnActionExecuting(context);
     }
 
-    [HttpGet("/admin/observability/devices")]
+    [HttpGet("devices")]
     public async Task<IActionResult> Devices(CancellationToken ct)
     {
         DevicesObservabilityViewModel model;
