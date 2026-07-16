@@ -21,6 +21,7 @@ public sealed class DeviceHealthItem
     public DateTime? LastFailedAt { get; set; }
     public string ProblemReason { get; set; } = "";
     public string ProblemSummary { get; set; } = "";
+    public string? Area { get; set; }
 }
 
 public sealed class DevicesObservabilityViewModel

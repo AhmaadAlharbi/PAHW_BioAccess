@@ -3,6 +3,13 @@
 @{
     ViewData["Title"] = "لوحة نشاط الأجهزة";
     var zeroSuccessCount = Model.Devices.Count(x => x.ActivityCount == 0 && x.FailedAuthCount > 0);
+    var distinctAreas = Model.Devices
+        .Select(d => d.Area)
+        .Where(a => !string.IsNullOrWhiteSpace(a))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(a => a, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    var hasUnassignedArea = Model.Devices.Any(d => string.IsNullOrWhiteSpace(d.Area));
 }
 
 
@@ -53,11 +60,33 @@
         <span class="text-muted small">مرتب حسب أعلى نسبة فشل</span>
     </div>
 
+    @if (Model.Devices.Any())
+    {
+        <div class="obs-area-filter">
+            <select id="areaFilter" class="form-control form-control-compact obs-filter-select" onchange="filterByArea()">
+                <option value="all" selected>كل المناطق</option>
+                @if (hasUnassignedArea)
+                {
+                    <option value="unassigned">بدون منطقة</option>
+                }
+                @foreach (var area in distinctAreas)
+                {
+                    <option value="@area">@area</option>
+                }
+            </select>
+            <button type="button" id="areaFilterClear" class="obs-filter-clear" onclick="clearAreaFilter()" hidden>
+                مسح التصفية ×
+            </button>
+            <span class="text-muted obs-filter-count" id="areaFilterCount"></span>
+        </div>
+    }
+
     <div class="table-container">
         <table class="data-table" id="devicesTable">
             <thead>
                 <tr>
                     <th>الجهاز</th>
+                    <th class="u-w-140">المنطقة</th>
                     <th class="u-w-160">حالة النشاط</th>
                     <th class="obs-th-sortable u-w-160" onclick="sortByRate()" title="اضغط للترتيب">
                         نسبة الفشل
@@ -71,7 +100,7 @@
             @if (!Model.Devices.Any())
             {
                 <tr>
-                    <td colspan="5" class="u-text-center text-muted">لا توجد بيانات أجهزة متاحة حالياً.</td>
+                    <td colspan="6" class="u-text-center text-muted">لا توجد بيانات أجهزة متاحة حالياً.</td>
                 </tr>
             }
             else
@@ -90,12 +119,22 @@
                                       : failureRate >= 30 ? "is-warning"
                                       : "is-ok";
 
-                    <tr class="@rowClass" data-rate="@failureRate">
+                    <tr class="@rowClass" data-rate="@failureRate" data-area="@(string.IsNullOrWhiteSpace(device.Area) ? "unassigned" : device.Area)">
                         <td>
                             <div class="obs-device-name">@device.Name</div>
                             @if (!string.IsNullOrWhiteSpace(device.TerminalId))
                             {
                                 <div class="obs-device-meta">@device.TerminalId</div>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(device.Area))
+                            {
+                                <span class="badge obs-area-badge">@device.Area</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-muted">بدون منطقة</span>
                             }
                         </td>
                         <td>
@@ -144,6 +183,14 @@
                         </td>
                     </tr>
                 }
+                <tr id="areaNoMatchRow" hidden>
+                    <td colspan="6">
+                        <div class="obs-no-match">
+                            <span class="obs-no-match-icon">🔍</span>
+                            <span>لا توجد أجهزة في هذه المنطقة</span>
+                        </div>
+                    </td>
+                </tr>
             }
             </tbody>
         </table>
@@ -166,6 +213,41 @@
         rows.forEach(function (r) { tbody.appendChild(r); });
         var arrow = document.getElementById('sortArrow');
         if (arrow) arrow.textContent = _sortDesc ? '▼' : '▲';
+    }
+
+    function filterByArea() {
+        var select = document.getElementById('areaFilter');
+        if (!select) return;
+
+        var tbody = document.getElementById('devicesTableBody');
+        var rows = Array.from(tbody.querySelectorAll('tr[data-rate]'));
+        var noMatchRow = document.getElementById('areaNoMatchRow');
+        var countLabel = document.getElementById('areaFilterCount');
+        var clearBtn = document.getElementById('areaFilterClear');
+        var value = select.value;
+        var visibleCount = 0;
+
+        rows.forEach(function (row) {
+            var matches = value === 'all' || row.getAttribute('data-area') === value;
+            row.classList.toggle('is-hidden-by-filter', !matches);
+            if (matches) visibleCount++;
+        });
+
+        if (noMatchRow) noMatchRow.hidden = rows.length === 0 || visibleCount !== 0;
+        if (clearBtn) clearBtn.hidden = value === 'all';
+
+        if (countLabel) {
+            countLabel.textContent = value === 'all'
+                ? ''
+                : 'عرض ' + visibleCount + ' من ' + rows.length + ' جهاز';
+        }
+    }
+
+    function clearAreaFilter() {
+        var select = document.getElementById('areaFilter');
+        if (!select) return;
+        select.value = 'all';
+        filterByArea();
     }
 </script>
 }

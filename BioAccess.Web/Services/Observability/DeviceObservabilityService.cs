@@ -1,4 +1,5 @@
 using BioAccess.Web.External;
+using BioAccess.Web.Services.Terminals;
 using BioAccess.Web.ViewModels;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -7,16 +8,19 @@ namespace BioAccess.Web.Services.Observability;
 public sealed class DeviceObservabilityService
 {
     private readonly AlpetaClient _alpeta;
+    private readonly RegionMappingService _regions;
     private readonly ILogger<DeviceObservabilityService> _logger;
     private readonly IMemoryCache _cache;
     private const string TerminalsCacheKey = "Observability:Terminals";
 
     public DeviceObservabilityService(
         AlpetaClient alpeta,
+        RegionMappingService regions,
         ILogger<DeviceObservabilityService> logger,
         IMemoryCache cache)
     {
         _alpeta = alpeta;
+        _regions = regions;
         _logger = logger;
         _cache = cache;
     }
@@ -28,11 +32,13 @@ public sealed class DeviceObservabilityService
 
         var authLogsTask = FetchAuthLogsSafeAsync(sinceUtc, ct);
         var terminalsTask = LoadTerminalsAsync(ct);
+        var areaByTerminalIdTask = LoadAreaByTerminalIdAsync(ct);
 
-        await Task.WhenAll(authLogsTask, terminalsTask);
+        await Task.WhenAll(authLogsTask, terminalsTask, areaByTerminalIdTask);
 
         var authLogs = authLogsTask.Result;
         var terminals = terminalsTask.Result;
+        var areaByTerminalId = areaByTerminalIdTask.Result;
 
         var authByTerminal = authLogs
             .Select(log => new
@@ -67,10 +73,12 @@ public sealed class DeviceObservabilityService
 
                 var status = GetStatus(lastSeenUtc, nowUtc);
                 var reason = BuildProblemReason(status, failedAuthCount);
+                var terminalId = terminal.DeviceId?.Trim() ?? "";
+                areaByTerminalId.TryGetValue(terminalId, out var area);
 
                 return new DeviceHealthItem
                 {
-                    TerminalId = terminal.DeviceId?.Trim() ?? "",
+                    TerminalId = terminalId,
                     Name = string.IsNullOrWhiteSpace(terminal.DeviceName)
                         ? $"جهاز {terminal.DeviceId?.Trim()}"
                         : terminal.DeviceName.Trim(),
@@ -83,7 +91,8 @@ public sealed class DeviceObservabilityService
                     LastSeen = lastSeen,
                     LastFailedAt = lastFailedAt,
                     ProblemReason = reason,
-                    ProblemSummary = reason
+                    ProblemSummary = reason,
+                    Area = string.IsNullOrWhiteSpace(area) ? null : area
                 };
             })
             .ToList();
@@ -190,6 +199,26 @@ public sealed class DeviceObservabilityService
         {
             _logger.LogWarning(ex, "OBSERVABILITY_TERMINALS_LOAD_FAILED");
             throw;
+        }
+    }
+
+    private async Task<Dictionary<string, string>> LoadAreaByTerminalIdAsync(CancellationToken ct)
+    {
+        try
+        {
+            var regions = await _regions.GetRegionsAsync(ct);
+            var regionNameById = regions.ToDictionary(r => r.Id, r => r.Name);
+
+            var mappings = await _regions.GetAllMappingsAsync(ct);
+
+            return mappings
+                .Where(m => regionNameById.ContainsKey(m.Value) && !string.IsNullOrWhiteSpace(regionNameById[m.Value]))
+                .ToDictionary(m => m.Key, m => regionNameById[m.Value], StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OBSERVABILITY_AREAS_LOAD_FAILED");
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
