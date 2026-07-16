@@ -335,7 +335,7 @@
 }
 
 /* States */
-.is-hidden { display: none; }
+.is-hidden { display: none !important; }
 
 /* Text helpers */
 .text-maroon { color: var(--maroon); }
