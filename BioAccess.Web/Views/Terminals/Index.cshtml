@@ -65,12 +65,57 @@
                     {
                         <div class="trm-region-card">
                             <div class="trm-region-header">
-                                <span class="trm-region-name">@region.Name</span>
-                                <span class="text-muted trm-region-count">@region.DeviceCount جهاز</span>
-                                <button type="button" class="btn btn-sm btn-secondary u-nowrap"
-                                        onclick="this.closest('.trm-region-card').classList.toggle('is-editing')">
-                                    تعديل
-                                </button>
+                                <div class="trm-region-info">
+                                    <span class="trm-region-name">@region.Name</span>
+                                    <span class="trm-region-count-badge @(region.DeviceCount > 0 ? "" : "is-empty")">
+                                        @region.DeviceCount جهاز
+                                    </span>
+                                </div>
+
+                                <div class="trm-region-actions">
+                                    <button type="button"
+                                            class="trm-icon-btn trm-icon-btn--edit"
+                                            aria-label="تعديل اسم المنطقة"
+                                            title="تعديل الاسم"
+                                            onclick="this.closest('.trm-region-card').classList.toggle('is-editing')">
+                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M16.474 5.408a2.5 2.5 0 0 1 3.535 3.536L9.192 19.76l-4.596 1.06 1.06-4.596L16.474 5.408Z"
+                                                  stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                                        </svg>
+                                    </button>
+
+                                    <form asp-controller="Terminals" asp-action="DeleteRegion" method="post" class="trm-delete-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="regionId" value="@region.Id" />
+                                        @if (region.DeviceCount > 0)
+                                        {
+                                            <button type="button"
+                                                    class="trm-icon-btn trm-icon-btn--delete is-locked"
+                                                    disabled
+                                                    aria-label="لا يمكن حذف المنطقة"
+                                                    title="لا يمكن الحذف - يوجد @region.DeviceCount جهاز مرتبط. فك ربط الأجهزة أولاً.">
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.6" />
+                                                    <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button"
+                                                    class="trm-icon-btn trm-icon-btn--delete js-delete-region-btn"
+                                                    data-region-name="@region.Name"
+                                                    aria-label="حذف المنطقة"
+                                                    title="حذف المنطقة نهائياً">
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M4 7h16M9.5 7V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v2M6.5 7l.75 12A2 2 0 0 0 9.24 21h5.52a2 2 0 0 0 1.99-1.85L17.5 7"
+                                                          stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                                    <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                        }
+                                    </form>
+                                </div>
                             </div>
 
                             <form asp-controller="Terminals" asp-action="RenameRegion" method="post"
@@ -83,31 +128,17 @@
                                        class="form-control form-control-compact trm-rename-input"
                                        placeholder="اسم المنطقة"
                                        required
+                                       autocomplete="off"
                                        oninput="var b=this.form.querySelector('[data-rename-btn]');b.disabled=(!this.value.trim()||this.value.trim()===this.dataset.original)" />
                                 <button type="submit" data-rename-btn
-                                        class="btn btn-sm btn-secondary u-nowrap" disabled>
-                                    تعديل
+                                        class="btn btn-sm btn-primary u-nowrap" disabled>
+                                    حفظ
                                 </button>
-                            </form>
-
-                            <form asp-controller="Terminals" asp-action="DeleteRegion" method="post">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="regionId" value="@region.Id" />
-                                @if (region.DeviceCount > 0)
-                                {
-                                    <button type="button" class="btn btn-sm btn-danger u-w-100" disabled
-                                            title="حذف المنطقة نهائياً - فك ربط الأجهزة أولاً قبل الحذف">
-                                        حذف
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button type="button" class="btn btn-sm btn-danger u-w-100 js-delete-region-btn"
-                                            data-region-name="@region.Name"
-                                            title="حذف المنطقة نهائياً">
-                                        حذف
-                                    </button>
-                                }
+                                <button type="button"
+                                        class="btn btn-sm btn-secondary u-nowrap"
+                                        onclick="var c=this.closest('.trm-region-card'); c.classList.remove('is-editing'); var i=c.querySelector('.trm-rename-input'); i.value=i.dataset.original; c.querySelector('[data-rename-btn]').disabled=true;">
+                                    إلغاء
+                                </button>
                             </form>
                         </div>
                     }
@@ -126,12 +157,33 @@
         <section class="trm-devices-panel">
             <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
                 <h2 class="c-section-title">الأجهزة</h2>
-                <span class="text-muted trm-devices-summary">
+                <span class="text-muted trm-devices-summary" id="devices-summary">
                     @Model.Devices.Count(d => d.Status == "Assigned") مُضاف إلى منطقة ·
                     @Model.Devices.Count(d => d.Status != "Assigned") غير مُضاف ·
                     المجموع: @Model.Devices.Count
                 </span>
             </div>
+
+            @if (Model.Devices.Any())
+            {
+                <div class="trm-devices-filter">
+                    <svg class="trm-filter-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                    </svg>
+                    <select id="area-filter" class="form-control form-control-compact trm-filter-select">
+                        <option value="all" selected>كل المناطق</option>
+                        <option value="unassigned">غير مُضاف لمنطقة</option>
+                        @foreach (var region in Model.Regions)
+                        {
+                            <option value="@region.Id">@region.Name</option>
+                        }
+                    </select>
+                    <button type="button" id="area-filter-clear" class="trm-filter-clear" title="إلغاء التصفية" hidden>
+                        مسح التصفية ×
+                    </button>
+                    <span class="text-muted trm-filter-count" id="area-filter-count"></span>
+                </div>
+            }
 
             @if (!Model.Devices.Any())
             {
@@ -153,10 +205,10 @@
                                 <th class="u-w-110 u-text-center">إجراءات</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="devices-table-body">
                             @foreach (var device in Model.Devices)
                             {
-                                <tr>
+                                <tr data-area="@(device.RegionId?.ToString() ?? "unassigned")">
                                     <td>
                                         <div class="u-fw-900">@device.DeviceName</div>
                                         <div class="text-muted trm-device-meta">
@@ -224,6 +276,14 @@
                                     </td>
                                 </tr>
                             }
+                            <tr id="no-match-row" hidden>
+                                <td colspan="4">
+                                    <div class="trm-no-match">
+                                        <span class="trm-no-match-icon">🔍</span>
+                                        <span>لا توجد أجهزة في هذه المنطقة</span>
+                                    </div>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -233,8 +293,211 @@
     </div>
 </div>
 
+<style>
+    /* ===== Region card UI/UX refresh ===== */
+    .trm-region-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        transition: border-color .15s ease, background .15s ease;
+    }
+
+    .trm-region-card:hover {
+        border-color: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.045);
+    }
+
+    .trm-region-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .trm-region-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .trm-region-name {
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .trm-region-count-badge {
+        flex-shrink: 0;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: 999px;
+        color: #8fd3a8;
+        background: rgba(64, 191, 111, 0.14);
+        border: 1px solid rgba(64, 191, 111, 0.25);
+    }
+
+    .trm-region-count-badge.is-empty {
+        color: #a3a9b7;
+        background: rgba(163, 169, 183, 0.12);
+        border-color: rgba(163, 169, 183, 0.22);
+    }
+
+    .trm-region-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .trm-delete-form {
+        display: contents;
+    }
+
+    /* Icon buttons */
+    .trm-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #a3a9b7;
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease, border-color .15s ease, transform .1s ease;
+    }
+
+    .trm-icon-btn svg {
+        width: 17px;
+        height: 17px;
+        pointer-events: none;
+    }
+
+    .trm-icon-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+
+    .trm-icon-btn--edit:hover:not(:disabled) {
+        color: #7fb3ff;
+        background: rgba(127, 179, 255, 0.12);
+        border-color: rgba(127, 179, 255, 0.25);
+    }
+
+    .trm-icon-btn--delete:hover:not(:disabled) {
+        color: #ff8a8a;
+        background: rgba(255, 90, 90, 0.12);
+        border-color: rgba(255, 90, 90, 0.28);
+    }
+
+    .trm-icon-btn:disabled,
+    .trm-icon-btn.is-locked {
+        cursor: not-allowed;
+        color: #5b6172;
+        opacity: 0.6;
+    }
+
+    .trm-icon-btn:disabled:hover {
+        transform: none;
+        background: transparent;
+    }
+
+    /* Rename form: hidden until editing */
+    .trm-rename-form {
+        display: none;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .trm-region-card.is-editing .trm-rename-form {
+        display: flex;
+    }
+
+    .trm-region-card.is-editing .trm-region-header {
+        opacity: 0.55;
+        pointer-events: none;
+    }
+
+    .trm-rename-input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* ===== Device area filter ===== */
+    .trm-devices-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .trm-filter-icon {
+        width: 16px;
+        height: 16px;
+        color: #a3a9b7;
+        flex-shrink: 0;
+    }
+
+    .trm-filter-select {
+        max-width: 240px;
+    }
+
+    .trm-filter-clear {
+        border: none;
+        background: transparent;
+        color: #ff8a8a;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+        transition: background .15s ease;
+    }
+
+    .trm-filter-clear:hover {
+        background: rgba(255, 90, 90, 0.12);
+    }
+
+    .trm-filter-count {
+        font-size: 12px;
+        margin-inline-start: auto;
+        white-space: nowrap;
+    }
+
+    .terminals-devices-table tbody tr[data-area].is-hidden-by-filter {
+        display: none;
+    }
+
+    .trm-no-match {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 24px 12px;
+        color: #a3a9b7;
+        font-size: 14px;
+    }
+
+    .trm-no-match-icon {
+        font-size: 16px;
+    }
+</style>
+
 @section Scripts {
-<script>
+    <script>
     document.querySelectorAll('.js-delete-region-btn').forEach(function (btn) {
         btn.addEventListener('click', async function () {
             var name = this.dataset.regionName || 'هذه المنطقة';
@@ -250,6 +513,27 @@
                 cancelButtonText: 'إلغاء'
             });
             if (result.isConfirmed) form.submit();
+        });
+    });
+
+    document.querySelectorAll('.trm-icon-btn--edit').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var card = this.closest('.trm-region-card');
+            if (card.classList.contains('is-editing')) {
+                var input = card.querySelector('.trm-rename-input');
+                requestAnimationFrame(function () {
+                    input.focus();
+                    input.select();
+                });
+                card.addEventListener('keydown', function onKey(e) {
+                    if (e.key === 'Escape') {
+                        card.classList.remove('is-editing');
+                        input.value = input.dataset.original;
+                        card.querySelector('[data-rename-btn]').disabled = true;
+                        card.removeEventListener('keydown', onKey);
+                    }
+                });
+            }
         });
     });
 
@@ -269,5 +553,45 @@
             if (result.isConfirmed) form.submit();
         });
     });
+
+    (function () {
+        var select = document.getElementById('area-filter');
+        if (!select) return;
+
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#devices-table-body tr[data-area]'));
+        var noMatchRow = document.getElementById('no-match-row');
+        var countLabel = document.getElementById('area-filter-count');
+        var clearBtn = document.getElementById('area-filter-clear');
+
+        function applyFilter() {
+            var value = select.value;
+            var visibleCount = 0;
+
+            rows.forEach(function (row) {
+                var matches = value === 'all' || row.getAttribute('data-area') === value;
+                row.classList.toggle('is-hidden-by-filter', !matches);
+                if (matches) visibleCount++;
+            });
+
+            noMatchRow.hidden = visibleCount !== 0;
+            clearBtn.hidden = value === 'all';
+
+            if (value === 'all') {
+                countLabel.textContent = '';
+            } else {
+                countLabel.textContent = 'عرض ' + visibleCount + ' من ' + rows.length + ' جهاز';
+            }
+        }
+
+        select.addEventListener('change', applyFilter);
+        clearBtn.addEventListener('click', function () {
+            select.value = 'all';
+            applyFilter();
+        });
+
+        applyFilter();
+    })();
 </script>
+
+   
 }
