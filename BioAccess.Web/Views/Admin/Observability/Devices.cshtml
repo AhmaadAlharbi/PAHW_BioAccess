@@ -45,8 +45,8 @@
             <div class="obs-summary-label">نشط اليوم</div>
             <div class="obs-summary-value">@Model.ActiveTodayDevices</div>
         </div>
-        <div class="obs-summary-card is-alert">
-            <div class="obs-summary-label">⚠️ تحذيرات أمنية</div>
+        <div class="obs-summary-card is-alert @(Model.SecurityAlertDevices > 0 ? "has-alerts" : "")">
+            <div class="obs-summary-label">تحذيرات أمنية</div>
             <div class="obs-summary-value">@Model.SecurityAlertDevices</div>
             @if (zeroSuccessCount > 0)
             {
@@ -55,31 +55,30 @@
         </div>
     </div>
 
-    <div class="u-flex u-items-center u-justify-between u-gap-12 u-mb-12">
+    <div class="u-flex u-items-center u-justify-between u-gap-12 u-flex-wrap u-mb-12">
         <h2 class="c-section-title">نشاط الأجهزة خلال آخر 7 أيام</h2>
-        <span class="text-muted small">مرتب حسب أعلى نسبة فشل</span>
-    </div>
 
-    @if (Model.Devices.Any())
-    {
-        <div class="obs-area-filter">
-            <select id="areaFilter" class="form-control form-control-compact obs-filter-select" onchange="filterByArea()">
-                <option value="all" selected>كل المناطق</option>
-                @if (hasUnassignedArea)
-                {
-                    <option value="unassigned">بدون منطقة</option>
-                }
-                @foreach (var area in distinctAreas)
-                {
-                    <option value="@area">@area</option>
-                }
-            </select>
-            <button type="button" id="areaFilterClear" class="obs-filter-clear" onclick="clearAreaFilter()" hidden>
-                مسح التصفية ×
-            </button>
-            <span class="text-muted obs-filter-count" id="areaFilterCount"></span>
-        </div>
-    }
+        @if (Model.Devices.Any())
+        {
+            <div class="u-flex u-items-center u-gap-10">
+                <select id="areaFilter" class="form-control form-control-compact obs-filter-select" onchange="filterByArea()">
+                    <option value="all" selected>كل المناطق</option>
+                    @if (hasUnassignedArea)
+                    {
+                        <option value="unassigned">بدون منطقة</option>
+                    }
+                    @foreach (var area in distinctAreas)
+                    {
+                        <option value="@area">@area</option>
+                    }
+                </select>
+                <span class="text-muted small obs-filter-count" id="areaFilterCount"></span>
+                <button type="button" id="areaFilterClear" class="obs-filter-clear" onclick="clearAreaFilter()" hidden>
+                    مسح التصفية ×
+                </button>
+            </div>
+        }
+    </div>
 
     <div class="table-container">
         <table class="data-table" id="devicesTable">
@@ -88,7 +87,8 @@
                     <th>الجهاز</th>
                     <th class="u-w-140">المنطقة</th>
                     <th class="u-w-160">حالة النشاط</th>
-                    <th class="obs-th-sortable u-w-160" onclick="sortByRate()" title="اضغط للترتيب">
+                    <th class="obs-th-sortable u-w-160" id="sortableRateHeader" onclick="sortByRate()"
+                        tabindex="0" role="button" aria-label="ترتيب حسب نسبة الفشل" title="اضغط للترتيب">
                         نسبة الفشل
                         <span class="obs-sort-arrow" id="sortArrow">▼</span>
                     </th>
@@ -130,11 +130,11 @@
                         <td>
                             @if (!string.IsNullOrWhiteSpace(device.Area))
                             {
-                                <span class="badge obs-area-badge">@device.Area</span>
+                                <span class="obs-area-text">@device.Area</span>
                             }
                             else
                             {
-                                <span class="badge badge-muted">بدون منطقة</span>
+                                <span class="obs-area-text is-muted">بدون منطقة</span>
                             }
                         </td>
                         <td>
@@ -212,8 +212,19 @@
         });
         rows.forEach(function (r) { tbody.appendChild(r); });
         var arrow = document.getElementById('sortArrow');
-        if (arrow) arrow.textContent = _sortDesc ? '▼' : '▲';
+        if (arrow) arrow.classList.toggle('is-asc', !_sortDesc);
     }
+
+    (function () {
+        var header = document.getElementById('sortableRateHeader');
+        if (!header) return;
+        header.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                sortByRate();
+            }
+        });
+    })();
 
     function filterByArea() {
         var select = document.getElementById('areaFilter');

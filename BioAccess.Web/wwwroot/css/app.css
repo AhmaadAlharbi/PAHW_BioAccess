@@ -1558,25 +1558,26 @@
    ========================================================= */
 .obs-summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.9rem;
 }
 
 .obs-summary-card {
   padding: 1.1rem 1.2rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  background: white;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow);
 }
 
-.obs-summary-card.is-neutral  { background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%); }
-.obs-summary-card.is-success  { background: linear-gradient(180deg, #effaf3 0%, #daf5e3 100%); }
-.obs-summary-card.is-inactive { background: linear-gradient(180deg, #f1f3f5 0%, #dee2e6 100%); }
-.obs-summary-card.is-week     { background: linear-gradient(180deg, #fff8e1 0%, #ffe082 100%); }
-.obs-summary-card.is-alert    { background: linear-gradient(180deg, #fff3f4 0%, #fde5e8 100%); border-color: rgba(220, 53, 69, 0.18); }
-.obs-summary-card.is-alert .obs-summary-value { color: #b02a37; }
+/* The security-alerts card only earns visual weight when there is something to flag —
+   an alert card that shouts "0" all day trains people to ignore it. */
+.obs-summary-card.is-alert.has-alerts {
+  border-inline-start: 4px solid var(--rose);
+}
+.obs-summary-card.is-alert.has-alerts .obs-summary-value { color: #b02a37; }
 
-.obs-alert-sub { font-size: 0.78rem; color: #b02a37; margin-top: 0.4rem; opacity: 0.85; }
+.obs-alert-sub { font-size: 0.78rem; color: #b02a37; margin-top: 0.4rem; opacity: 0.9; }
 
 .badge-week {
   background-color: #e6a817;
@@ -1588,11 +1589,11 @@
   font-weight: 600;
 }
 
-.obs-summary-label { color: #6c757d; font-size: 0.92rem; margin-bottom: 0.4rem; }
-.obs-summary-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+.obs-summary-label { color: var(--gray-600); font-size: 0.9rem; }
+.obs-summary-value { font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--gray-800); }
 
 .obs-device-name { font-weight: 800; }
-.obs-device-meta { color: #6c757d; font-size: 0.9rem; margin-top: 0.2rem; }
+.obs-device-meta { color: var(--gray-500); font-size: 0.9rem; margin-top: 0.2rem; }
 
 .badge-zero-success {
   display: inline-block;
@@ -1612,45 +1613,44 @@ tr.obs-row-warning { background: rgba(230, 168, 23, 0.07) !important; }
 .obs-rate-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.6rem;
+  padding: 0.2rem 0.7rem;
   border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 800;
   margin-bottom: 0.25rem;
 }
-.obs-rate-pill.is-danger  { background: rgba(220, 53, 69, 0.12); color: #b02a37; }
-.obs-rate-pill.is-warning { background: rgba(230, 168, 23, 0.15); color: #997404; }
-.obs-rate-pill.is-ok      { background: rgba(108, 117, 125, 0.09); color: #6c757d; }
+.obs-rate-pill.is-danger  { background: rgba(220, 53, 69, 0.14); color: #b02a37; }
+.obs-rate-pill.is-warning { background: rgba(230, 168, 23, 0.18); color: #997404; }
+.obs-rate-pill.is-ok      { background: rgba(108, 117, 125, 0.09); color: var(--gray-600); }
 
-.obs-count-minor { font-size: 0.78rem; color: #adb5bd; }
+.obs-count-minor { font-size: 0.78rem; color: var(--gray-400); }
 
-.obs-th-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
-.obs-th-sortable:hover { color: #692f39; }
-.obs-sort-arrow { font-size: 0.75rem; opacity: 0.5; margin-right: 0.2rem; }
-
-.obs-area-badge {
+.obs-th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+}
+.obs-th-sortable:hover { background: rgba(255, 255, 255, 0.1); }
+.obs-th-sortable:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -3px;
+}
+.obs-sort-arrow {
   display: inline-block;
-  background: rgba(62, 89, 110, 0.12);
-  color: #3e596e;
-  border: 1px solid rgba(62, 89, 110, 0.25);
-  padding: 0.18em 0.55em;
-  border-radius: 0.4em;
-  font-size: 0.8em;
-  font-weight: 700;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-right: 0.2rem;
+  transition: transform 0.2s ease;
 }
+.obs-sort-arrow.is-asc { transform: rotate(180deg); }
 
-.obs-area-filter {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.02);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-}
+/* Area is metadata, not a signal — plain text keeps it from competing with the
+   failure-rate pill, which should be the loudest thing in the row. */
+.obs-area-text { font-size: 0.85rem; color: var(--gray-700); }
+.obs-area-text.is-muted { color: var(--gray-400); }
 
-.obs-filter-select { max-width: 240px; }
+.obs-filter-select { max-width: 220px; }
 
 .obs-filter-clear {
   border: none;
@@ -1662,11 +1662,12 @@ tr.obs-row-warning { background: rgba(230, 168, 23, 0.07) !important; }
   padding: 4px 8px;
   border-radius: 6px;
   white-space: nowrap;
-  transition: background .15s ease;
+  transition: background 0.15s ease;
 }
 .obs-filter-clear:hover { background: rgba(220, 53, 69, 0.1); }
+.obs-filter-clear:focus-visible { outline: 2px solid rgba(220, 53, 69, 0.4); outline-offset: 1px; }
 
-.obs-filter-count { font-size: 12px; margin-inline-start: auto; white-space: nowrap; }
+.obs-filter-count { font-size: 12px; color: var(--gray-500); white-space: nowrap; }
 
 #devicesTable tbody tr.is-hidden-by-filter { display: none; }
 
@@ -1676,7 +1677,7 @@ tr.obs-row-warning { background: rgba(230, 168, 23, 0.07) !important; }
   justify-content: center;
   gap: 8px;
   padding: 24px 12px;
-  color: #6c757d;
+  color: var(--gray-500);
   font-size: 14px;
 }
 .obs-no-match-icon { font-size: 16px; }
