@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using BioAccess.Web.Persistence;
-using BioAccess.Web.Services.Activity;
+using Terminals.Web.Persistence;
+using Terminals.Web.Services.Activity;
 
 [ApiController]
 [Route("api/regions")]
@@ -59,17 +59,17 @@ public class RegionsController : ControllerBase
 
         var name = (req?.Name ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest(new { message = "اسم المنطقة مطلوب." });
+            return BadRequest(new { message = "Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù…Ø·Ù„ÙˆØ¨." });
 
         if (name.Length > 100)
-            return BadRequest(new { message = "اسم المنطقة طويل (الحد الأقصى 100 حرف)." });
+            return BadRequest(new { message = "Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø·ÙˆÙŠÙ„ (Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ 100 Ø­Ø±Ù)." });
 
-        // (اختياري) منع تكرار الأسماء بشكل حساس/غير حساس قد يعتمد على collation.
+        // (Ø§Ø®ØªÙŠØ§Ø±ÙŠ) Ù…Ù†Ø¹ ØªÙƒØ±Ø§Ø± Ø§Ù„Ø£Ø³Ù…Ø§Ø¡ Ø¨Ø´ÙƒÙ„ Ø­Ø³Ø§Ø³/ØºÙŠØ± Ø­Ø³Ø§Ø³ Ù‚Ø¯ ÙŠØ¹ØªÙ…Ø¯ Ø¹Ù„Ù‰ collation.
         var exists = await _db.Regions.AsNoTracking().AnyAsync(x => x.Name == name, ct);
         if (exists)
-            return Conflict(new { message = "هذه المنطقة موجودة مسبقًا." });
+            return Conflict(new { message = "Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù…ÙˆØ¬ÙˆØ¯Ø© Ù…Ø³Ø¨Ù‚Ù‹Ø§." });
 
-        var region = new BioAccess.Web.Persistence.Entities.Region
+        var region = new Terminals.Web.Persistence.Entities.Region
         {
             Name = name
         };
@@ -81,7 +81,7 @@ public class RegionsController : ControllerBase
             action: "Region.Created",
             entityType: "Region",
             entityId: region.Id.ToString(),
-            summary: $"تم إنشاء منطقة جديدة: {region.Id} ({region.Name}).",
+            summary: $"ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù†Ø·Ù‚Ø© Ø¬Ø¯ÙŠØ¯Ø©: {region.Id} ({region.Name}).",
             details: new { regionId = region.Id, regionName = region.Name },
             ct: ct
         );
@@ -102,14 +102,14 @@ public class RegionsController : ControllerBase
 
         var name = (req?.Name ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name))
-            return BadRequest(new { message = "اسم المنطقة مطلوب." });
+            return BadRequest(new { message = "Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù…Ø·Ù„ÙˆØ¨." });
 
         if (name.Length > 100)
-            return BadRequest(new { message = "اسم المنطقة طويل (الحد الأقصى 100 حرف)." });
+            return BadRequest(new { message = "Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø·ÙˆÙŠÙ„ (Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ 100 Ø­Ø±Ù)." });
 
         var region = await _db.Regions.FirstOrDefaultAsync(x => x.Id == regionId, ct);
         if (region is null)
-            return NotFound(new { message = "المنطقة غير موجودة." });
+            return NotFound(new { message = "Ø§Ù„Ù…Ù†Ø·Ù‚Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©." });
 
         var oldName = region.Name;
         region.Name = name;
@@ -119,12 +119,12 @@ public class RegionsController : ControllerBase
             action: "Region.Renamed",
             entityType: "Region",
             entityId: region.Id.ToString(),
-            summary: $"تم تعديل اسم المنطقة {region.Id}: \"{oldName}\" → \"{region.Name}\".",
+            summary: $"ØªÙ… ØªØ¹Ø¯ÙŠÙ„ Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© {region.Id}: \"{oldName}\" â†’ \"{region.Name}\".",
             details: new { regionId = region.Id, oldName, newName = region.Name },
             ct: ct
         );
 
-        return Ok(new { message = "تم تحديث اسم المنطقة." });
+        return Ok(new { message = "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø©." });
     }
 
     // DELETE: /api/regions/{regionId}
@@ -135,11 +135,11 @@ public class RegionsController : ControllerBase
 
         var region = await _db.Regions.FirstOrDefaultAsync(x => x.Id == regionId, ct);
         if (region is null)
-            return NotFound(new { message = "المنطقة غير موجودة." });
+            return NotFound(new { message = "Ø§Ù„Ù…Ù†Ø·Ù‚Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©." });
 
         var hasDevices = await _db.TerminalRegionMaps.AsNoTracking().AnyAsync(x => x.RegionId == regionId, ct);
         if (hasDevices)
-            return Conflict(new { message = "لا يمكن حذف المنطقة لأنها مرتبطة بأجهزة." });
+            return Conflict(new { message = "Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø­Ø°Ù Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù„Ø£Ù†Ù‡Ø§ Ù…Ø±ØªØ¨Ø·Ø© Ø¨Ø£Ø¬Ù‡Ø²Ø©." });
 
         var name = region.Name;
         _db.Regions.Remove(region);
@@ -149,15 +149,15 @@ public class RegionsController : ControllerBase
             action: "Region.Deleted",
             entityType: "Region",
             entityId: regionId.ToString(),
-            summary: $"تم حذف المنطقة {regionId} ({name}).",
+            summary: $"ØªÙ… Ø­Ø°Ù Ø§Ù„Ù…Ù†Ø·Ù‚Ø© {regionId} ({name}).",
             details: new { regionId, regionName = name },
             ct: ct
         );
 
-        return Ok(new { message = "تم حذف المنطقة." });
+        return Ok(new { message = "ØªÙ… Ø­Ø°Ù Ø§Ù„Ù…Ù†Ø·Ù‚Ø©." });
     }
 
-    // ✅ GET: /api/regions/{regionId}/terminals
+    // âœ… GET: /api/regions/{regionId}/terminals
     [HttpGet("{regionId:int}/terminals")]
     public async Task<IActionResult> GetRegionTerminals(int regionId, CancellationToken ct)
     {

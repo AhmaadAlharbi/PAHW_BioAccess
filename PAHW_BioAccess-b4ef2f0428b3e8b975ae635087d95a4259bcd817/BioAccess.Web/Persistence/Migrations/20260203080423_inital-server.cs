@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace BioAccess.Web.Persistence.Migrations
+namespace Terminals.Web.Persistence.Migrations
 {
     /// <inheritdoc />
     public partial class initalserver : Migration
@@ -106,28 +106,28 @@ namespace BioAccess.Web.Persistence.Migrations
             migrationBuilder.InsertData(
                 table: "AllowedUsers",
                 columns: new[] { "Id", "Department", "Email", "EmployeeId", "FullName", "IsActive", "IsAdmin", "ValidUntil" },
-                values: new object[] { 1, "", "admin@admin.com", 7300, "أحمد زيد الحربي", true, true, null });
+                values: new object[] { 1, "", "admin@admin.com", 7300, "Ø£Ø­Ù…Ø¯ Ø²ÙŠØ¯ Ø§Ù„Ø­Ø±Ø¨ÙŠ", true, true, null });
 
             migrationBuilder.InsertData(
                 table: "Regions",
                 columns: new[] { "Id", "Name" },
                 values: new object[,]
                 {
-                    { 1, "المبنى الرئيسي" },
-                    { 2, "المطلاع" },
-                    { 3, "برج التحرير" },
-                    { 4, "صباح السالم" },
-                    { 5, "الجهراء - حكومة مول" },
-                    { 6, "الجهراء - تيماء" },
-                    { 7, "جابر الأحمد" },
-                    { 8, "سعد العبدالله" },
-                    { 9, "الصليبية" },
-                    { 10, "القرين - حكومة مول" },
-                    { 11, "مبارك الكبير" },
-                    { 12, "النهضة" },
-                    { 13, "غرب الجليب" },
-                    { 14, "مواقع أخرى" },
-                    { 15, "السالمي" }
+                    { 1, "Ø§Ù„Ù…Ø¨Ù†Ù‰ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ" },
+                    { 2, "Ø§Ù„Ù…Ø·Ù„Ø§Ø¹" },
+                    { 3, "Ø¨Ø±Ø¬ Ø§Ù„ØªØ­Ø±ÙŠØ±" },
+                    { 4, "ØµØ¨Ø§Ø­ Ø§Ù„Ø³Ø§Ù„Ù…" },
+                    { 5, "Ø§Ù„Ø¬Ù‡Ø±Ø§Ø¡ - Ø­ÙƒÙˆÙ…Ø© Ù…ÙˆÙ„" },
+                    { 6, "Ø§Ù„Ø¬Ù‡Ø±Ø§Ø¡ - ØªÙŠÙ…Ø§Ø¡" },
+                    { 7, "Ø¬Ø§Ø¨Ø± Ø§Ù„Ø£Ø­Ù…Ø¯" },
+                    { 8, "Ø³Ø¹Ø¯ Ø§Ù„Ø¹Ø¨Ø¯Ø§Ù„Ù„Ù‡" },
+                    { 9, "Ø§Ù„ØµÙ„ÙŠØ¨ÙŠØ©" },
+                    { 10, "Ø§Ù„Ù‚Ø±ÙŠÙ† - Ø­ÙƒÙˆÙ…Ø© Ù…ÙˆÙ„" },
+                    { 11, "Ù…Ø¨Ø§Ø±Ùƒ Ø§Ù„ÙƒØ¨ÙŠØ±" },
+                    { 12, "Ø§Ù„Ù†Ù‡Ø¶Ø©" },
+                    { 13, "ØºØ±Ø¨ Ø§Ù„Ø¬Ù„ÙŠØ¨" },
+                    { 14, "Ù…ÙˆØ§Ù‚Ø¹ Ø£Ø®Ø±Ù‰" },
+                    { 15, "Ø§Ù„Ø³Ø§Ù„Ù…ÙŠ" }
                 });
 
             migrationBuilder.CreateIndex(

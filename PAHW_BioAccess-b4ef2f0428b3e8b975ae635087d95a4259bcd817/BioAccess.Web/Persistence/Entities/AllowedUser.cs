@@ -1,10 +1,10 @@
-namespace BioAccess.Web.Persistence.Entities;
+﻿namespace Terminals.Web.Persistence.Entities;
 
 public class AllowedUser
 {
     public int Id { get; set; }
 
-    // الرقم الوظيفي (هذا أهم شي)
+    // Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ (Ù‡Ø°Ø§ Ø£Ù‡Ù… Ø´ÙŠ)
     public int EmployeeId { get; set; }
 
     public string FullName { get; set; } = "";
@@ -13,9 +13,9 @@ public class AllowedUser
 
     public bool IsActive { get; set; } = true;
 
-    // اختياري للمنتدبين (إذا تبي)
+    // Ø§Ø®ØªÙŠØ§Ø±ÙŠ Ù„Ù„Ù…Ù†ØªØ¯Ø¨ÙŠÙ† (Ø¥Ø°Ø§ ØªØ¨ÙŠ)
     public DateTime? ValidUntil { get; set; }
 
-    // اختياري: منو يقدر يضيف
+    // Ø§Ø®ØªÙŠØ§Ø±ÙŠ: Ù…Ù†Ùˆ ÙŠÙ‚Ø¯Ø± ÙŠØ¶ÙŠÙ
     public bool IsAdmin { get; set; } = false;
 }

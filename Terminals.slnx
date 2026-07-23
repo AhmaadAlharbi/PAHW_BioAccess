@@ -1,0 +1,5 @@
+﻿<Solution>
+  <Project Path="Terminals\Terminals.csproj">
+    <BuildType Project="Debug" />
+  </Project>
+</Solution>

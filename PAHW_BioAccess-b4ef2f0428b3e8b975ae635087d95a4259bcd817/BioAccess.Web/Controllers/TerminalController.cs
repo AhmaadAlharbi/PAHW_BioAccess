@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Http;
-using BioAccess.Web.Services.Activity;
-using BioAccess.Web.Services.Terminals;
-using BioAccess.Web.ViewModels;
+using Terminals.Web.Services.Activity;
+using Terminals.Web.Services.Terminals;
+using Terminals.Web.ViewModels;
 
-namespace BioAccess.Web.Controllers;
+namespace Terminals.Web.Controllers;
 
 public class TerminalsController : Controller
 {
@@ -56,9 +56,9 @@ public class TerminalsController : Controller
                 "Region.Created",
                 "Region",
                 null,
-                $"تمت إضافة منطقة جديدة باسم: {name}.");
+                $"ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ù…Ù†Ø·Ù‚Ø© Ø¬Ø¯ÙŠØ¯Ø© Ø¨Ø§Ø³Ù…: {name}.");
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = "تمت إضافة المنطقة.";
+            TempData["ToastMsg"] = "ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ù…Ù†Ø·Ù‚Ø©.";
             return RedirectToAction(nameof(Index));
         }
         catch (Exception ex)
@@ -79,9 +79,9 @@ public class TerminalsController : Controller
                 "Region.Renamed",
                 "Region",
                 regionId.ToString(),
-                $"تم تعديل اسم المنطقة رقم {regionId} إلى: {name}.");
+                $"ØªÙ… ØªØ¹Ø¯ÙŠÙ„ Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø±Ù‚Ù… {regionId} Ø¥Ù„Ù‰: {name}.");
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = "تم تعديل اسم المنطقة.";
+            TempData["ToastMsg"] = "ØªÙ… ØªØ¹Ø¯ÙŠÙ„ Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø©.";
         }
         catch (Exception ex)
         {
@@ -103,9 +103,9 @@ public class TerminalsController : Controller
                 "Region.Deleted",
                 "Region",
                 regionId.ToString(),
-                $"تم حذف المنطقة رقم {regionId}.");
+                $"ØªÙ… Ø­Ø°Ù Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø±Ù‚Ù… {regionId}.");
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = "تم حذف المنطقة.";
+            TempData["ToastMsg"] = "ØªÙ… Ø­Ø°Ù Ø§Ù„Ù…Ù†Ø·Ù‚Ø©.";
         }
         catch (Exception ex)
         {
@@ -127,9 +127,9 @@ public class TerminalsController : Controller
                 "TerminalRegion.Assigned",
                 "TerminalRegionMap",
                 terminalId,
-                $"تم ربط الجهاز {terminalId} بالمنطقة رقم {regionId}.");
+                $"ØªÙ… Ø±Ø¨Ø· Ø§Ù„Ø¬Ù‡Ø§Ø² {terminalId} Ø¨Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø±Ù‚Ù… {regionId}.");
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = $"تم حفظ منطقة الجهاز {terminalId}.";
+            TempData["ToastMsg"] = $"ØªÙ… Ø­ÙØ¸ Ù…Ù†Ø·Ù‚Ø© Ø§Ù„Ø¬Ù‡Ø§Ø² {terminalId}.";
         }
         catch (Exception ex)
         {
@@ -151,9 +151,9 @@ public class TerminalsController : Controller
                 "TerminalRegion.Cleared",
                 "TerminalRegionMap",
                 terminalId,
-                $"تم فك ربط الجهاز {terminalId} من المنطقة.");
+                $"ØªÙ… ÙÙƒ Ø±Ø¨Ø· Ø§Ù„Ø¬Ù‡Ø§Ø² {terminalId} Ù…Ù† Ø§Ù„Ù…Ù†Ø·Ù‚Ø©.");
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = $"تم فك ربط الجهاز {terminalId}.";
+            TempData["ToastMsg"] = $"ØªÙ… ÙÙƒ Ø±Ø¨Ø· Ø§Ù„Ø¬Ù‡Ø§Ø² {terminalId}.";
         }
         catch (Exception ex)
         {

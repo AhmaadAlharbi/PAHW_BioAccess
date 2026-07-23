@@ -1,9 +1,9 @@
-using BioAccess.Web.Contracts;
-using BioAccess.Web.Models;
+﻿using Terminals.Web.Contracts;
+using Terminals.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 
-namespace BioAccess.Web.Controllers
+namespace Terminals.Web.Controllers
 {
     public class HomeController : Controller
     {
@@ -30,37 +30,37 @@ namespace BioAccess.Web.Controllers
         {
             var result = await _login.LoginAsync(empId, password, ct);
 
-            // فشل
+            // ÙØ´Ù„
             if (result.ResultCode != 1)
             {
                 TempData["ErrorMsg"] = result.Message;
                 return RedirectToAction("Index");
             }
 
-            // ✅ حوّل الرقم الوظيفي بأمان
+            // âœ… Ø­ÙˆÙ‘Ù„ Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ Ø¨Ø£Ù…Ø§Ù†
             if (!int.TryParse(empId, out var empIdInt))
             {
-                TempData["ErrorMsg"] = "الرقم الوظيفي غير صحيح.";
+                TempData["ErrorMsg"] = "Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ ØºÙŠØ± ØµØ­ÙŠØ­.";
                 return RedirectToAction("Index");
             }
 
-            // ✅ تحقق من السماحية قبل أي Session
+            // âœ… ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ø³Ù…Ø§Ø­ÙŠØ© Ù‚Ø¨Ù„ Ø£ÙŠ Session
             var allowed = await _allowedUsers.IsAllowedAsync(empIdInt, ct);
             if (!allowed)
             {
-                // احتياط: امسح أي شي قديم
+                // Ø§Ø­ØªÙŠØ§Ø·: Ø§Ù…Ø³Ø­ Ø£ÙŠ Ø´ÙŠ Ù‚Ø¯ÙŠÙ…
                 HttpContext.Session.Clear();
 
-                TempData["ErrorMsg"] = "غير مصرح لك بالدخول. راجع قسم الإجازات والدوام.";
+                TempData["ErrorMsg"] = "ØºÙŠØ± Ù…ØµØ±Ø­ Ù„Ùƒ Ø¨Ø§Ù„Ø¯Ø®ÙˆÙ„. Ø±Ø§Ø¬Ø¹ Ù‚Ø³Ù… Ø§Ù„Ø¥Ø¬Ø§Ø²Ø§Øª ÙˆØ§Ù„Ø¯ÙˆØ§Ù….";
                 return RedirectToAction("Index");
             }
             
-// ✅ خزّن IsAdmin               
+// âœ… Ø®Ø²Ù‘Ù† IsAdmin               
             var isAdmin = await _allowedUsers.IsAdminAsync(empIdInt, ct);
             HttpContext.Session.SetString("IsAdmin", isAdmin ? "1" : "0");
 
 
-            // ✅ الآن فقط خزّن Session
+            // âœ… Ø§Ù„Ø¢Ù† ÙÙ‚Ø· Ø®Ø²Ù‘Ù† Session
             HttpContext.Session.SetString("SessionKey", result.SessionKey);
             HttpContext.Session.SetString("EmpName", result.EmployeeName);
             HttpContext.Session.SetString("EmpId", empId);
@@ -74,7 +74,7 @@ namespace BioAccess.Web.Controllers
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();
-            TempData["SuccessMsg"] = "تم تسجيل الخروج بنجاح";
+            TempData["SuccessMsg"] = "ØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø®Ø±ÙˆØ¬ Ø¨Ù†Ø¬Ø§Ø­";
             return RedirectToAction("Index", "Home");
         }
 

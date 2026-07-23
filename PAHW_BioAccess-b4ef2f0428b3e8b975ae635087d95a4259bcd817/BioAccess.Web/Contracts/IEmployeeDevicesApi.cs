@@ -1,6 +1,6 @@
-using BioAccess.Web.DTOs;
+﻿using Terminals.Web.DTOs;
 
-namespace BioAccess.Web.Contracts;
+namespace Terminals.Web.Contracts;
 
 public interface IEmployeeDevicesApi
 {

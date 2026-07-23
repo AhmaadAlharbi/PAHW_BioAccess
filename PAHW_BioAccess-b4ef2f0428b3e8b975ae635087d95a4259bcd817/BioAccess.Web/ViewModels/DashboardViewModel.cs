@@ -1,4 +1,4 @@
-namespace BioAccess.Web.Models;
+﻿namespace Terminals.Web.Models;
 
 public sealed class ActivityLogRowViewModel
 {
@@ -43,12 +43,12 @@ public sealed class DashboardViewModel
     public static string ToArabicDelegationStatus(string status)
         => status switch
         {
-            "Active" => "نشط",
-            "Scheduled" => "مجدول",
-            "Expired" => "منتهي",
-            "Cancelled" => "ملغي",
-            "ManuallyEnded" => "ملغي",
-            _ => "—"
+            "Active" => "Ù†Ø´Ø·",
+            "Scheduled" => "Ù…Ø¬Ø¯ÙˆÙ„",
+            "Expired" => "Ù…Ù†ØªÙ‡ÙŠ",
+            "Cancelled" => "Ù…Ù„ØºÙŠ",
+            "ManuallyEnded" => "Ù…Ù„ØºÙŠ",
+            _ => "â€”"
         };
 
     public static string ToDelegationStatusBadgeClass(string status)
@@ -65,33 +65,33 @@ public sealed class DashboardViewModel
     public static string ToArabicAction(string action)
         => action switch
         {
-            "Delegation.Created" => "إنشاء انتداب",
-            "Delegation.Activated" => "تفعيل انتداب",
-            "Delegation.Expired" => "انتهاء انتداب",
-            "Delegation.ManuallyEnded" => "إنهاء ندب",
-            "Delegation.Cancelled" => "إلغاء ندب",
+            "Delegation.Created" => "Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù†ØªØ¯Ø§Ø¨",
+            "Delegation.Activated" => "ØªÙØ¹ÙŠÙ„ Ø§Ù†ØªØ¯Ø§Ø¨",
+            "Delegation.Expired" => "Ø§Ù†ØªÙ‡Ø§Ø¡ Ø§Ù†ØªØ¯Ø§Ø¨",
+            "Delegation.ManuallyEnded" => "Ø¥Ù†Ù‡Ø§Ø¡ Ù†Ø¯Ø¨",
+            "Delegation.Cancelled" => "Ø¥Ù„ØºØ§Ø¡ Ù†Ø¯Ø¨",
 
-            "TerminalRegion.Assigned" => "ربط جهاز بمنطقة",
-            "TerminalRegion.Moved" => "نقل جهاز لمنطقة أخرى",
-            "TerminalRegion.Cleared" => "فك ربط جهاز",
-            "TerminalRegion.BulkAssigned" => "توزيع أجهزة (جماعي)",
-            "TerminalRegion.BulkCleared" => "فك ربط أجهزة (جماعي)",
-            "TerminalRegion.AutoAssign" => "توزيع تلقائي للمناطق",
+            "TerminalRegion.Assigned" => "Ø±Ø¨Ø· Ø¬Ù‡Ø§Ø² Ø¨Ù…Ù†Ø·Ù‚Ø©",
+            "TerminalRegion.Moved" => "Ù†Ù‚Ù„ Ø¬Ù‡Ø§Ø² Ù„Ù…Ù†Ø·Ù‚Ø© Ø£Ø®Ø±Ù‰",
+            "TerminalRegion.Cleared" => "ÙÙƒ Ø±Ø¨Ø· Ø¬Ù‡Ø§Ø²",
+            "TerminalRegion.BulkAssigned" => "ØªÙˆØ²ÙŠØ¹ Ø£Ø¬Ù‡Ø²Ø© (Ø¬Ù…Ø§Ø¹ÙŠ)",
+            "TerminalRegion.BulkCleared" => "ÙÙƒ Ø±Ø¨Ø· Ø£Ø¬Ù‡Ø²Ø© (Ø¬Ù…Ø§Ø¹ÙŠ)",
+            "TerminalRegion.AutoAssign" => "ØªÙˆØ²ÙŠØ¹ ØªÙ„Ù‚Ø§Ø¦ÙŠ Ù„Ù„Ù…Ù†Ø§Ø·Ù‚",
 
-            "EmployeeTerminal.Assigned" => "ربط موظف بجهاز",
-            "EmployeeTerminal.Unassigned" => "فك ربط موظف من جهاز",
-            "EmployeeTerminal.BulkAssigned" => "ربط الموظف بعدة أجهزة",
-            "EmployeeTerminal.BulkUnassigned" => "فك ربط الموظف من عدة أجهزة",
+            "EmployeeTerminal.Assigned" => "Ø±Ø¨Ø· Ù…ÙˆØ¸Ù Ø¨Ø¬Ù‡Ø§Ø²",
+            "EmployeeTerminal.Unassigned" => "ÙÙƒ Ø±Ø¨Ø· Ù…ÙˆØ¸Ù Ù…Ù† Ø¬Ù‡Ø§Ø²",
+            "EmployeeTerminal.BulkAssigned" => "Ø±Ø¨Ø· Ø§Ù„Ù…ÙˆØ¸Ù Ø¨Ø¹Ø¯Ø© Ø£Ø¬Ù‡Ø²Ø©",
+            "EmployeeTerminal.BulkUnassigned" => "ÙÙƒ Ø±Ø¨Ø· Ø§Ù„Ù…ÙˆØ¸Ù Ù…Ù† Ø¹Ø¯Ø© Ø£Ø¬Ù‡Ø²Ø©",
 
-            "Region.Created" => "إنشاء منطقة",
-            "Region.Renamed" => "تعديل اسم منطقة",
-            "Region.Deleted" => "حذف منطقة",
+            "Region.Created" => "Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù†Ø·Ù‚Ø©",
+            "Region.Renamed" => "ØªØ¹Ø¯ÙŠÙ„ Ø§Ø³Ù… Ù…Ù†Ø·Ù‚Ø©",
+            "Region.Deleted" => "Ø­Ø°Ù Ù…Ù†Ø·Ù‚Ø©",
 
-            "AllowedUser.Added" => "إضافة مستخدم مسموح",
-            "AllowedUser.Activated" => "تفعيل مستخدم",
-            "AllowedUser.Deactivated" => "تعطيل مستخدم",
-            "AllowedUser.Deleted" => "حذف مستخدم",
+            "AllowedUser.Added" => "Ø¥Ø¶Ø§ÙØ© Ù…Ø³ØªØ®Ø¯Ù… Ù…Ø³Ù…ÙˆØ­",
+            "AllowedUser.Activated" => "ØªÙØ¹ÙŠÙ„ Ù…Ø³ØªØ®Ø¯Ù…",
+            "AllowedUser.Deactivated" => "ØªØ¹Ø·ÙŠÙ„ Ù…Ø³ØªØ®Ø¯Ù…",
+            "AllowedUser.Deleted" => "Ø­Ø°Ù Ù…Ø³ØªØ®Ø¯Ù…",
 
-            _ => "عملية"
+            _ => "Ø¹Ù…Ù„ÙŠØ©"
         };
 }

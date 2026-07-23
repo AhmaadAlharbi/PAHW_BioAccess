@@ -1,11 +1,11 @@
-using BioAccess.Web.External;
-using BioAccess.Web.DTOs;
-using BioAccess.Web.Persistence;
-using BioAccess.Web.Persistence.Entities;
-using BioAccess.Web.ViewModels;
+﻿using Terminals.Web.External;
+using Terminals.Web.DTOs;
+using Terminals.Web.Persistence;
+using Terminals.Web.Persistence.Entities;
+using Terminals.Web.ViewModels;
 using Microsoft.EntityFrameworkCore;
 
-namespace BioAccess.Web.Services.Terminals;
+namespace Terminals.Web.Services.Terminals;
 
 public sealed class TerminalService
 {
@@ -98,14 +98,14 @@ public sealed class TerminalService
     {
         terminalId = (terminalId ?? "").Trim();
         if (string.IsNullOrWhiteSpace(terminalId))
-            throw new InvalidOperationException("TerminalId مطلوب.");
+            throw new InvalidOperationException("TerminalId Ù…Ø·Ù„ÙˆØ¨.");
 
         if (regionId <= 0)
-            throw new InvalidOperationException("RegionId غير صحيح.");
+            throw new InvalidOperationException("RegionId ØºÙŠØ± ØµØ­ÙŠØ­.");
 
         var regionExists = await _db.Regions.AsNoTracking().AnyAsync(x => x.Id == regionId, ct);
         if (!regionExists)
-            throw new InvalidOperationException("المنطقة غير موجودة.");
+            throw new InvalidOperationException("Ø§Ù„Ù…Ù†Ø·Ù‚Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©.");
 
         var row = await _db.TerminalRegionMaps.FirstOrDefaultAsync(x => x.TerminalId == terminalId, ct);
         if (row is null)
@@ -120,14 +120,14 @@ public sealed class TerminalService
     {
         name = (name ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("اسم المنطقة مطلوب.");
+            throw new InvalidOperationException("Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù…Ø·Ù„ÙˆØ¨.");
 
         if (name.Length > 100)
-            throw new InvalidOperationException("اسم المنطقة طويل.");
+            throw new InvalidOperationException("Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø·ÙˆÙŠÙ„.");
 
         var exists = await _db.Regions.AsNoTracking().AnyAsync(x => x.Name == name, ct);
         if (exists)
-            throw new InvalidOperationException("هذه المنطقة موجودة مسبقاً.");
+            throw new InvalidOperationException("Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù…ÙˆØ¬ÙˆØ¯Ø© Ù…Ø³Ø¨Ù‚Ø§Ù‹.");
 
         _db.Regions.Add(new Region { Name = name });
         await _db.SaveChangesAsync(ct);
@@ -137,14 +137,14 @@ public sealed class TerminalService
     {
         name = (name ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("اسم المنطقة مطلوب.");
+            throw new InvalidOperationException("Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù…Ø·Ù„ÙˆØ¨.");
 
         if (name.Length > 100)
-            throw new InvalidOperationException("اسم المنطقة طويل.");
+            throw new InvalidOperationException("Ø§Ø³Ù… Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø·ÙˆÙŠÙ„.");
 
         var region = await _db.Regions.FirstOrDefaultAsync(x => x.Id == regionId, ct);
         if (region is null)
-            throw new InvalidOperationException("المنطقة غير موجودة.");
+            throw new InvalidOperationException("Ø§Ù„Ù…Ù†Ø·Ù‚Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©.");
 
         region.Name = name;
         await _db.SaveChangesAsync(ct);
@@ -154,11 +154,11 @@ public sealed class TerminalService
     {
         var region = await _db.Regions.FirstOrDefaultAsync(x => x.Id == regionId, ct);
         if (region is null)
-            throw new InvalidOperationException("المنطقة غير موجودة.");
+            throw new InvalidOperationException("Ø§Ù„Ù…Ù†Ø·Ù‚Ø© ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©.");
 
         var hasDevices = await _db.TerminalRegionMaps.AsNoTracking().AnyAsync(x => x.RegionId == regionId, ct);
         if (hasDevices)
-            throw new InvalidOperationException("لا يمكن حذف المنطقة لأنها مرتبطة بأجهزة.");
+            throw new InvalidOperationException("Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø­Ø°Ù Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ù„Ø£Ù†Ù‡Ø§ Ù…Ø±ØªØ¨Ø·Ø© Ø¨Ø£Ø¬Ù‡Ø²Ø©.");
 
         _db.Regions.Remove(region);
         await _db.SaveChangesAsync(ct);
@@ -168,7 +168,7 @@ public sealed class TerminalService
     {
         terminalId = (terminalId ?? "").Trim();
         if (string.IsNullOrWhiteSpace(terminalId))
-            throw new InvalidOperationException("TerminalId مطلوب.");
+            throw new InvalidOperationException("TerminalId Ù…Ø·Ù„ÙˆØ¨.");
 
         var row = await _db.TerminalRegionMaps.FirstOrDefaultAsync(x => x.TerminalId == terminalId, ct);
         if (row is null)

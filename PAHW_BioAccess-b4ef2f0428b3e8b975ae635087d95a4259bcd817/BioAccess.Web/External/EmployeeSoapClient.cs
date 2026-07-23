@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -7,7 +7,7 @@ using System.Xml.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace BioAccess.Web.External
+namespace Terminals.Web.External
 {
     // Reads employee details from the SOAP service and parses the returned XML.
     public class EmployeeSoapClient
@@ -33,10 +33,10 @@ namespace BioAccess.Web.External
         public async Task<string> GetEmployeeByIdRawAsync(int employeeId, CancellationToken ct = default)
         {
             if (employeeId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(employeeId), "employeeId لازم يكون رقم موجب");
+                throw new ArgumentOutOfRangeException(nameof(employeeId), "employeeId Ù„Ø§Ø²Ù… ÙŠÙƒÙˆÙ† Ø±Ù‚Ù… Ù…ÙˆØ¬Ø¨");
 
             if (string.IsNullOrWhiteSpace(ServiceUrl))
-                throw new InvalidOperationException("SoapService:Url مو موجود في appsettings.json");
+                throw new InvalidOperationException("SoapService:Url Ù…Ùˆ Ù…ÙˆØ¬ÙˆØ¯ ÙÙŠ appsettings.json");
 
             var soapXml = BuildGetEmployeeByIdSoap(employeeId);
 

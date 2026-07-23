@@ -1,12 +1,12 @@
-using BioAccess.Web.Contracts;
-using BioAccess.Web.DTOs;
+﻿using Terminals.Web.Contracts;
+using Terminals.Web.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Oracle.ManagedDataAccess.Client;
 using System.Text;
 using System.Xml.Linq;
 
-namespace BioAccess.Web.Services.Auth;
+namespace Terminals.Web.Services.Auth;
 
 // Handles login against the SOAP service and cleans old stuck sessions when needed.
 public class SoapLoginApi : ILoginApi

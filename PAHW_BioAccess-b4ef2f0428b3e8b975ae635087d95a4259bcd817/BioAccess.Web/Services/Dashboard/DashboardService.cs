@@ -1,8 +1,8 @@
-using BioAccess.Web.DTOs;
-using BioAccess.Web.Persistence;
+﻿using Terminals.Web.DTOs;
+using Terminals.Web.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace BioAccess.Web.Services.Dashboard;
+namespace Terminals.Web.Services.Dashboard;
 
 // Builds dashboard numbers and recent activity from local DB data.
 public sealed class DashboardService
@@ -31,10 +31,10 @@ public sealed class DashboardService
                 ActionType = x.Action,
                 Summary = x.Summary,
                 PerformedBy = x.ActorType == "System"
-                    ? (string.IsNullOrWhiteSpace(x.ActorName) ? "النظام" : $"النظام ({x.ActorName})")
+                    ? (string.IsNullOrWhiteSpace(x.ActorName) ? "Ø§Ù„Ù†Ø¸Ø§Ù…" : $"Ø§Ù„Ù†Ø¸Ø§Ù… ({x.ActorName})")
                     : (!string.IsNullOrWhiteSpace(x.ActorName) && x.ActorEmployeeId.HasValue
                         ? $"{x.ActorName} ({x.ActorEmployeeId.Value})"
-                        : (x.ActorName ?? (x.ActorEmployeeId.HasValue ? $"الموظف رقم {x.ActorEmployeeId.Value}" : "مستخدم"))),
+                        : (x.ActorName ?? (x.ActorEmployeeId.HasValue ? $"Ø§Ù„Ù…ÙˆØ¸Ù Ø±Ù‚Ù… {x.ActorEmployeeId.Value}" : "Ù…Ø³ØªØ®Ø¯Ù…"))),
                 CreatedAt = x.CreatedAt
             })
             .ToListAsync(ct);
@@ -103,7 +103,7 @@ public sealed class DashboardService
                     Status = status,
                     TerminalsCount = delegationTerminalIds.Count,
                     RegionText = regionNames.Count > 0
-                        ? $"في المناطق: {string.Join("، ", regionNames)}"
+                        ? $"ÙÙŠ Ø§Ù„Ù…Ù†Ø§Ø·Ù‚: {string.Join("ØŒ ", regionNames)}"
                         : ""
                 };
             })

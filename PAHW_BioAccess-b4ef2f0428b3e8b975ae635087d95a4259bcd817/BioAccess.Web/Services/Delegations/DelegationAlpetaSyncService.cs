@@ -1,7 +1,7 @@
-using BioAccess.Web.External;
-using BioAccess.Web.Persistence.Entities;
+﻿using Terminals.Web.External;
+using Terminals.Web.Persistence.Entities;
 
-namespace BioAccess.Web.Services.Delegations;
+namespace Terminals.Web.Services.Delegations;
 
 // Applies delegation-related Alpeta assignment changes with guarded retries.
 public class DelegationAlpetaSyncService

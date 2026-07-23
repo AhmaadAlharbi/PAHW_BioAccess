@@ -1,10 +1,10 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
-using BioAccess.Web.DTOs;
+using Terminals.Web.DTOs;
 
-namespace BioAccess.Web.External;
+namespace Terminals.Web.External;
 
 // Low-level client for Alpeta login, device list, and user-terminal assignment.
 public class AlpetaClient

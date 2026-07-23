@@ -1,10 +1,10 @@
-using BioAccess.Web.Contracts;
-using BioAccess.Web.DTOs;
-using BioAccess.Web.Services.Activity;
-using BioAccess.Web.Services.Employees;
+﻿using Terminals.Web.Contracts;
+using Terminals.Web.DTOs;
+using Terminals.Web.Services.Activity;
+using Terminals.Web.Services.Employees;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BioAccess.Web.Controllers;
+namespace Terminals.Web.Controllers;
 
 [Route("employees")]
 // Handles employee search, device assignment, and delegation actions.
@@ -55,7 +55,7 @@ public sealed class EmployeesController : Controller
         {
             // Keep the user on the same page and show a clear message.
             TempData["ToastType"] = "danger";
-            TempData["ToastMsg"] = $"لا يوجد موظف بالرقم الوظيفي: {employeeId}";
+            TempData["ToastMsg"] = $"Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…ÙˆØ¸Ù Ø¨Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ: {employeeId}";
             return View("Search");
         }
 
@@ -69,7 +69,7 @@ public sealed class EmployeesController : Controller
         // Assign one terminal to the employee in Alpeta.
         var ok = await _employees.AssignOneAsync(employeeId, terminalId, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
-        TempData["ToastMsg"] = ok ? "✅ تم الربط" : "❌ فشل الربط";
+        TempData["ToastMsg"] = ok ? "âœ… ØªÙ… Ø§Ù„Ø±Ø¨Ø·" : "âŒ ÙØ´Ù„ Ø§Ù„Ø±Ø¨Ø·";
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
@@ -83,7 +83,7 @@ public sealed class EmployeesController : Controller
                 "EmployeeTerminal.Assigned",
                 "EmployeeTerminal",
                 terminalId,
-                $"تم ربط أجهزة عددها (1) للموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
+                $"ØªÙ… Ø±Ø¨Ø· Ø£Ø¬Ù‡Ø²Ø© Ø¹Ø¯Ø¯Ù‡Ø§ (1) Ù„Ù„Ù…ÙˆØ¸Ù {employeeText}{regionLine}\nØ¨ÙˆØ§Ø³Ø·Ø©: {actorText}");
         }
         return View("Search", screen);
     }
@@ -95,7 +95,7 @@ public sealed class EmployeesController : Controller
         // Remove one terminal from the employee in Alpeta.
         var ok = await _employees.UnassignOneAsync(employeeId, terminalId, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
-        TempData["ToastMsg"] = ok ? "✅ تم فك الارتباط" : "❌ فشل فك الارتباط";
+        TempData["ToastMsg"] = ok ? "âœ… ØªÙ… ÙÙƒ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø·" : "âŒ ÙØ´Ù„ ÙÙƒ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø·";
         TempData["LastEmployeeId"] = employeeId.ToString();
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
@@ -108,7 +108,7 @@ public sealed class EmployeesController : Controller
                 "EmployeeTerminal.Unassigned",
                 "EmployeeTerminal",
                 terminalId,
-                $"تم فك ربط أجهزة عددها (1) عن الموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
+                $"ØªÙ… ÙÙƒ Ø±Ø¨Ø· Ø£Ø¬Ù‡Ø²Ø© Ø¹Ø¯Ø¯Ù‡Ø§ (1) Ø¹Ù† Ø§Ù„Ù…ÙˆØ¸Ù {employeeText}{regionLine}\nØ¨ÙˆØ§Ø³Ø·Ø©: {actorText}");
         }
         return View("Search", screen);
     }
@@ -130,7 +130,7 @@ public sealed class EmployeesController : Controller
         }
 
         TempData["ToastType"] = "success";
-        TempData["ToastMsg"] = $"✅ تم ربط {successCount} جهاز";
+        TempData["ToastMsg"] = $"âœ… ØªÙ… Ø±Ø¨Ø· {successCount} Ø¬Ù‡Ø§Ø²";
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (successCount > 0)
@@ -142,7 +142,7 @@ public sealed class EmployeesController : Controller
                 "EmployeeTerminal.BulkAssigned",
                 "EmployeeTerminal",
                 null,
-                $"تم ربط أجهزة عددها ({successCount}) للموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
+                $"ØªÙ… Ø±Ø¨Ø· Ø£Ø¬Ù‡Ø²Ø© Ø¹Ø¯Ø¯Ù‡Ø§ ({successCount}) Ù„Ù„Ù…ÙˆØ¸Ù {employeeText}{regionLine}\nØ¨ÙˆØ§Ø³Ø·Ø©: {actorText}");
         }
         return View("Search", screen);
     }
@@ -164,7 +164,7 @@ public sealed class EmployeesController : Controller
         }
 
         TempData["ToastType"] = "success";
-        TempData["ToastMsg"] = $"✅ تم فك الارتباط عن {successCount} جهاز";
+        TempData["ToastMsg"] = $"âœ… ØªÙ… ÙÙƒ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø· Ø¹Ù† {successCount} Ø¬Ù‡Ø§Ø²";
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         if (successCount > 0)
@@ -176,7 +176,7 @@ public sealed class EmployeesController : Controller
                 "EmployeeTerminal.BulkUnassigned",
                 "EmployeeTerminal",
                 null,
-                $"تم فك ربط أجهزة عددها ({successCount}) عن الموظف {employeeText}{regionLine}\nبواسطة: {actorText}");
+                $"ØªÙ… ÙÙƒ Ø±Ø¨Ø· Ø£Ø¬Ù‡Ø²Ø© Ø¹Ø¯Ø¯Ù‡Ø§ ({successCount}) Ø¹Ù† Ø§Ù„Ù…ÙˆØ¸Ù {employeeText}{regionLine}\nØ¨ÙˆØ§Ø³Ø·Ø©: {actorText}");
         }
         return View("Search", screen);
     }
@@ -195,12 +195,12 @@ public sealed class EmployeesController : Controller
         if (result == "Invalid")
         {
             TempData["ToastType"] = "danger";
-            TempData["ToastMsg"] = "❌ فشل في حفظ الانتداب، تحقق من التواريخ";
+            TempData["ToastMsg"] = "âŒ ÙØ´Ù„ ÙÙŠ Ø­ÙØ¸ Ø§Ù„Ø§Ù†ØªØ¯Ø§Ø¨ØŒ ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„ØªÙˆØ§Ø±ÙŠØ®";
         }
         else
         {
             TempData["ToastType"] = "success";
-            TempData["ToastMsg"] = "✅ تم جدولة الانتداب بنجاح";
+            TempData["ToastMsg"] = "âœ… ØªÙ… Ø¬Ø¯ÙˆÙ„Ø© Ø§Ù„Ø§Ù†ØªØ¯Ø§Ø¨ Ø¨Ù†Ø¬Ø§Ø­";
         }
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
@@ -214,7 +214,7 @@ public sealed class EmployeesController : Controller
         // End active delegations for the selected terminals.
         var ok = await _delegations.EndActiveDelegationAsync(employeeId, terminalIds, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
-        TempData["ToastMsg"] = ok ? "✅ تم إنهاء الندب بنجاح" : "❌ تعذر إنهاء الندب";
+        TempData["ToastMsg"] = ok ? "âœ… ØªÙ… Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ Ø¨Ù†Ø¬Ø§Ø­" : "âŒ ØªØ¹Ø°Ø± Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨";
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         return View("Search", screen);
@@ -227,7 +227,7 @@ public sealed class EmployeesController : Controller
         // Cancel a delegation that has not started yet.
         var ok = await _delegations.CancelScheduledDelegationAsync(delegationId, ct);
         TempData["ToastType"] = ok ? "success" : "danger";
-        TempData["ToastMsg"] = ok ? "✅ تم إلغاء الندب بنجاح" : "❌ تعذر إلغاء الندب";
+        TempData["ToastMsg"] = ok ? "âœ… ØªÙ… Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ Ø¨Ù†Ø¬Ø§Ø­" : "âŒ ØªØ¹Ø°Ø± Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù†Ø¯Ø¨";
 
         var screen = await _employees.GetEmployeeDevicesScreenAsync(employeeId, ct);
         return View("Search", screen);
@@ -235,13 +235,13 @@ public sealed class EmployeesController : Controller
 
     private static string FormatEmployeeText(string? employeeName, int employeeId)
         => string.IsNullOrWhiteSpace(employeeName)
-            ? $"غير معروف ({employeeId})"
+            ? $"ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ ({employeeId})"
             : $"{employeeName.Trim()} ({employeeId})";
 
     private static string FormatActorText(string? actorName, string? actorId)
     {
-        var name = string.IsNullOrWhiteSpace(actorName) ? "غير معروف" : actorName.Trim();
-        var id = string.IsNullOrWhiteSpace(actorId) ? "غير معروف" : actorId.Trim();
+        var name = string.IsNullOrWhiteSpace(actorName) ? "ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ" : actorName.Trim();
+        var id = string.IsNullOrWhiteSpace(actorId) ? "ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ" : actorId.Trim();
         return $"{name} ({id})";
     }
 
@@ -266,6 +266,6 @@ public sealed class EmployeesController : Controller
 
         return regionNames.Count == 0
             ? ""
-            : $"\nفي المناطق: {string.Join("، ", regionNames)}";
+            : $"\nÙÙŠ Ø§Ù„Ù…Ù†Ø§Ø·Ù‚: {string.Join("ØŒ ", regionNames)}";
     }
 }

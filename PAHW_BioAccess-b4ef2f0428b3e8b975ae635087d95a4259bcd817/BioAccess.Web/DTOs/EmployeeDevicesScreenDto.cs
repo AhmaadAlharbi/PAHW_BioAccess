@@ -1,4 +1,4 @@
-namespace BioAccess.Web.DTOs;
+﻿namespace Terminals.Web.DTOs;
 
 public sealed class EmployeeDevicesScreenDto
 {
@@ -14,7 +14,7 @@ public class DeviceRowDto
     public string Location { get; set; } = "";
     public bool IsAssigned { get; set; }
 
-    // ✅ جديد
+    // âœ… Ø¬Ø¯ÙŠØ¯
     public bool IsDelegated { get; set; }
     public bool IsDelegatedActive { get; set; }
     public int? DelegationId { get; set; }

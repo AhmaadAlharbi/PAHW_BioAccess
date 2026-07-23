@@ -1,11 +1,11 @@
-using BioAccess.Web.Contracts;
-using BioAccess.Web.DTOs;
-using BioAccess.Web.External;
-using BioAccess.Web.Persistence;
-using BioAccess.Web.Services.Terminals;
+﻿using Terminals.Web.Contracts;
+using Terminals.Web.DTOs;
+using Terminals.Web.External;
+using Terminals.Web.Persistence;
+using Terminals.Web.Services.Terminals;
 using Microsoft.EntityFrameworkCore;
 
-namespace BioAccess.Web.Services.Employees;
+namespace Terminals.Web.Services.Employees;
 
 // Builds the employee device screen from SOAP, Alpeta, and local DB data.
 public class EmployeeDevicesApi : IEmployeeDevicesApi
@@ -154,7 +154,7 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
                 DelegationStartDate = delRow?.StartDate,
                 DelegationEndDate = delRow?.EndDate,
                 RegionId = regId == 0 ? null : regId,
-                RegionName = string.IsNullOrWhiteSpace(regName) ? "أجهزة غير مصنفة" : regName
+                RegionName = string.IsNullOrWhiteSpace(regName) ? "Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ù…ØµÙ†ÙØ©" : regName
             });
         }
 
@@ -188,15 +188,15 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
                 DelegationStartDate = delRow?.StartDate,
                 DelegationEndDate = delRow?.EndDate,
                 RegionId = regId == 0 ? null : regId,
-                RegionName = string.IsNullOrWhiteSpace(regName) ? "أجهزة غير مصنفة" : regName
+                RegionName = string.IsNullOrWhiteSpace(regName) ? "Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ù…ØµÙ†ÙØ©" : regName
             });
         }
 
         // Group devices by region so the page can show them as region sections.
         var groups = rows
-            .GroupBy(x => new { x.RegionId, RegionName = string.IsNullOrWhiteSpace(x.RegionName) ? "أجهزة غير مصنفة" : x.RegionName })
+            .GroupBy(x => new { x.RegionId, RegionName = string.IsNullOrWhiteSpace(x.RegionName) ? "Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ù…ØµÙ†ÙØ©" : x.RegionName })
             .OrderByDescending(g => g.Any(x => x.IsEffectivelyAssigned))
-            .ThenBy(g => g.Key.RegionName == "أجهزة غير مصنفة" ? 1 : 0)
+            .ThenBy(g => g.Key.RegionName == "Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ù…ØµÙ†ÙØ©" ? 1 : 0)
             .ThenBy(g => g.Key.RegionName)
             .Select(g => new RegionGroupDto
             {

@@ -1,16 +1,16 @@
-using BioAccess.Web.Contracts;
+﻿using Terminals.Web.Contracts;
 using Microsoft.EntityFrameworkCore;
-using BioAccess.Web.External;
-using BioAccess.Web.Persistence;
-using BioAccess.Web.Persistence.Entities;
-using BioAccess.Web.Services.Activity;
-using BioAccess.Web.Services.AllowedUsers;
-using BioAccess.Web.Services.Auth;
-using BioAccess.Web.Services.Dashboard;
-using BioAccess.Web.Services.Delegations;
-using BioAccess.Web.Services.Employees;
-using BioAccess.Web.Services.Terminals;
-using BioAccess.Web.Filters;
+using Terminals.Web.External;
+using Terminals.Web.Persistence;
+using Terminals.Web.Persistence.Entities;
+using Terminals.Web.Services.Activity;
+using Terminals.Web.Services.AllowedUsers;
+using Terminals.Web.Services.Auth;
+using Terminals.Web.Services.Dashboard;
+using Terminals.Web.Services.Delegations;
+using Terminals.Web.Services.Employees;
+using Terminals.Web.Services.Terminals;
+using Terminals.Web.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +30,7 @@ builder.Services.AddDbContext<LocalAppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("serverDB")));
 builder.Services.AddScoped<RegionMappingService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
-builder.Services.AddHttpClient(); // مهم لأن SoapLoginApi يعتمد على HttpClient
+builder.Services.AddHttpClient(); // Ù…Ù‡Ù… Ù„Ø£Ù† SoapLoginApi ÙŠØ¹ØªÙ…Ø¯ Ø¹Ù„Ù‰ HttpClient
 // Phase 2 Monolith: DashboardController and EmployeesController use local services directly.
 // builder.Services.AddHttpClient<IDashboardApiClient, DashboardApiClient>(client =>
 // {
@@ -55,12 +55,12 @@ builder.Services.AddScoped<DelegationAlpetaSyncService>();
 builder.Services.AddScoped<DelegationService>();
 builder.Services.AddScoped<IDelegationService, DelegationService>();
 // -------------------------
-// ✅ SOAP client
+// âœ… SOAP client
 // -------------------------
 builder.Services.AddScoped<EmployeeSoapClient>();
 
 // -------------------------
-// ✅ Alpeta client (HttpClient)
+// âœ… Alpeta client (HttpClient)
 // -------------------------
 builder.Services.AddHttpClient<AlpetaClient>(http =>
 {
@@ -68,7 +68,7 @@ builder.Services.AddHttpClient<AlpetaClient>(http =>
 });
 
 // -------------------------
-// ✅ Facade API
+// âœ… Facade API
 // -------------------------
 builder.Services.AddScoped<EmployeeDevicesApi>();
 builder.Services.AddScoped<DashboardService>();
@@ -84,7 +84,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// ✅ Ensure DB created (اختياري، لكن OK)
+// âœ… Ensure DB created (Ø§Ø®ØªÙŠØ§Ø±ÙŠØŒ Ù„ÙƒÙ† OK)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<LocalAppDbContext>();

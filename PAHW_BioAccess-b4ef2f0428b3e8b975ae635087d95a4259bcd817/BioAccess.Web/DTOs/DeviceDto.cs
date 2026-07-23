@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace BioAccess.Web.DTOs
+namespace Terminals.Web.DTOs
 {
     public class DeviceDto
     {

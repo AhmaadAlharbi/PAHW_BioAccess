@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace BioAccess.Web.Filters;
+namespace Terminals.Web.Filters;
 
 public class SessionGuardFilter : IActionFilter
 {
@@ -10,7 +10,7 @@ public class SessionGuardFilter : IActionFilter
         var controller = context.ActionDescriptor.RouteValues["controller"];
         var action = context.ActionDescriptor.RouteValues["action"];
 
-        // لا نفحص صفحات الدخول لتجنب حلقات لا نهائية
+        // Ù„Ø§ Ù†ÙØ­Øµ ØµÙØ­Ø§Øª Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù„ØªØ¬Ù†Ø¨ Ø­Ù„Ù‚Ø§Øª Ù„Ø§ Ù†Ù‡Ø§Ø¦ÙŠØ©
         if (string.Equals(controller, "Home", StringComparison.OrdinalIgnoreCase) &&
             (string.Equals(action, "Index", StringComparison.OrdinalIgnoreCase) ||
              string.Equals(action, "Login", StringComparison.OrdinalIgnoreCase) ||

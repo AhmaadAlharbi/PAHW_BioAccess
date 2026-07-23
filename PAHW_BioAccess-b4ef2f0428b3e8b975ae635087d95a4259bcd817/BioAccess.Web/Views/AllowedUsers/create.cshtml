@@ -1,6 +1,6 @@
-@model BioAccess.Web.DTOs.AllowedUserDto?
+﻿@model Terminals.Web.DTOs.AllowedUserDto?
 @{
-    ViewData["Title"] = "إضافة مستخدم";
+    ViewData["Title"] = "Ø¥Ø¶Ø§ÙØ© Ù…Ø³ØªØ®Ø¯Ù…";
     var currentEmpId = Context.Session.GetString("EmpId") ?? "";
 }
 
@@ -19,35 +19,35 @@
     </div>
 }
 
-@* ── Step 1: Fetch employee data ─────────────────────── *@
+@* â”€â”€ Step 1: Fetch employee data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
 <div class="content-card mb-3">
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h2 class="c-section-title">الخطوة 1 — جلب بيانات المستخدم</h2>
+        <h2 class="c-section-title">Ø§Ù„Ø®Ø·ÙˆØ© 1 â€” Ø¬Ù„Ø¨ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</h2>
         <a href="/allowedUsers" class="btn btn-outline btn-sm">
-            <span>↩</span> العودة للقائمة
+            <span>â†©</span> Ø§Ù„Ø¹ÙˆØ¯Ø© Ù„Ù„Ù‚Ø§Ø¦Ù…Ø©
         </a>
     </div>
-    <p class="text-muted small mb-3">أدخل الرقم الوظيفي لجلب بيانات المستخدم من النظام.</p>
+    <p class="text-muted small mb-3">Ø£Ø¯Ø®Ù„ Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ Ù„Ø¬Ù„Ø¨ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù…Ù† Ø§Ù„Ù†Ø¸Ø§Ù….</p>
 
     <form method="post" asp-action="Fetch">
         <div class="d-flex gap-2 align-items-end">
             <div class="flex-grow-1">
-                <label class="form-label fw-bold">الرقم الوظيفي</label>
+                <label class="form-label fw-bold">Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ</label>
                 <input type="number" name="employeeId" required
-                       placeholder="مثال: 7300" class="form-control" />
+                       placeholder="Ù…Ø«Ø§Ù„: 7300" class="form-control" />
             </div>
-            <button type="submit" class="btn btn-primary u-nowrap">جلب البيانات</button>
+            <button type="submit" class="btn btn-primary u-nowrap">Ø¬Ù„Ø¨ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª</button>
         </div>
     </form>
 </div>
 
-@* ── Step 2: Review and save ──────────────────────────── *@
+@* â”€â”€ Step 2: Review and save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
 @if (Model != null)
 {
     <div class="content-card">
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="c-section-title">الخطوة 2 — مراجعة وحفظ البيانات</h2>
-            <span class="badge badge-success">✓ تم جلب البيانات</span>
+            <h2 class="c-section-title">Ø§Ù„Ø®Ø·ÙˆØ© 2 â€” Ù…Ø±Ø§Ø¬Ø¹Ø© ÙˆØ­ÙØ¸ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª</h2>
+            <span class="badge badge-success">âœ“ ØªÙ… Ø¬Ù„Ø¨ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª</span>
         </div>
 
         <form method="post" asp-action="Save">
@@ -56,22 +56,22 @@
 
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">الاسم الكامل</label>
+                    <label class="form-label fw-bold">Ø§Ù„Ø§Ø³Ù… Ø§Ù„ÙƒØ§Ù…Ù„</label>
                     <input type="text" name="fullName" value="@Model.FullName"
                            class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">البريد الإلكتروني</label>
+                    <label class="form-label fw-bold">Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ</label>
                     <input type="email" name="email" value="@Model.Email"
                            class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">القسم</label>
+                    <label class="form-label fw-bold">Ø§Ù„Ù‚Ø³Ù…</label>
                     <input type="text" name="department" value="@Model.Department"
                            class="form-control" required />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-bold">الرقم الوظيفي</label>
+                    <label class="form-label fw-bold">Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ</label>
                     <input type="text" value="@Model.EmployeeId"
                            class="form-control" readonly disabled />
                 </div>
@@ -82,15 +82,15 @@
                     <input type="checkbox" name="isAdmin" id="isAdmin"
                            value="true" class="form-check-input" />
                     <label for="isAdmin" class="form-check-label fw-bold">
-                        ⭐ منح صلاحية مدير
+                        â­ Ù…Ù†Ø­ ØµÙ„Ø§Ø­ÙŠØ© Ù…Ø¯ÙŠØ±
                     </label>
                 </div>
-                <small class="text-muted">المدير لديه صلاحيات كاملة لإدارة النظام والمستخدمين.</small>
+                <small class="text-muted">Ø§Ù„Ù…Ø¯ÙŠØ± Ù„Ø¯ÙŠÙ‡ ØµÙ„Ø§Ø­ÙŠØ§Øª ÙƒØ§Ù…Ù„Ø© Ù„Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù†Ø¸Ø§Ù… ÙˆØ§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.</small>
             </div>
 
             <div class="d-flex gap-2 justify-content-end">
-                <a href="/allowedUsers" class="btn btn-outline">إلغاء</a>
-                <button type="submit" class="btn btn-primary">✓ حفظ المستخدم</button>
+                <a href="/allowedUsers" class="btn btn-outline">Ø¥Ù„ØºØ§Ø¡</a>
+                <button type="submit" class="btn btn-primary">âœ“ Ø­ÙØ¸ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</button>
             </div>
         </form>
     </div>
@@ -99,8 +99,8 @@ else
 {
     <div class="content-card">
         <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <div class="empty-state-text">أدخل الرقم الوظيفي في الخطوة الأولى أعلاه لجلب بيانات المستخدم</div>
+            <div class="empty-state-icon">ðŸ“‹</div>
+            <div class="empty-state-text">Ø£Ø¯Ø®Ù„ Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ ÙÙŠ Ø§Ù„Ø®Ø·ÙˆØ© Ø§Ù„Ø£ÙˆÙ„Ù‰ Ø£Ø¹Ù„Ø§Ù‡ Ù„Ø¬Ù„Ø¨ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</div>
         </div>
     </div>
 }
@@ -115,7 +115,7 @@ else
             const email = this.querySelector('input[name="email"]')?.value || '';
             if (email && !email.includes('@@')) {
                 e.preventDefault();
-                alert('يرجى إدخال بريد إلكتروني صحيح');
+                alert('ÙŠØ±Ø¬Ù‰ Ø¥Ø¯Ø®Ø§Ù„ Ø¨Ø±ÙŠØ¯ Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ ØµØ­ÙŠØ­');
             }
         });
     </script>

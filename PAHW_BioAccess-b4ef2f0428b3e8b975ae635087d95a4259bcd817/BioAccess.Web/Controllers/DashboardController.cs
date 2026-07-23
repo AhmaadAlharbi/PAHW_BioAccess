@@ -1,8 +1,8 @@
-using BioAccess.Web.Models;
-using BioAccess.Web.Services.Dashboard;
+﻿using Terminals.Web.Models;
+using Terminals.Web.Services.Dashboard;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BioAccess.Web.Controllers;
+namespace Terminals.Web.Controllers;
 
 public sealed class DashboardController : Controller
 {
@@ -34,7 +34,7 @@ public sealed class DashboardController : Controller
             LatestDelegations = dto.LatestDelegations.Select(x => new DelegationRowViewModel
             {
                 EmployeeText = string.IsNullOrWhiteSpace(x.EmployeeName)
-                    ? $"الموظف رقم {x.EmployeeId}"
+                    ? $"Ø§Ù„Ù…ÙˆØ¸Ù Ø±Ù‚Ù… {x.EmployeeId}"
                     : $"{x.EmployeeName} ({x.EmployeeId})",
                 RegionText = x.RegionText,
                 StatusText = DashboardViewModel.ToArabicDelegationStatus(x.Status),

@@ -1,4 +1,4 @@
-namespace BioAccess.Web.Persistence.Entities;
+﻿namespace Terminals.Web.Persistence.Entities;
 
 public class TerminalRegionMap
 {
@@ -6,8 +6,8 @@ public class TerminalRegionMap
 
     public int RegionId { get; set; }                   // FK
 
-    // ✅ Navigation Property (هذا اللي كان ناقص)
+    // âœ… Navigation Property (Ù‡Ø°Ø§ Ø§Ù„Ù„ÙŠ ÙƒØ§Ù† Ù†Ø§Ù‚Øµ)
 
-    // ✅ هذا اللي كان ناقص عندك (عشان .HasOne(x=>x.Region) يشتغل)
+    // âœ… Ù‡Ø°Ø§ Ø§Ù„Ù„ÙŠ ÙƒØ§Ù† Ù†Ø§Ù‚Øµ Ø¹Ù†Ø¯Ùƒ (Ø¹Ø´Ø§Ù† .HasOne(x=>x.Region) ÙŠØ´ØªØºÙ„)
     public Region? Region { get; set; }
 }

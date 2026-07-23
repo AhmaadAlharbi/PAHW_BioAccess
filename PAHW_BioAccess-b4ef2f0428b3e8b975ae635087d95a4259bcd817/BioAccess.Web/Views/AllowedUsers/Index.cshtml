@@ -1,6 +1,6 @@
-@model List<BioAccess.Web.DTOs.AllowedUserListItemDto>
+﻿@model List<Terminals.Web.DTOs.AllowedUserListItemDto>
 @{
-    ViewData["Title"] = "إدارة المستخدمين";
+    ViewData["Title"] = "Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†";
     var currentEmpId = Context.Session.GetString("EmpId") ?? "";
 }
 
@@ -9,26 +9,26 @@
     @if (TempData["ErrorMsg"] != null)
     {
         <div class="alert alert-error">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon">âš ï¸</span>
             <span>@TempData["ErrorMsg"]</span>
         </div>
     }
     @if (TempData["SuccessMsg"] != null)
     {
         <div class="alert alert-success">
-            <span class="alert-icon">✅</span>
+            <span class="alert-icon">âœ…</span>
             <span>@TempData["SuccessMsg"]</span>
         </div>
     }
 
     <div class="page-header">
         <h1 class="page-title">
-            <span class="page-title-icon">👥</span>
-            <span>إدارة المستخدمين</span>
+            <span class="page-title-icon">ðŸ‘¥</span>
+            <span>Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†</span>
         </h1>
         <a asp-action="Create" class="btn btn-primary">
-            <span>➕</span>
-            <span>إضافة مستخدم</span>
+            <span>âž•</span>
+            <span>Ø¥Ø¶Ø§ÙØ© Ù…Ø³ØªØ®Ø¯Ù…</span>
         </a>
     </div>
 
@@ -37,19 +37,19 @@
     <div class="c-stats-grid">
         <div class="stat-card">
             <div class="stat-value">@Model.Count</div>
-            <div class="stat-label">إجمالي المستخدمين</div>
+            <div class="stat-label">Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†</div>
         </div>
         <div class="stat-card">
             <div class="stat-value text-emerald">@Model.Count(u => u.IsActive)</div>
-            <div class="stat-label">الحسابات النشطة</div>
+            <div class="stat-label">Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª Ø§Ù„Ù†Ø´Ø·Ø©</div>
         </div>
         <div class="stat-card">
             <div class="stat-value text-rose">@Model.Count(u => !u.IsActive)</div>
-            <div class="stat-label">الحسابات المعطّلة</div>
+            <div class="stat-label">Ø§Ù„Ø­Ø³Ø§Ø¨Ø§Øª Ø§Ù„Ù…Ø¹Ø·Ù‘Ù„Ø©</div>
         </div>
         <div class="stat-card">
             <div class="stat-value text-blue">@Model.Count(u => u.IsAdmin)</div>
-            <div class="stat-label">المدراء</div>
+            <div class="stat-label">Ø§Ù„Ù…Ø¯Ø±Ø§Ø¡</div>
         </div>
     </div>
 
@@ -59,14 +59,14 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>اسم المستخدم</th>
-                        <th>الاسم الكامل</th>
-                        <th>البريد الإلكتروني</th>
-                        <th>القسم</th>
-                        <th>صلاحية مدير</th>
-                        <th>الحالة</th>
-                        <th>صالح حتى</th>
-                        <th class="u-text-center">الإجراءات</th>
+                        <th>Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</th>
+                        <th>Ø§Ù„Ø§Ø³Ù… Ø§Ù„ÙƒØ§Ù…Ù„</th>
+                        <th>Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ</th>
+                        <th>Ø§Ù„Ù‚Ø³Ù…</th>
+                        <th>ØµÙ„Ø§Ø­ÙŠØ© Ù…Ø¯ÙŠØ±</th>
+                        <th>Ø§Ù„Ø­Ø§Ù„Ø©</th>
+                        <th>ØµØ§Ù„Ø­ Ø­ØªÙ‰</th>
+                        <th class="u-text-center">Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -80,21 +80,21 @@
                             <td>
                                 @if (u.IsAdmin)
                                 {
-                                    <span class="badge badge-info"><span>⭐</span> <span>مدير</span></span>
+                                    <span class="badge badge-info"><span>â­</span> <span>Ù…Ø¯ÙŠØ±</span></span>
                                 }
                                 else
                                 {
-                                    <span class="badge badge-muted"><span>👤</span> <span>مستخدم</span></span>
+                                    <span class="badge badge-muted"><span>ðŸ‘¤</span> <span>Ù…Ø³ØªØ®Ø¯Ù…</span></span>
                                 }
                             </td>
                             <td>
                                 @if (u.IsActive)
                                 {
-                                    <span class="badge badge-success"><span>✓</span> <span>فعال</span></span>
+                                    <span class="badge badge-success"><span>âœ“</span> <span>ÙØ¹Ø§Ù„</span></span>
                                 }
                                 else
                                 {
-                                    <span class="badge badge-danger"><span>✕</span> <span>معطل</span></span>
+                                    <span class="badge badge-danger"><span>âœ•</span> <span>Ù…Ø¹Ø·Ù„</span></span>
                                 }
                             </td>
                             <td>
@@ -104,7 +104,7 @@
                                 }
                                 else
                                 {
-                                    <span class="text-gray-400">دائم</span>
+                                    <span class="text-gray-400">Ø¯Ø§Ø¦Ù…</span>
                                 }
                             </td>
                             <td>
@@ -116,19 +116,19 @@
                                             <input type="hidden" name="employeeId" value="@u.EmployeeId" />
                                             <input type="hidden" name="makeActive" value="@(u.IsActive ? "false" : "true")" />
                                             <button type="submit" class="btn btn-sm @(u.IsActive ? "btn-secondary" : "btn-success")">
-                                                @if (u.IsActive) { <span>⏸️ تعطيل</span> } else { <span>▶️ تفعيل</span> }
+                                                @if (u.IsActive) { <span>â¸ï¸ ØªØ¹Ø·ÙŠÙ„</span> } else { <span>â–¶ï¸ ØªÙØ¹ÙŠÙ„</span> }
                                             </button>
                                         </form>
                                         <form method="post" asp-action="Delete" class="u-inline"
-                                              onsubmit="return confirm('⚠️ هل أنت متأكد من الحذف النهائي لهذا المستخدم؟');">
+                                              onsubmit="return confirm('âš ï¸ Ù‡Ù„ Ø£Ù†Øª Ù…ØªØ£ÙƒØ¯ Ù…Ù† Ø§Ù„Ø­Ø°Ù Ø§Ù„Ù†Ù‡Ø§Ø¦ÙŠ Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ØŸ');">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="employeeId" value="@u.EmployeeId" />
-                                            <button type="submit" class="btn btn-sm btn-danger">🗑️ حذف</button>
+                                            <button type="submit" class="btn btn-sm btn-danger">ðŸ—‘ï¸ Ø­Ø°Ù</button>
                                         </form>
                                     }
                                     else
                                     {
-                                        <span class="badge badge-copper">🔒 حسابك</span>
+                                        <span class="badge badge-copper">ðŸ”’ Ø­Ø³Ø§Ø¨Ùƒ</span>
                                     }
                                 </div>
                             </td>
@@ -141,10 +141,10 @@
     else
     {
         <div class="empty-state">
-            <div class="empty-state-icon">📭</div>
-            <div class="empty-state-text">لا يوجد مستخدمون في القائمة حالياً</div>
+            <div class="empty-state-icon">ðŸ“­</div>
+            <div class="empty-state-text">Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…Ø³ØªØ®Ø¯Ù…ÙˆÙ† ÙÙŠ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø© Ø­Ø§Ù„ÙŠØ§Ù‹</div>
             <div class="u-mt-24">
-                <a asp-action="Create" class="btn btn-primary"><span>➕</span> <span>إضافة مستخدم</span></a>
+                <a asp-action="Create" class="btn btn-primary"><span>âž•</span> <span>Ø¥Ø¶Ø§ÙØ© Ù…Ø³ØªØ®Ø¯Ù…</span></a>
             </div>
         </div>
     }

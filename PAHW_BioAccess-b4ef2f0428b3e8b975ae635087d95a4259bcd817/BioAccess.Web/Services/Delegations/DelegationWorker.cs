@@ -1,11 +1,11 @@
-using BioAccess.Web.Persistence;
-using BioAccess.Web.Persistence.Entities;
+﻿using Terminals.Web.Persistence;
+using Terminals.Web.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using BioAccess.Web.Services.Activity;
+using Terminals.Web.Services.Activity;
 
-namespace BioAccess.Web.Services.Delegations;
+namespace Terminals.Web.Services.Delegations;
 
 // Runs in the background and applies scheduled delegation changes in Alpeta.
 public class DelegationWorker : BackgroundService
@@ -78,13 +78,13 @@ public class DelegationWorker : BackgroundService
 
     private static string FormatEmployeeText(string? employeeName, int employeeId)
         => string.IsNullOrWhiteSpace(employeeName)
-            ? $"غير معروف ({employeeId})"
+            ? $"ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ ({employeeId})"
             : $"{employeeName.Trim()} ({employeeId})";
 
     private static string FormatActorText(string? actorName, string? actorId)
     {
-        var name = string.IsNullOrWhiteSpace(actorName) ? "غير معروف" : actorName.Trim();
-        var id = string.IsNullOrWhiteSpace(actorId) ? "غير معروف" : actorId.Trim();
+        var name = string.IsNullOrWhiteSpace(actorName) ? "ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ" : actorName.Trim();
+        var id = string.IsNullOrWhiteSpace(actorId) ? "ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙ" : actorId.Trim();
         return $"{name} ({id})";
     }
 
@@ -122,7 +122,7 @@ public class DelegationWorker : BackgroundService
             action: "Delegation.Activated",
             entityType: "Delegation",
             entityId: del.Id.ToString(),
-            summary: $"تم إنشاء انتداب للموظف {employeeText} لعدد ({terminals.Count}) أجهزة\nبواسطة: {actorText}",
+            summary: $"ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù†ØªØ¯Ø§Ø¨ Ù„Ù„Ù…ÙˆØ¸Ù {employeeText} Ù„Ø¹Ø¯Ø¯ ({terminals.Count}) Ø£Ø¬Ù‡Ø²Ø©\nØ¨ÙˆØ§Ø³Ø·Ø©: {actorText}",
             details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
             ct: ct
         );
@@ -174,7 +174,7 @@ public class DelegationWorker : BackgroundService
             action: "Delegation.Expired",
             entityType: "Delegation",
             entityId: del.Id.ToString(),
-            summary: $"تم إنهاء انتداب الموظف {employeeText}\nبواسطة: {actorText}",
+            summary: $"ØªÙ… Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù†ØªØ¯Ø§Ø¨ Ø§Ù„Ù…ÙˆØ¸Ù {employeeText}\nØ¨ÙˆØ§Ø³Ø·Ø©: {actorText}",
             details: new { delegationId = del.Id, employeeId = del.EmployeeId, terminalCount = terminals.Count },
             ct: ct
         );

@@ -1,11 +1,11 @@
-@model BioAccess.Web.DTOs.EmployeeDevicesScreenDto?
+﻿@model Terminals.Web.DTOs.EmployeeDevicesScreenDto?
 @{
-    ViewData["Title"] = "بحث موظف";
+    ViewData["Title"] = "Ø¨Ø­Ø« Ù…ÙˆØ¸Ù";
     var toastType      = TempData["ToastType"] as string;
     var toastMsg       = TempData["ToastMsg"]  as string;
     var lastEmployeeId = TempData["LastEmployeeId"]?.ToString();
     var isAdmin        = Context.Session.GetString("IsAdmin") == "1";
-    var devices        = Model?.Devices ?? new List<BioAccess.Web.DTOs.DeviceRowDto>();
+    var devices        = Model?.Devices ?? new List<Terminals.Web.DTOs.DeviceRowDto>();
     var assigned       = devices.Where(x => x.IsEffectivelyAssigned).ToList();
     var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 }
@@ -19,7 +19,7 @@
      data-employee-id="@(Model?.Employee?.EmployeeId ?? 0)"
      data-employee-name="@(Model?.Employee?.FullNameAr ?? "")">
 
-    @* ── Toast ─────────────────────────────────────────── *@
+    @* â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
     @if (!string.IsNullOrWhiteSpace(toastMsg))
     {
         var alertClass = toastType switch {
@@ -37,30 +37,30 @@
         </div>
     }
 
-    @* ── Card 1: Search ────────────────────────────────── *@
+    @* â”€â”€ Card 1: Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
     <div class="content-card mb-3">
         <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
-            <h2 class="c-section-title">البحث عن موظف</h2>
+            <h2 class="c-section-title">Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ù…ÙˆØ¸Ù</h2>
             @if (isAdmin)
             {
                 <div class="c-admin-tools">
                     <button type="button" class="btn btn-muted btn-sm c-admin-tools-toggle u-nowrap" onclick="toggleAdminTools()">
                         <i class="fa-solid fa-screwdriver-wrench"></i>
-                        <span>أدوات إدارية</span>
+                        <span>Ø£Ø¯ÙˆØ§Øª Ø¥Ø¯Ø§Ø±ÙŠØ©</span>
                     </button>
                     <div id="adminToolsPanel" class="c-admin-tools-panel is-hidden" aria-hidden="true">
                         <div class="d-flex align-items-center gap-2 fw-bold text-maroon mb-3">
                             <i class="fa-solid fa-triangle-exclamation"></i>
-                            <span>إجراءات عامة (لا تخص موظفًا واحدًا)</span>
+                            <span>Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª Ø¹Ø§Ù…Ø© (Ù„Ø§ ØªØ®Øµ Ù…ÙˆØ¸ÙÙ‹Ø§ ÙˆØ§Ø­Ø¯Ù‹Ø§)</span>
                         </div>
                         <div class="d-flex align-items-start justify-content-between gap-3 p-3 border rounded">
                             <div>
-                                <div class="fw-bold mb-1">إعادة توزيع الأجهزة تلقائيًا</div>
-                                <div class="text-muted small">قد يغيّر توزيع أجهزة كثيرة على المناطق. استخدمه فقط عند فقدان/تلف بيانات التوزيع.</div>
+                                <div class="fw-bold mb-1">Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§</div>
+                                <div class="text-muted small">Ù‚Ø¯ ÙŠØºÙŠÙ‘Ø± ØªÙˆØ²ÙŠØ¹ Ø£Ø¬Ù‡Ø²Ø© ÙƒØ«ÙŠØ±Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù…Ù†Ø§Ø·Ù‚. Ø§Ø³ØªØ®Ø¯Ù…Ù‡ ÙÙ‚Ø· Ø¹Ù†Ø¯ ÙÙ‚Ø¯Ø§Ù†/ØªÙ„Ù Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ØªÙˆØ²ÙŠØ¹.</div>
                             </div>
                             <button id="autoAssignBtn" type="button" class="btn btn-outline btn-sm u-nowrap">
                                 <i class="fa-solid fa-rotate"></i>
-                                <span>تشغيل</span>
+                                <span>ØªØ´ØºÙŠÙ„</span>
                             </button>
                         </div>
                     </div>
@@ -72,67 +72,67 @@
             @Html.AntiForgeryToken()
             <div class="d-flex gap-2 align-items-end">
                 <div class="flex-grow-1">
-                    <label class="form-label fw-bold">الرقم الوظيفي للموظف</label>
+                    <label class="form-label fw-bold">Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ Ù„Ù„Ù…ÙˆØ¸Ù</label>
                     <input type="number" name="employeeId" class="form-control"
-                           placeholder="مثال: 7300"
+                           placeholder="Ù…Ø«Ø§Ù„: 7300"
                            value="@(Model?.Employee?.EmployeeId.ToString() ?? lastEmployeeId ?? "")"
                            required />
                 </div>
                 <button type="submit" class="btn btn-primary u-nowrap">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <span>بحث</span>
+                    <span>Ø¨Ø­Ø«</span>
                 </button>
             </div>
         </form>
     </div>
 
-    @* ── Card 2: Employee info ──────────────────────────── *@
+    @* â”€â”€ Card 2: Employee info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
     @if (Model?.Employee != null)
     {
         <div class="content-card mb-3">
-            <h2 class="c-section-title mb-3">معلومات الموظف</h2>
+            <h2 class="c-section-title mb-3">Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø§Ù„Ù…ÙˆØ¸Ù</h2>
 
             <div class="row g-3 mb-3">
                 <div class="col-sm-6 col-lg-3">
-                    <div class="text-muted small mb-1">الاسم الكامل</div>
+                    <div class="text-muted small mb-1">Ø§Ù„Ø§Ø³Ù… Ø§Ù„ÙƒØ§Ù…Ù„</div>
                     <div class="fw-bold">@Model.Employee.FullNameAr</div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
-                    <div class="text-muted small mb-1">الإدارة / القسم</div>
+                    <div class="text-muted small mb-1">Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© / Ø§Ù„Ù‚Ø³Ù…</div>
                     <div class="fw-bold">@Model.Employee.Department</div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
-                    <div class="text-muted small mb-1">المسمى الوظيفي</div>
+                    <div class="text-muted small mb-1">Ø§Ù„Ù…Ø³Ù…Ù‰ Ø§Ù„ÙˆØ¸ÙŠÙÙŠ</div>
                     <div class="fw-bold">@Model.Employee.JobTitle</div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
-                    <div class="text-muted small mb-1">الرقم الوظيفي</div>
+                    <div class="text-muted small mb-1">Ø§Ù„Ø±Ù‚Ù… Ø§Ù„ÙˆØ¸ÙŠÙÙŠ</div>
                     <div class="fw-bold text-maroon">@Model.Employee.EmployeeId</div>
                 </div>
             </div>
 
-            @* Filter pills — also act as device stats *@
+            @* Filter pills â€” also act as device stats *@
             <div class="region-filters d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-sm btn-outline filter-pill active" data-filter="all"
                         onclick="setRegionFilter('all')">
-                    <i class="fa-solid fa-desktop"></i> @devices.Count إجمالي
+                    <i class="fa-solid fa-desktop"></i> @devices.Count Ø¥Ø¬Ù…Ø§Ù„ÙŠ
                 </button>
                 <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="assigned"
                         onclick="setRegionFilter('assigned')">
-                    <i class="fa-solid fa-circle-check"></i> @assigned.Count مرتبطة
+                    <i class="fa-solid fa-circle-check"></i> @assigned.Count Ù…Ø±ØªØ¨Ø·Ø©
                 </button>
                 <button type="button" class="btn btn-sm btn-outline filter-pill" data-filter="unassigned"
                         onclick="setRegionFilter('unassigned')">
-                    <i class="fa-solid fa-circle-minus"></i> @unassigned.Count غير مرتبطة
+                    <i class="fa-solid fa-circle-minus"></i> @unassigned.Count ØºÙŠØ± Ù…Ø±ØªØ¨Ø·Ø©
                 </button>
             </div>
         </div>
 
-        @* ── Card 3: Regions & Devices ──────────────────── *@
+        @* â”€â”€ Card 3: Regions & Devices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
         @if (Model.RegionGroups != null && Model.RegionGroups.Any())
         {
             <div class="content-card">
-                <h2 class="c-section-title mb-3">إدارة أجهزة البصمة</h2>
+                <h2 class="c-section-title mb-3">Ø¥Ø¯Ø§Ø±Ø© Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ø¨ØµÙ…Ø©</h2>
 
                 <div class="regions-container">
                     @for (int i = 0; i < Model.RegionGroups.Count; i++)
@@ -162,14 +162,14 @@
                                     <div>
                                         <div class="fw-bold">@g.RegionName</div>
                                         <div class="d-flex gap-1 flex-wrap mt-1">
-                                            <span class="badge bg-secondary">@g.TotalDevices أجهزة</span>
+                                            <span class="badge bg-secondary">@g.TotalDevices Ø£Ø¬Ù‡Ø²Ø©</span>
                                             @if (assignedCount > 0)
                                             {
-                                                <span class="badge bg-success">@assignedCount مرتبطة</span>
+                                                <span class="badge bg-success">@assignedCount Ù…Ø±ØªØ¨Ø·Ø©</span>
                                             }
                                             @if (delegatedCount > 0)
                                             {
-                                                <span class="badge bg-warning text-dark">@delegatedCount ندب</span>
+                                                <span class="badge bg-warning text-dark">@delegatedCount Ù†Ø¯Ø¨</span>
                                             }
                                         </div>
                                     </div>
@@ -186,7 +186,7 @@
                                             }
                                             <button type="button" class="btn btn-danger btn-sm u-nowrap"
                                                     onclick="confirmDelegationScopeAction(this, 'region')">
-                                                إنهاء الندب لكل أجهزة المنطقة
+                                                Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ Ù„ÙƒÙ„ Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ù†Ø·Ù‚Ø©
                                             </button>
                                         </form>
                                     }
@@ -202,7 +202,7 @@
                                     <input class="form-check-input select-all-region" type="checkbox"
                                            id="selectAllRegion_@regionKey" />
                                     <label class="form-check-label fw-semibold" for="selectAllRegion_@regionKey">
-                                        تحديد جميع أجهزة المنطقة
+                                        ØªØ­Ø¯ÙŠØ¯ Ø¬Ù…ÙŠØ¹ Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ù†Ø·Ù‚Ø©
                                     </label>
                                 </div>
 
@@ -211,13 +211,13 @@
                                     @foreach (var d in g.Devices)
                                     {
                                         var terminalId = (d.DeviceId ?? "").Trim();
-                                        var regionName = string.IsNullOrWhiteSpace(d.RegionName) ? "أجهزة غير مصنفة" : d.RegionName;
+                                        var regionName = string.IsNullOrWhiteSpace(d.RegionName) ? "Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ù…ØµÙ†ÙØ©" : d.RegionName;
 
                                         var stateText =
-                                            d.IsDelegatedActive ? "مرتبط عبر ندب"
-                                            : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "ندب مجدول"
-                                            : d.IsAssigned ? "مرتبط فعليًا"
-                                            : "غير مرتبط";
+                                            d.IsDelegatedActive ? "Ù…Ø±ØªØ¨Ø· Ø¹Ø¨Ø± Ù†Ø¯Ø¨"
+                                            : (d.IsDelegated && d.DelegationStatus == "Scheduled") ? "Ù†Ø¯Ø¨ Ù…Ø¬Ø¯ÙˆÙ„"
+                                            : d.IsAssigned ? "Ù…Ø±ØªØ¨Ø· ÙØ¹Ù„ÙŠÙ‹Ø§"
+                                            : "ØºÙŠØ± Ù…Ø±ØªØ¨Ø·";
 
                                         var stateClass =
                                             d.IsDelegatedActive ? "is-delegated-active"
@@ -267,9 +267,9 @@
                                                         {
                                                             <div class="text-muted small">
                                                                 <i class="fa-regular fa-calendar"></i>
-                                                                من @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
+                                                                Ù…Ù† @d.DelegationStartDate.Value.ToString("dd/MM/yyyy")
                                                                 &rarr;
-                                                                إلى @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
+                                                                Ø¥Ù„Ù‰ @d.DelegationEndDate.Value.ToString("dd/MM/yyyy")
                                                             </div>
                                                         }
 
@@ -283,7 +283,7 @@
                                                                     <input type="hidden" name="terminalIds" value="@terminalId" />
                                                                     <button type="button" class="btn btn-danger btn-sm u-nowrap"
                                                                             onclick="confirmDelegationScopeAction(this, 'device')">
-                                                                        إنهاء الندب
+                                                                        Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨
                                                                     </button>
                                                                 </form>
                                                             </div>
@@ -297,7 +297,7 @@
                                                                     <input type="hidden" name="delegationId" value="@d.DelegationId.GetValueOrDefault()" />
                                                                     <button type="button" class="btn btn-outline btn-sm u-nowrap"
                                                                             onclick="confirmDelegationCardAction(this, 'cancel')">
-                                                                        إلغاء الندب
+                                                                        Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù†Ø¯Ø¨
                                                                     </button>
                                                                 </form>
                                                             </div>
@@ -318,33 +318,33 @@
         }
     }
 
-    @* ── Bulk action bar (fixed floating) ──────────────── *@
+    @* â”€â”€ Bulk action bar (fixed floating) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
     <div class="bulk-bar" id="bulkBar">
         <div class="bulk-info">
             <span class="pulse-indicator"></span>
             <div>
                 <div class="bulk-count"><span id="selectedCount">0</span></div>
-                <div class="bulk-label" id="selectedLabel">تم تحديد 0 جهاز</div>
+                <div class="bulk-label" id="selectedLabel">ØªÙ… ØªØ­Ø¯ÙŠØ¯ 0 Ø¬Ù‡Ø§Ø²</div>
             </div>
         </div>
         <div class="bulk-actions bulk-actions--controls">
             <select id="bulkOperation" class="bulk-select" onchange="onBulkOperationChange()">
-                <option value="assign">ربط دائم</option>
-                <option value="unassign">فك الربط</option>
-                <option value="delegate">إنشاء ندب</option>
-                <option value="endDelegation">إنهاء الندب</option>
+                <option value="assign">Ø±Ø¨Ø· Ø¯Ø§Ø¦Ù…</option>
+                <option value="unassign">ÙÙƒ Ø§Ù„Ø±Ø¨Ø·</option>
+                <option value="delegate">Ø¥Ù†Ø´Ø§Ø¡ Ù†Ø¯Ø¨</option>
+                <option value="endDelegation">Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨</option>
             </select>
             <div id="bulkDates" class="bulk-dates d-flex gap-2 is-hidden" aria-hidden="true">
-                <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
-                <input id="bulkEndDate"   type="text" class="date-input datepicker" placeholder="تاريخ النهاية"  autocomplete="off" />
+                <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¨Ø¯Ø§ÙŠØ©" autocomplete="off" />
+                <input id="bulkEndDate"   type="text" class="date-input datepicker" placeholder="ØªØ§Ø±ÙŠØ® Ø§Ù„Ù†Ù‡Ø§ÙŠØ©"  autocomplete="off" />
             </div>
             <button id="bulkExecuteBtn" type="button" class="btn-bulk btn-bulk-success" onclick="bulkExecute()">
                 <i class="fa-solid fa-check"></i>
-                <span>تنفيذ</span>
+                <span>ØªÙ†ÙÙŠØ°</span>
             </button>
             <button id="bulkClearSelectionBtn" type="button" class="btn-bulk btn-bulk-danger" onclick="clearSelection()">
                 <i class="fa-solid fa-xmark"></i>
-                <span>إلغاء</span>
+                <span>Ø¥Ù„ØºØ§Ø¡</span>
             </button>
         </div>
     </div>
@@ -368,8 +368,8 @@
         const employeeId = (page?.dataset?.employeeId || '').trim();
         const employeeName = (page?.dataset?.employeeName || '').trim();
         if (employeeName && employeeId && employeeId !== '0') return `${employeeName} (${employeeId})`;
-        if (employeeId && employeeId !== '0') return `الموظف رقم ${employeeId}`;
-        return 'الموظف';
+        if (employeeId && employeeId !== '0') return `Ø§Ù„Ù…ÙˆØ¸Ù Ø±Ù‚Ù… ${employeeId}`;
+        return 'Ø§Ù„Ù…ÙˆØ¸Ù';
     }
 
     function getSelectedCards() {
@@ -406,7 +406,7 @@
     function updateBulkBar() {
         const selectedCount = document.querySelectorAll('.device-chk:checked').length;
         document.getElementById('selectedCount').textContent = String(selectedCount);
-        document.getElementById('selectedLabel').textContent = `تم تحديد ${selectedCount} جهاز`;
+        document.getElementById('selectedLabel').textContent = `ØªÙ… ØªØ­Ø¯ÙŠØ¯ ${selectedCount} Ø¬Ù‡Ø§Ø²`;
 
         const bar = document.getElementById('bulkBar');
         bar.classList.toggle('show', selectedCount > 0);
@@ -506,7 +506,7 @@
         btn.classList.toggle('is-disabled', !canRun);
         const label = btn.querySelector('span');
         if (label) {
-            label.textContent = op === 'endDelegation' ? `إنهاء الندب لـ (${count}) جهاز` : 'تنفيذ';
+            label.textContent = op === 'endDelegation' ? `Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ Ù„Ù€ (${count}) Ø¬Ù‡Ø§Ø²` : 'ØªÙ†ÙÙŠØ°';
         }
     }
 
@@ -531,14 +531,14 @@
         const op = (document.getElementById('bulkOperation')?.value || '').trim();
         const selectedIds = getSelectedTerminalIds();
         if (selectedIds.length === 0) {
-            await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد جهاز واحد على الأقل', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+            await Swal.fire({ icon: 'warning', title: 'ØªÙ†Ø¨ÙŠÙ‡', text: 'ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø¬Ù‡Ø§Ø² ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
             return;
         }
 
         const stateKeys = getSelectedStateKeys();
         const uniqueStates = getUnique(stateKeys);
         if (uniqueStates.length > 1) {
-            await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'الأجهزة المحددة ليست بنفس الحالة ولا يمكن تنفيذ العملية عليها معًا.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+            await Swal.fire({ icon: 'warning', title: 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªÙ†ÙÙŠØ°', text: 'Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© Ù„ÙŠØ³Øª Ø¨Ù†ÙØ³ Ø§Ù„Ø­Ø§Ù„Ø© ÙˆÙ„Ø§ ÙŠÙ…ÙƒÙ† ØªÙ†ÙÙŠØ° Ø§Ù„Ø¹Ù…Ù„ÙŠØ© Ø¹Ù„ÙŠÙ‡Ø§ Ù…Ø¹Ù‹Ø§.', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
             return;
         }
 
@@ -548,7 +548,7 @@
         const startDisplay = (document.getElementById('bulkStartDate')?.value || '').trim();
         const endDisplay   = (document.getElementById('bulkEndDate')?.value   || '').trim();
 
-        let title = 'مراجعة قبل التنفيذ';
+        let title = 'Ù…Ø±Ø§Ø¬Ø¹Ø© Ù‚Ø¨Ù„ Ø§Ù„ØªÙ†ÙÙŠØ°';
         let opText = '';
         let iconHtml = '<i class="fa-solid fa-fingerprint text-maroon"></i>';
         let extraMeta = '';
@@ -558,30 +558,30 @@
 
         if (op === 'assign') {
             if (selectionState !== 'unassigned') {
-                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'عملية الربط الدائم متاحة فقط للأجهزة غير المرتبطة.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+                await Swal.fire({ icon: 'warning', title: 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªÙ†ÙÙŠØ°', text: 'Ø¹Ù…Ù„ÙŠØ© Ø§Ù„Ø±Ø¨Ø· Ø§Ù„Ø¯Ø§Ø¦Ù… Ù…ØªØ§Ø­Ø© ÙÙ‚Ø· Ù„Ù„Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø©.', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
                 return;
             }
-            opText = 'ربط دائم';
+            opText = 'Ø±Ø¨Ø· Ø¯Ø§Ø¦Ù…';
             actionUrl = '/employees/AssignBulk';
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
         } else if (op === 'unassign') {
             if (!(selectionState === 'assigned' || selectionState === 'delegated_active')) {
-                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'عملية فك الربط متاحة فقط للأجهزة المرتبطة فعليًا أو المرتبطة عبر ندب.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+                await Swal.fire({ icon: 'warning', title: 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªÙ†ÙÙŠØ°', text: 'Ø¹Ù…Ù„ÙŠØ© ÙÙƒ Ø§Ù„Ø±Ø¨Ø· Ù…ØªØ§Ø­Ø© ÙÙ‚Ø· Ù„Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© ÙØ¹Ù„ÙŠÙ‹Ø§ Ø£Ùˆ Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø¹Ø¨Ø± Ù†Ø¯Ø¨.', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
                 return;
             }
-            opText = 'فك الربط';
+            opText = 'ÙÙƒ Ø§Ù„Ø±Ø¨Ø·';
             actionUrl = '/employees/UnassignBulk';
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
             iconHtml = '<i class="fa-solid fa-link-slash text-red-500"></i>';
         } else if (op === 'delegate') {
             if (!(selectionState === 'unassigned' || selectionState === 'assigned')) {
-                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'إنشاء الندب متاح فقط للأجهزة غير المرتبطة أو المرتبطة فعليًا (بدون ندب).', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+                await Swal.fire({ icon: 'warning', title: 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªÙ†ÙÙŠØ°', text: 'Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ Ù…ØªØ§Ø­ ÙÙ‚Ø· Ù„Ù„Ø£Ø¬Ù‡Ø²Ø© ØºÙŠØ± Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø£Ùˆ Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© ÙØ¹Ù„ÙŠÙ‹Ø§ (Ø¨Ø¯ÙˆÙ† Ù†Ø¯Ø¨).', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
                 return;
             }
-            opText = 'إنشاء ندب';
+            opText = 'Ø¥Ù†Ø´Ø§Ø¡ Ù†Ø¯Ø¨';
             actionUrl = '/employees/DelegateRegion';
             if (!startDisplay || !endDisplay) {
-                await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى تحديد تاريخ البداية والنهاية للندب', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+                await Swal.fire({ icon: 'warning', title: 'ØªÙ†Ø¨ÙŠÙ‡', text: 'ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© ÙˆØ§Ù„Ù†Ù‡Ø§ÙŠØ© Ù„Ù„Ù†Ø¯Ø¨', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
                 return;
             }
             const start = convertDateFormat(startDisplay);
@@ -589,21 +589,21 @@
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
             fields.push({ name: 'startDate', value: start });
             fields.push({ name: 'endDate',   value: end });
-            extraMeta = `<div>الفترة: <strong>${startDisplay} → ${endDisplay}</strong></div>`;
+            extraMeta = `<div>Ø§Ù„ÙØªØ±Ø©: <strong>${startDisplay} â†’ ${endDisplay}</strong></div>`;
             iconHtml = '<i class="fa-solid fa-calendar-days text-sky"></i>';
-            note = 'ملاحظة: سيتم إنهاء الندب تلقائيًا في تاريخ النهاية.';
+            note = 'Ù…Ù„Ø§Ø­Ø¸Ø©: Ø³ÙŠØªÙ… Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§ ÙÙŠ ØªØ§Ø±ÙŠØ® Ø§Ù„Ù†Ù‡Ø§ÙŠØ©.';
         } else if (op === 'endDelegation') {
             if (selectionState !== 'delegated_active') {
-                await Swal.fire({ icon: 'warning', title: 'لا يمكن التنفيذ', text: 'إنهاء الندب متاح فقط للأجهزة المرتبطة عبر ندب نشط.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+                await Swal.fire({ icon: 'warning', title: 'Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªÙ†ÙÙŠØ°', text: 'Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ Ù…ØªØ§Ø­ ÙÙ‚Ø· Ù„Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø¹Ø¨Ø± Ù†Ø¯Ø¨ Ù†Ø´Ø·.', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
                 return;
             }
-            opText = 'إنهاء الندب';
+            opText = 'Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨';
             actionUrl = '/employees/end-delegation';
             fields = selectedIds.map(x => ({ name: 'terminalIds', value: x }));
             iconHtml = '<i class="fa-solid fa-ban text-red-500"></i>';
-            note = 'سيتم إنهاء الندب فقط للأجهزة المحددة.';
+            note = 'Ø³ÙŠØªÙ… Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨ ÙÙ‚Ø· Ù„Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©.';
         } else {
-            await Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'يرجى اختيار العملية.', confirmButtonColor: '#692f39', confirmButtonText: 'حسناً' });
+            await Swal.fire({ icon: 'warning', title: 'ØªÙ†Ø¨ÙŠÙ‡', text: 'ÙŠØ±Ø¬Ù‰ Ø§Ø®ØªÙŠØ§Ø± Ø§Ù„Ø¹Ù…Ù„ÙŠØ©.', confirmButtonColor: '#692f39', confirmButtonText: 'Ø­Ø³Ù†Ø§Ù‹' });
             return;
         }
 
@@ -614,7 +614,7 @@
                     <p class="c-swal-lead c-swal-lead--sm">${opText}</p>
                     <p class="c-swal-title">${employeeText}</p>
                     <div class="c-swal-meta">
-                        <div>عدد الأجهزة المحددة: <strong>${count}</strong></div>
+                        <div>Ø¹Ø¯Ø¯ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©: <strong>${count}</strong></div>
                         ${extraMeta}
                     </div>
                     ${note ? `<p class="c-swal-note">${note}</p>` : ''}
@@ -623,8 +623,8 @@
             showCancelButton: true,
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: '<i class="fa-solid fa-check"></i> تنفيذ',
-            cancelButtonText:  '<i class="fa-solid fa-xmark"></i> إلغاء'
+            confirmButtonText: '<i class="fa-solid fa-check"></i> ØªÙ†ÙÙŠØ°',
+            cancelButtonText:  '<i class="fa-solid fa-xmark"></i> Ø¥Ù„ØºØ§Ø¡'
         });
 
         if (!confirmResult.isConfirmed) return;
@@ -646,28 +646,28 @@
         const start       = (card?.dataset?.delegationStart || '').trim();
         const end         = (card?.dataset?.delegationEnd   || '').trim();
         const regionName  = (regionCard?.querySelector('.fw-bold')?.textContent || '').trim();
-        const datesText  = (start && end) ? `${start} → ${end}` : '';
+        const datesText  = (start && end) ? `${start} â†’ ${end}` : '';
         const count = terminalIds.length;
 
         let metaHtml = '';
         if (scope === 'device') {
             metaHtml = `
-                <div>الجهاز: <strong>${deviceName || terminalId || '-'}</strong></div>
+                <div>Ø§Ù„Ø¬Ù‡Ø§Ø²: <strong>${deviceName || terminalId || '-'}</strong></div>
                 ${terminalId ? `<div>TerminalId: <strong>${terminalId}</strong></div>` : ''}
-                ${datesText  ? `<div>الفترة: <strong>${datesText}</strong></div>` : ''}
+                ${datesText  ? `<div>Ø§Ù„ÙØªØ±Ø©: <strong>${datesText}</strong></div>` : ''}
             `;
         } else {
             metaHtml = `
-                <div>عدد الأجهزة: <strong>${count}</strong></div>
-                ${regionName ? `<div>المنطقة: <strong>${regionName}</strong></div>` : ''}
+                <div>Ø¹Ø¯Ø¯ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø©: <strong>${count}</strong></div>
+                ${regionName ? `<div>Ø§Ù„Ù…Ù†Ø·Ù‚Ø©: <strong>${regionName}</strong></div>` : ''}
             `;
         }
 
         const confirmResult = await Swal.fire({
-            title: 'تأكيد العملية',
+            title: 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¹Ù…Ù„ÙŠØ©',
             html: `<div class="c-swal-body">
                     <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
-                    <p class="c-swal-lead c-swal-lead--sm">إنهاء الندب</p>
+                    <p class="c-swal-lead c-swal-lead--sm">Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ù†Ø¯Ø¨</p>
                     <p class="c-swal-title">${employeeText}</p>
                     <div class="c-swal-meta">${metaHtml}</div>
                 </div>`,
@@ -675,8 +675,8 @@
             showCancelButton: true,
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: 'نعم',
-            cancelButtonText:  'إلغاء'
+            confirmButtonText: 'Ù†Ø¹Ù…',
+            cancelButtonText:  'Ø¥Ù„ØºØ§Ø¡'
         });
 
         if (confirmResult.isConfirmed) form.submit();
@@ -697,26 +697,26 @@
         const terminalId  = (card?.dataset?.terminalId   || '').trim();
         const start       = (card?.dataset?.delegationStart || '').trim();
         const end         = (card?.dataset?.delegationEnd   || '').trim();
-        const datesText  = (start && end) ? `${start} → ${end}` : '';
+        const datesText  = (start && end) ? `${start} â†’ ${end}` : '';
 
         const confirmResult = await Swal.fire({
-            title: 'تأكيد العملية',
+            title: 'ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø¹Ù…Ù„ÙŠØ©',
             html: `<div class="c-swal-body">
                     <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
-                    <p class="c-swal-lead c-swal-lead--sm">إلغاء الندب</p>
+                    <p class="c-swal-lead c-swal-lead--sm">Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù†Ø¯Ø¨</p>
                     <p class="c-swal-title">${employeeText}</p>
                     <div class="c-swal-meta">
-                        <div>الجهاز: <strong>${deviceName || terminalId || '-'}</strong></div>
+                        <div>Ø§Ù„Ø¬Ù‡Ø§Ø²: <strong>${deviceName || terminalId || '-'}</strong></div>
                         ${terminalId ? `<div>TerminalId: <strong>${terminalId}</strong></div>` : ''}
-                        ${datesText  ? `<div>الفترة: <strong>${datesText}</strong></div>` : ''}
+                        ${datesText  ? `<div>Ø§Ù„ÙØªØ±Ø©: <strong>${datesText}</strong></div>` : ''}
                     </div>
                 </div>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: 'نعم',
-            cancelButtonText:  'إلغاء'
+            confirmButtonText: 'Ù†Ø¹Ù…',
+            cancelButtonText:  'Ø¥Ù„ØºØ§Ø¡'
         });
 
         if (confirmResult.isConfirmed) form.submit();
@@ -781,19 +781,19 @@
 
     document.getElementById("autoAssignBtn")?.addEventListener("click", async () => {
         const confirmResult = await Swal.fire({
-            title: 'تأكيد إجراء إداري',
+            title: 'ØªØ£ÙƒÙŠØ¯ Ø¥Ø¬Ø±Ø§Ø¡ Ø¥Ø¯Ø§Ø±ÙŠ',
             html: `<div class="c-swal-body">
                     <div class="c-swal-icon c-swal-icon--lg"><i class="fa-solid fa-triangle-exclamation text-maroon"></i></div>
-                    <p class="c-swal-title">إعادة توزيع الأجهزة تلقائيًا</p>
-                    <p class="c-swal-lead c-swal-lead--sm">هذا الإجراء عام وقد يغيّر توزيع أجهزة كثيرة على المناطق.</p>
-                    <p class="c-swal-note">استخدمه فقط عند فقدان أو تلف بيانات التوزيع.</p>
+                    <p class="c-swal-title">Ø¥Ø¹Ø§Ø¯Ø© ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§</p>
+                    <p class="c-swal-lead c-swal-lead--sm">Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡ Ø¹Ø§Ù… ÙˆÙ‚Ø¯ ÙŠØºÙŠÙ‘Ø± ØªÙˆØ²ÙŠØ¹ Ø£Ø¬Ù‡Ø²Ø© ÙƒØ«ÙŠØ±Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù…Ù†Ø§Ø·Ù‚.</p>
+                    <p class="c-swal-note">Ø§Ø³ØªØ®Ø¯Ù…Ù‡ ÙÙ‚Ø· Ø¹Ù†Ø¯ ÙÙ‚Ø¯Ø§Ù† Ø£Ùˆ ØªÙ„Ù Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ØªÙˆØ²ÙŠØ¹.</p>
                 </div>`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#692f39',
             cancelButtonColor: '#6b7280',
-            confirmButtonText: 'تشغيل',
-            cancelButtonText:  'إلغاء'
+            confirmButtonText: 'ØªØ´ØºÙŠÙ„',
+            cancelButtonText:  'Ø¥Ù„ØºØ§Ø¡'
         });
 
         if (!confirmResult.isConfirmed) return;
@@ -801,20 +801,20 @@
         const res = await fetch("/api/terminals/auto-assign-regions", { method: "POST" });
 
         if (res.status === 403) {
-            await Swal.fire({ icon: 'error', title: 'غير مصرح', text: 'غير مصرح لك (Admin فقط).' });
+            await Swal.fire({ icon: 'error', title: 'ØºÙŠØ± Ù…ØµØ±Ø­', text: 'ØºÙŠØ± Ù…ØµØ±Ø­ Ù„Ùƒ (Admin ÙÙ‚Ø·).' });
             return;
         }
 
         const data = await res.json();
         await Swal.fire({
             icon: 'success',
-            title: 'تم التنفيذ',
+            title: 'ØªÙ… Ø§Ù„ØªÙ†ÙÙŠØ°',
             html: `<div class="c-swal-body">
-                    <p class="c-swal-title">تمت إعادة بناء توزيع الأجهزة</p>
+                    <p class="c-swal-title">ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© Ø¨Ù†Ø§Ø¡ ØªÙˆØ²ÙŠØ¹ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø©</p>
                     <div class="c-swal-meta">
-                        <div>عدد الأجهزة: <strong>${data.totalDevices ?? '-'}</strong></div>
-                        <div>جديد: <strong>${data.inserted ?? data.newlyAssigned ?? '-'}</strong></div>
-                        <div>تم تعديلها: <strong>${data.updated ?? data.updatedRegions ?? '-'}</strong></div>
+                        <div>Ø¹Ø¯Ø¯ Ø§Ù„Ø£Ø¬Ù‡Ø²Ø©: <strong>${data.totalDevices ?? '-'}</strong></div>
+                        <div>Ø¬Ø¯ÙŠØ¯: <strong>${data.inserted ?? data.newlyAssigned ?? '-'}</strong></div>
+                        <div>ØªÙ… ØªØ¹Ø¯ÙŠÙ„Ù‡Ø§: <strong>${data.updated ?? data.updatedRegions ?? '-'}</strong></div>
                     </div>
                 </div>`,
             confirmButtonColor: '#692f39'

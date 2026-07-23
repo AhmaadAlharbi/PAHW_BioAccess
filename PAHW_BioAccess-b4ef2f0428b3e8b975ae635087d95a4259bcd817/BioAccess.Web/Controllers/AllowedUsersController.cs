@@ -1,8 +1,8 @@
-using BioAccess.Web.Contracts;
-using BioAccess.Web.DTOs;
+﻿using Terminals.Web.Contracts;
+using Terminals.Web.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using BioAccess.Web.Services.Activity;
+using Terminals.Web.Services.Activity;
 
 public class AllowedUsersController : Controller
 {
@@ -41,7 +41,7 @@ public class AllowedUsersController : Controller
         var dto = await _admin.FetchFromSoapAsync(employeeId, ct);
         if (dto == null)
         {
-            TempData["ErrorMsg"] = "لم يتم العثور على الموظف في SOAP.";
+            TempData["ErrorMsg"] = "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ù…ÙˆØ¸Ù ÙÙŠ SOAP.";
             return RedirectToAction("Create");
         }
 
@@ -55,7 +55,7 @@ public class AllowedUsersController : Controller
     {
         var ok = await _admin.AddAsync(new AllowedUserDto(employeeId, fullName, email, department), validUntil, isAdmin, ct);
 
-        TempData["SuccessMsg"] = ok ? "تمت الإضافة." : "الموظف موجود مسبقًا.";
+        TempData["SuccessMsg"] = ok ? "ØªÙ…Øª Ø§Ù„Ø¥Ø¶Ø§ÙØ©." : "Ø§Ù„Ù…ÙˆØ¸Ù Ù…ÙˆØ¬ÙˆØ¯ Ù…Ø³Ø¨Ù‚Ù‹Ø§.";
 
         if (ok)
         {
@@ -63,7 +63,7 @@ public class AllowedUsersController : Controller
                 action: "AllowedUser.Added",
                 entityType: "AllowedUser",
                 entityId: employeeId.ToString(),
-                summary: $"تمت إضافة مستخدم إلى قائمة الصلاحيات: {employeeId} ({fullName}).",
+                summary: $"ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ù…Ø³ØªØ®Ø¯Ù… Ø¥Ù„Ù‰ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª: {employeeId} ({fullName}).",
                 details: new { employeeId, fullName, isAdmin, validUntil },
                 ct: ct
             );
@@ -84,23 +84,23 @@ public class AllowedUsersController : Controller
     {
         if (!int.TryParse(HttpContext.Session.GetString("EmpId"), out var currentEmpId))
         {
-            TempData["ErrorMsg"] = "حدث خطأ في الجلسة.";
+            TempData["ErrorMsg"] = "Ø­Ø¯Ø« Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø¬Ù„Ø³Ø©.";
             return RedirectToAction("Index");
         }
 
-        // ✅ لا تعطّل نفسك
+        // âœ… Ù„Ø§ ØªØ¹Ø·Ù‘Ù„ Ù†ÙØ³Ùƒ
         if (!makeActive && employeeId == currentEmpId)
         {
-            TempData["ErrorMsg"] = "لا يمكنك تعطيل نفسك.";
+            TempData["ErrorMsg"] = "Ù„Ø§ ÙŠÙ…ÙƒÙ†Ùƒ ØªØ¹Ø·ÙŠÙ„ Ù†ÙØ³Ùƒ.";
             return RedirectToAction("Index");
         }
 
         var ok = await _admin.SetActiveAsync(employeeId, makeActive, ct);
 
         if (!ok)
-            TempData["ErrorMsg"] = "لا يمكن تنفيذ العملية (قد يكون آخر مشرف).";
+            TempData["ErrorMsg"] = "Ù„Ø§ ÙŠÙ…ÙƒÙ† ØªÙ†ÙÙŠØ° Ø§Ù„Ø¹Ù…Ù„ÙŠØ© (Ù‚Ø¯ ÙŠÙƒÙˆÙ† Ø¢Ø®Ø± Ù…Ø´Ø±Ù).";
         else
-            TempData["SuccessMsg"] = "تم تحديث الحالة بنجاح.";
+            TempData["SuccessMsg"] = "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø§Ù„Ø© Ø¨Ù†Ø¬Ø§Ø­.";
 
         if (ok)
         {
@@ -109,8 +109,8 @@ public class AllowedUsersController : Controller
                 entityType: "AllowedUser",
                 entityId: employeeId.ToString(),
                 summary: makeActive
-                    ? $"تم تفعيل المستخدم في قائمة الصلاحيات: {employeeId}."
-                    : $"تم تعطيل المستخدم في قائمة الصلاحيات: {employeeId}.",
+                    ? $"ØªÙ… ØªÙØ¹ÙŠÙ„ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙÙŠ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª: {employeeId}."
+                    : $"ØªÙ… ØªØ¹Ø·ÙŠÙ„ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙÙŠ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª: {employeeId}.",
                 details: new { employeeId, makeActive },
                 ct: ct
             );
@@ -126,22 +126,22 @@ public class AllowedUsersController : Controller
     {
         if (!int.TryParse(HttpContext.Session.GetString("EmpId"), out var currentEmpId))
         {
-            TempData["ErrorMsg"] = "حدث خطأ في الجلسة.";
+            TempData["ErrorMsg"] = "Ø­Ø¯Ø« Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø¬Ù„Ø³Ø©.";
             return RedirectToAction("Index");
         }
 
-        // ✅ لا تسمح لنفسك تحذف نفسك
+        // âœ… Ù„Ø§ ØªØ³Ù…Ø­ Ù„Ù†ÙØ³Ùƒ ØªØ­Ø°Ù Ù†ÙØ³Ùƒ
         if (employeeId == currentEmpId)
         {
-            TempData["ErrorMsg"] = "لا يمكنك حذف نفسك.";
+            TempData["ErrorMsg"] = "Ù„Ø§ ÙŠÙ…ÙƒÙ†Ùƒ Ø­Ø°Ù Ù†ÙØ³Ùƒ.";
             return RedirectToAction("Index");
         }
 
         var ok = await _admin.DeleteAsync(employeeId, ct);
 
         TempData[ok ? "SuccessMsg" : "ErrorMsg"] = ok
-            ? "تم حذف المستخدم."
-            : "لا يمكن حذف هذا المستخدم (قد يكون آخر مشرف).";
+            ? "ØªÙ… Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…."
+            : "Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø­Ø°Ù Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… (Ù‚Ø¯ ÙŠÙƒÙˆÙ† Ø¢Ø®Ø± Ù…Ø´Ø±Ù).";
 
         if (ok)
         {
@@ -149,7 +149,7 @@ public class AllowedUsersController : Controller
                 action: "AllowedUser.Deleted",
                 entityType: "AllowedUser",
                 entityId: employeeId.ToString(),
-                summary: $"تم حذف المستخدم من قائمة الصلاحيات: {employeeId}.",
+                summary: $"ØªÙ… Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù…Ù† Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØµÙ„Ø§Ø­ÙŠØ§Øª: {employeeId}.",
                 details: new { employeeId },
                 ct: ct
             );

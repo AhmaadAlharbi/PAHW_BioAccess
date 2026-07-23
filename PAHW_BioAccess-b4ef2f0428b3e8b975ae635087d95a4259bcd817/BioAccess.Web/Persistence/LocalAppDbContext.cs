@@ -1,9 +1,9 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Reflection.Emit;
-using BioAccess.Web.Persistence.Entities;
+using Terminals.Web.Persistence.Entities;
 
-namespace BioAccess.Web.Persistence;
+namespace Terminals.Web.Persistence;
 
 public class LocalAppDbContext : DbContext
 {
@@ -33,34 +33,34 @@ public class LocalAppDbContext : DbContext
 
         // ===== TerminalRegionMap =====
         modelBuilder.Entity<TerminalRegionMap>()
-            .HasKey(x => x.TerminalId); // كل جهاز له منطقة وحدة
+            .HasKey(x => x.TerminalId); // ÙƒÙ„ Ø¬Ù‡Ø§Ø² Ù„Ù‡ Ù…Ù†Ø·Ù‚Ø© ÙˆØ­Ø¯Ø©
 
-        // 🔗 العلاقة (هذا هو الكود اللي سألت عنه)
+        // ðŸ”— Ø§Ù„Ø¹Ù„Ø§Ù‚Ø© (Ù‡Ø°Ø§ Ù‡Ùˆ Ø§Ù„ÙƒÙˆØ¯ Ø§Ù„Ù„ÙŠ Ø³Ø£Ù„Øª Ø¹Ù†Ù‡)
         modelBuilder.Entity<TerminalRegionMap>()
-            .HasOne(x => x.Region)          // TerminalRegionMap فيه Region
-            .WithMany()                     // Region ما نحتاج List داخلها
-            .HasForeignKey(x => x.RegionId) // المفتاح الأجنبي
+            .HasOne(x => x.Region)          // TerminalRegionMap ÙÙŠÙ‡ Region
+            .WithMany()                     // Region Ù…Ø§ Ù†Ø­ØªØ§Ø¬ List Ø¯Ø§Ø®Ù„Ù‡Ø§
+            .HasForeignKey(x => x.RegionId) // Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ø£Ø¬Ù†Ø¨ÙŠ
             .OnDelete(DeleteBehavior.Restrict);
 
 
 
         // ===== Seed Regions =====
         modelBuilder.Entity<Region>().HasData(
-       new Region { Id = 1, Name = "المبنى الرئيسي" },
-       new Region { Id = 2, Name = "المطلاع" },
-       new Region { Id = 3, Name = "برج التحرير" },
-       new Region { Id = 4, Name = "صباح السالم" },
-       new Region { Id = 5, Name = "الجهراء - حكومة مول" },
-       new Region { Id = 6, Name = "الجهراء - تيماء" },
-       new Region { Id = 7, Name = "جابر الأحمد" },
-       new Region { Id = 8, Name = "سعد العبدالله" },
-       new Region { Id = 9, Name = "الصليبية" },
-       new Region { Id = 10, Name = "القرين - حكومة مول" },
-       new Region { Id = 11, Name = "مبارك الكبير" },
-       new Region { Id = 12, Name = "النهضة" },
-       new Region { Id = 13, Name = "غرب الجليب" },
-       new Region { Id = 14, Name = "مواقع أخرى" },
-         new Region { Id = 15, Name = "السالمي" }
+       new Region { Id = 1, Name = "Ø§Ù„Ù…Ø¨Ù†Ù‰ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ" },
+       new Region { Id = 2, Name = "Ø§Ù„Ù…Ø·Ù„Ø§Ø¹" },
+       new Region { Id = 3, Name = "Ø¨Ø±Ø¬ Ø§Ù„ØªØ­Ø±ÙŠØ±" },
+       new Region { Id = 4, Name = "ØµØ¨Ø§Ø­ Ø§Ù„Ø³Ø§Ù„Ù…" },
+       new Region { Id = 5, Name = "Ø§Ù„Ø¬Ù‡Ø±Ø§Ø¡ - Ø­ÙƒÙˆÙ…Ø© Ù…ÙˆÙ„" },
+       new Region { Id = 6, Name = "Ø§Ù„Ø¬Ù‡Ø±Ø§Ø¡ - ØªÙŠÙ…Ø§Ø¡" },
+       new Region { Id = 7, Name = "Ø¬Ø§Ø¨Ø± Ø§Ù„Ø£Ø­Ù…Ø¯" },
+       new Region { Id = 8, Name = "Ø³Ø¹Ø¯ Ø§Ù„Ø¹Ø¨Ø¯Ø§Ù„Ù„Ù‡" },
+       new Region { Id = 9, Name = "Ø§Ù„ØµÙ„ÙŠØ¨ÙŠØ©" },
+       new Region { Id = 10, Name = "Ø§Ù„Ù‚Ø±ÙŠÙ† - Ø­ÙƒÙˆÙ…Ø© Ù…ÙˆÙ„" },
+       new Region { Id = 11, Name = "Ù…Ø¨Ø§Ø±Ùƒ Ø§Ù„ÙƒØ¨ÙŠØ±" },
+       new Region { Id = 12, Name = "Ø§Ù„Ù†Ù‡Ø¶Ø©" },
+       new Region { Id = 13, Name = "ØºØ±Ø¨ Ø§Ù„Ø¬Ù„ÙŠØ¨" },
+       new Region { Id = 14, Name = "Ù…ÙˆØ§Ù‚Ø¹ Ø£Ø®Ø±Ù‰" },
+         new Region { Id = 15, Name = "Ø§Ù„Ø³Ø§Ù„Ù…ÙŠ" }
    );
         
         // ===== Delegation =====
@@ -111,7 +111,7 @@ public class LocalAppDbContext : DbContext
             {
                 Id = 1,
                 EmployeeId = 7300,
-                FullName = "أحمد زيد الحربي",
+                FullName = "Ø£Ø­Ù…Ø¯ Ø²ÙŠØ¯ Ø§Ù„Ø­Ø±Ø¨ÙŠ",
                 Email = "admin@admin.com",
                 Department = "",
                 IsActive = true,

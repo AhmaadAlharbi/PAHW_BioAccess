@@ -1,4 +1,4 @@
-namespace BioAccess.Web.Persistence.Entities;
+﻿namespace Terminals.Web.Persistence.Entities;
 
 public class DelegationTerminal
 {
