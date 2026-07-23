@@ -39,13 +39,77 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
     }
     .choose-action-hint i { color: #c9b8ba; }
 
-    /* ── Date quick picks ──────────────────────────── */
-    .date-quickpicks { display: flex; gap: 8px; flex-wrap: wrap; }
-    .date-chip {
-        border: 1px solid #d8d2ce; background: #fff; border-radius: 20px;
-        padding: 5px 14px; font-size: 13px; cursor: pointer; color: #374151;
+    /* ── Delegation duration picker ────────────────── */
+    .bulk-dates {
+        margin-top: 12px;
+        padding: 14px;
+        border: 1px solid #e8dfd8;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #fff 0%, #fbf8f6 100%);
     }
-    .date-chip.active { background: #692f39; color: #fff; border-color: #692f39; }
+    .bulk-dates-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .bulk-dates-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #3d2a2f;
+    }
+    .bulk-dates-title i {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: #f3e8ea;
+        color: #692f39;
+        font-size: 15px;
+    }
+    .bulk-dates-title strong { display: block; font-size: 14px; }
+    .bulk-dates-title span { display: block; font-size: 12px; color: #7a6a66; }
+    .bulk-dates-summary {
+        flex-shrink: 0;
+        border-radius: 999px;
+        background: #f3efec;
+        color: #6b5b57;
+        padding: 7px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .bulk-dates-summary.is-selected {
+        background: #692f39;
+        color: #fff;
+    }
+    .custom-date-fields {
+        padding: 12px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid #e6ddda;
+    }
+    .custom-date-fields-label {
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #6b5b57;
+    }
+    .custom-date-fields-note {
+        margin-bottom: 12px;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #7a6a66;
+    }
+    .custom-date-fields-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+    }
 
     /* ── Filter toolbar (search + region dropdown) ───── */
     .filter-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
@@ -270,16 +334,23 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
 
             @* ── Dates, only relevant for ندب (nested under step 1, not separately numbered) ─── *@
             <div id="bulkDates" class="bulk-dates is-hidden" aria-hidden="true">
-                <div class="fw-semibold small mb-2">حدد مدة الندب</div>
-                <div class="date-quickpicks mb-2">
-                    <button type="button" class="date-chip" data-days="7" onclick="pickDateRange(7)">أسبوع</button>
-                    <button type="button" class="date-chip" data-days="14" onclick="pickDateRange(14)">أسبوعين</button>
-                    <button type="button" class="date-chip" data-days="30" onclick="pickDateRange(30)">شهر</button>
-                    <button type="button" class="date-chip" data-days="custom" onclick="showCustomDates()">تاريخ مخصص</button>
+                <div class="bulk-dates-head">
+                    <div class="bulk-dates-title">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                        <div>
+                            <strong>حدد مدة الندب</strong>
+                            <span>أدخل تاريخ البداية وتاريخ النهاية مباشرة بطريقة بسيطة وواضحة.</span>
+                        </div>
+                    </div>
+                    <div id="bulkDatesSummary" class="bulk-dates-summary">لم يتم الاختيار بعد</div>
                 </div>
-                <div id="customDateFields" class="d-flex gap-2 is-hidden">
-                    <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
-                    <input id="bulkEndDate"   type="text" class="date-input datepicker" placeholder="تاريخ النهاية"  autocomplete="off" />
+                <div id="customDateFields" class="custom-date-fields">
+                    <div class="custom-date-fields-label">أدخل فترة الندب</div>
+                    <div class="custom-date-fields-note">اختر الفترة المطلوبة كما هي في القرار، وسيتم تطبيق الندب ضمن هذه المدة فقط.</div>
+                    <div class="custom-date-fields-grid">
+                        <input id="bulkStartDate" type="text" class="date-input datepicker" placeholder="تاريخ البداية" autocomplete="off" />
+                        <input id="bulkEndDate"   type="text" class="date-input datepicker" placeholder="تاريخ النهاية"  autocomplete="off" />
+                    </div>
                 </div>
             </div>
         </div>
@@ -609,6 +680,29 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         updateBulkBar();
     }
 
+    function updateDatePresetSummary() {
+        const summary = document.getElementById('bulkDatesSummary');
+        if (!summary) return;
+
+        const start = (document.getElementById('bulkStartDate')?.value || '').trim();
+        const end = (document.getElementById('bulkEndDate')?.value || '').trim();
+
+        let text = 'لم يتم الاختيار بعد';
+        let selected = false;
+
+        if (start && end) {
+            text = `${start} ← ${end}`;
+            selected = true;
+        } else if (start || end) {
+            text = 'أكمل إدخال الفترة';
+        } else {
+            text = 'لم يتم الاختيار بعد';
+        }
+
+        summary.textContent = text;
+        summary.classList.toggle('is-selected', selected);
+    }
+
     // ── Step 1: action cards ───────────────────────────────
     function selectAction(action) {
         currentAction = action;
@@ -618,6 +712,7 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         const showDates = action === 'delegate';
         dates.classList.toggle('is-hidden', !showDates);
         dates.setAttribute('aria-hidden', String(!showDates));
+        updateDatePresetSummary();
 
         // Reveal the region/device picker only once an action has actually been chosen
         const section = document.getElementById('deviceSelectionSection');
@@ -647,35 +742,12 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         });
     }
 
-    // ── Step 2: date quick picks ───────────────────────────
+    // ── Step 2: delegation duration picker ────────────────
     function formatDate(d) {
         const dd = String(d.getDate()).padStart(2, '0');
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
-    }
-
-    function pickDateRange(days) {
-        const start = new Date();
-        const end = new Date();
-        end.setDate(end.getDate() + days);
-
-        document.getElementById('customDateFields')?.classList.remove('is-hidden');
-
-        if (fpStart) { fpStart.setDate(start, true); } else { const el = document.getElementById('bulkStartDate'); if (el) el.value = formatDate(start); }
-        if (fpEnd)   { fpEnd.setDate(end, true); }     else { const el = document.getElementById('bulkEndDate');   if (el) el.value = formatDate(end); }
-
-        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
-        document.querySelector(`.date-chip[data-days="${days}"]`)?.classList.add('active');
-
-        updateBulkControls();
-    }
-
-    function showCustomDates() {
-        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
-        document.querySelector('.date-chip[data-days="custom"]')?.classList.add('active');
-        document.getElementById('customDateFields')?.classList.remove('is-hidden');
-        updateBulkControls();
     }
 
     // ── Step 3: filtering (state pill + region chip + search) ──
@@ -882,8 +954,14 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         fpStart = document.getElementById('bulkStartDate')?._flatpickr || null;
         fpEnd   = document.getElementById('bulkEndDate')?._flatpickr || null;
 
-        document.getElementById('bulkStartDate')?.addEventListener('change', updateBulkControls);
-        document.getElementById('bulkEndDate')?.addEventListener('change', updateBulkControls);
+        document.getElementById('bulkStartDate')?.addEventListener('change', function () {
+            updateDatePresetSummary();
+            updateBulkControls();
+        });
+        document.getElementById('bulkEndDate')?.addEventListener('change', function () {
+            updateDatePresetSummary();
+            updateBulkControls();
+        });
         document.getElementById('deviceLiveSearch')?.addEventListener('input', function () {
             revealDeviceGrid();
             applyFilters();
@@ -894,6 +972,7 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         if (document.querySelector('.action-card')) {
             applyFilters();
         }
+        updateDatePresetSummary();
         updateBulkBar();
     });
 
@@ -923,6 +1002,7 @@ var unassigned     = devices.Where(x => !x.IsEffectivelyAssigned).ToList();
         const summaryEl = document.getElementById('bulkSummary');
         const selectedCards = getSelectedCards();
         const count = getSelectedTerminalIds().length;
+        updateDatePresetSummary();
 
         let canRun = count > 0;
         const stateKeys = getSelectedStateKeys();

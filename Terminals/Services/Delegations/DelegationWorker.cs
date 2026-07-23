@@ -61,7 +61,7 @@ public class DelegationWorker : BackgroundService
                         continue;
                     }
 
-                    await EnsureActiveDelegationAsync(activity, alpetaSync, del, now, _logger, stoppingToken);
+                    await EnsureActiveDelegationAsync(db, activity, alpetaSync, del, now, _logger, stoppingToken);
                 }
 
                 var staleDelegations = await db.Delegations
@@ -98,7 +98,15 @@ public class DelegationWorker : BackgroundService
         return $"{name} ({id})";
     }
 
+    private static Task<string?> GetEmployeeNameAsync(LocalAppDbContext db, int employeeId, CancellationToken ct)
+        => db.AllowedUsers
+            .AsNoTracking()
+            .Where(x => x.EmployeeId == employeeId)
+            .Select(x => x.FullName)
+            .FirstOrDefaultAsync(ct);
+
     private static async Task EnsureActiveDelegationAsync(
+        LocalAppDbContext db,
         IActivityLogService activity,
         DelegationAlpetaSyncService alpetaSync,
         Delegation del,
@@ -139,7 +147,8 @@ public class DelegationWorker : BackgroundService
         if (!wasScheduled)
             return;
 
-        var employeeText = FormatEmployeeText(null, del.EmployeeId);
+        var employeeName = await GetEmployeeNameAsync(db, del.EmployeeId, ct);
+        var employeeText = FormatEmployeeText(employeeName, del.EmployeeId);
         var actorText = FormatActorText("DelegationWorker", null);
 
         await activity.LogSystemAsync(
@@ -191,7 +200,8 @@ public class DelegationWorker : BackgroundService
             await alpetaSync.EnsureUnassignedAsync(del.Id, del.EmployeeId, terminalId, "expired", ct);
         }
 
-        var employeeText = FormatEmployeeText(null, del.EmployeeId);
+        var employeeName = await GetEmployeeNameAsync(db, del.EmployeeId, ct);
+        var employeeText = FormatEmployeeText(employeeName, del.EmployeeId);
         var actorText = FormatActorText("DelegationWorker", null);
 
         await activity.LogSystemAsync(
