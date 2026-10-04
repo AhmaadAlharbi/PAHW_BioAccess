@@ -41,7 +41,7 @@ public class AllowedUsersController : Controller
         var dto = await _admin.FetchFromSoapAsync(employeeId, ct);
         if (dto == null)
         {
-            TempData["ErrorMsg"] = "لم يتم العثور على الموظف في SOAP.";
+            TempData["ErrorMsg"] = "لم يتم العثور على الموظف ، تأكد من البيانات  .";
             return RedirectToAction("Create");
         }
 

@@ -22,67 +22,72 @@ public class DelegationWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Check delegations every minute so start and end dates are applied automatically.
-        while (!stoppingToken.IsCancellationRequested)
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+
+        do
         {
-            try
+            await ProcessDueDelegationsAsync(stoppingToken);
+        } while (await timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    private async Task ProcessDueDelegationsAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LocalAppDbContext>();
+            var activity = scope.ServiceProvider.GetRequiredService<IActivityLogService>();
+            var alpetaSync = scope.ServiceProvider.GetRequiredService<DelegationAlpetaSyncService>();
+
+            var now = DateTime.Now;
+
+            var delegations = await db.Delegations
+                .Include(x => x.Terminals)
+                .Where(x => x.Status == "Scheduled" || x.Status == "Active")
+                .ToListAsync(stoppingToken);
+
+            foreach (var del in delegations)
             {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<LocalAppDbContext>();
-                var activity = scope.ServiceProvider.GetRequiredService<IActivityLogService>();
-                var alpetaSync = scope.ServiceProvider.GetRequiredService<DelegationAlpetaSyncService>();
-
-                var now = DateTime.Now;
-
-                var delegations = await db.Delegations
-                    .Include(x => x.Terminals)
-                    .Where(x => x.Status == "Scheduled" || x.Status == "Active")
-                    .ToListAsync(stoppingToken);
-
-                foreach (var del in delegations)
+                if (del.Status == "Scheduled" && del.EndDate <= now)
                 {
-                    if (del.Status == "Scheduled" && del.EndDate <= now)
-                    {
-                        del.Status = "Expired";
-                        del.ExpiredAt = now;
-                        continue;
-                    }
-
-                    if (del.Status == "Scheduled" && del.StartDate <= now && del.EndDate > now)
-                    {
-                        del.Status = "Active";
-                    }
-
-                    if (del.Status != "Active")
-                        continue;
-
-                    if (del.EndDate <= now)
-                    {
-                        await ExpireDelegationAsync(db, activity, alpetaSync, del, now, stoppingToken);
-                        continue;
-                    }
-
-                    await EnsureActiveDelegationAsync(db, activity, alpetaSync, del, now, _logger, stoppingToken);
+                    del.Status = "Expired";
+                    del.ExpiredAt = now;
+                    continue;
                 }
 
-                var staleDelegations = await db.Delegations
-                    .Include(x => x.Terminals)
-                    .Where(x =>
-                        (x.Status == "Expired" || x.Status == "ManuallyEnded" || x.Status == "Cancelled") &&
-                        x.Terminals.Any())
-                    .ToListAsync(stoppingToken);
+                if (del.Status == "Scheduled" && del.StartDate <= now && del.EndDate > now)
+                {
+                    del.Status = "Active";
+                }
 
-                foreach (var delegation in staleDelegations)
-                    await RecoverDelegationCleanupAsync(alpetaSync, delegation, stoppingToken);
+                if (del.Status != "Active")
+                    continue;
 
-                await db.SaveChangesAsync(stoppingToken);
+                if (del.EndDate <= now)
+                {
+                    await ExpireDelegationAsync(db, activity, alpetaSync, del, now, stoppingToken);
+                    continue;
+                }
+
+                await EnsureActiveDelegationAsync(db, activity, alpetaSync, del, now, _logger, stoppingToken);
             }
-            catch (Exception ex)
-            {
-                // Keep the worker alive even if one cycle fails.
-                _logger.LogError(ex, "Something went wrong while processing delegations.");
-            }
 
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            var staleDelegations = await db.Delegations
+                .Include(x => x.Terminals)
+                .Where(x =>
+                    (x.Status == "Expired" || x.Status == "ManuallyEnded" || x.Status == "Cancelled") &&
+                    x.Terminals.Any())
+                .ToListAsync(stoppingToken);
+
+            foreach (var delegation in staleDelegations)
+                await RecoverDelegationCleanupAsync(alpetaSync, delegation, stoppingToken);
+
+            await db.SaveChangesAsync(stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            // Keep the worker alive even if one cycle fails.
+            _logger.LogError(ex, "Something went wrong while processing delegations.");
         }
     }
 

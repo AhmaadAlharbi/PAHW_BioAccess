@@ -165,7 +165,7 @@ public sealed class DashboardService
         }
 
         if (now < delegation.StartDate) return "Scheduled";
-        if (now >= delegation.StartDate && now <= delegation.EndDate) return "Active";
+        if (now >= delegation.StartDate && now < delegation.EndDate) return "Active";
         return "Expired";
     }
 }
