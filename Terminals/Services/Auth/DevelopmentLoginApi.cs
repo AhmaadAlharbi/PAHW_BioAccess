@@ -33,12 +33,10 @@ public sealed class DevelopmentLoginApi : ILoginApi
             return Task.FromResult(Fail("تسجيل دخول التطوير غير مهيأ."));
         }
 
-        var employeeId = _configuration.GetValue<int>("DevelopmentAdmin:EmployeeId");
-        if (!string.Equals(empId, employeeId.ToString(), StringComparison.Ordinal) ||
-            !string.Equals(password, configuredPassword, StringComparison.Ordinal))
-        {
-            return Task.FromResult(Fail("الرقم الوظيفي أو كلمة المرور غير صحيحة."));
-        }
+      if (!string.Equals(password, configuredPassword, StringComparison.Ordinal))
+{
+    return Task.FromResult(Fail("الرقم الوظيفي أو كلمة المرور غير صحيحة."));
+}
 
         return Task.FromResult(new LoginResponseDto
         {

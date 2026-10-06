@@ -5,6 +5,7 @@ public record AllowedUserListItemDto(
     string FullName,
     string Email,
     string Department,
+    string UserType,
     bool IsActive,
     bool IsAdmin,
     DateTime? ValidUntil

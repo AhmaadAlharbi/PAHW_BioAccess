@@ -20,6 +20,12 @@ namespace Terminals.Web.Controllers
         {
             if (HttpContext.Session.GetString("EmpName") != null)
             {
+                if (HttpContext.Session.GetString("IsAdmin") != "1" &&
+                    HttpContext.Session.GetString("UserType") == "IT")
+                {
+                    return RedirectToAction("Index", "AttendanceRequests");
+                }
+
                 return RedirectToAction("Index", "Dashboard");
             }
 
@@ -64,7 +70,9 @@ namespace Terminals.Web.Controllers
             
 // ✅ خزّن IsAdmin               
             var isAdmin = await _allowedUsers.IsAdminAsync(empIdInt, ct);
+            var userType = await _allowedUsers.GetUserTypeAsync(empIdInt, ct);
             HttpContext.Session.SetString("IsAdmin", isAdmin ? "1" : "0");
+            HttpContext.Session.SetString("UserType", userType);
 
 
             // ✅ الآن فقط خزّن Session
@@ -72,6 +80,11 @@ namespace Terminals.Web.Controllers
             HttpContext.Session.SetString("EmpName", result.EmployeeName);
             HttpContext.Session.SetString("EmpId", empId);
             // TempData["SuccessMsg"] = $"Welcome {result.EmployeeName}";
+
+            if (!isAdmin && userType == "IT")
+            {
+                return RedirectToAction("Index", "AttendanceRequests");
+            }
 
             return RedirectToAction("Index", "Dashboard");
 

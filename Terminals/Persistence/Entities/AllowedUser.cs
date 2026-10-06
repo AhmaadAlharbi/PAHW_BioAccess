@@ -10,6 +10,7 @@ public class AllowedUser
     public string FullName { get; set; } = "";
     public string Email { get; set; } = "";
     public string Department { get; set; } = "";
+    public string UserType { get; set; } = "Attendance";
 
     public bool IsActive { get; set; } = true;
 

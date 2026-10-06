@@ -66,6 +66,7 @@
                         <th>العضو</th>
                         <th>البريد الإلكتروني</th>
                         <th>القسم</th>
+                        <th>نوع المستخدم</th>
                         <th>الحالة</th>
                         <th>صالح حتى</th>
                         <th class="u-text-center">الإجراءات</th>
@@ -88,6 +89,7 @@
                             </td>
                             <td><span class="text-muted">@u.Email</span></td>
                             <td>@u.Department</td>
+                            <td>@(u.UserType == "IT" ? "تقنية المعلومات" : "الدوام")</td>
                             <td>
                                 @if (u.IsActive)
                                 {
@@ -118,6 +120,11 @@
                                     {
                                         <span class="badge badge-muted"><i class="fa-regular fa-user"></i> <span>عضو</span></span>
                                     }
+
+                                    <a asp-action="Edit" asp-route-employeeId="@u.EmployeeId" class="btn btn-sm btn-outline">
+                                        <i class="fa-solid fa-pen"></i>
+                                        <span>تعديل</span>
+                                    </a>
 
                                     @if (u.EmployeeId.ToString() != currentEmpId)
                                     {

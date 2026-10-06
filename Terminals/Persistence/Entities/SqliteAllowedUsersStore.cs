@@ -33,4 +33,14 @@ public class SqliteAllowedUsersStore : IAllowedUsersStore
         return user?.IsAdmin == true;
     }
 
+    public async Task<string> GetUserTypeAsync(int employeeId, CancellationToken ct)
+    {
+        var userType = await _db.AllowedUsers
+            .Where(x => x.EmployeeId == employeeId && x.IsActive)
+            .Select(x => x.UserType)
+            .FirstOrDefaultAsync(ct);
+
+        return userType == "IT" ? "IT" : "Attendance";
+    }
+
 }

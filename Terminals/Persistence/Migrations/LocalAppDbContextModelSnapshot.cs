@@ -110,6 +110,12 @@ namespace Terminals.Web.Persistence.Migrations
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("bit");
 
+                    b.Property<string>("UserType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Attendance");
+
                     b.Property<DateTime?>("ValidUntil")
                         .HasColumnType("datetime2");
 
@@ -129,7 +135,8 @@ namespace Terminals.Web.Persistence.Migrations
                             EmployeeId = 7300,
                             FullName = "أحمد زيد الحربي",
                             IsActive = true,
-                            IsAdmin = true
+                            IsAdmin = true,
+                            UserType = "Attendance"
                         });
                 });
 

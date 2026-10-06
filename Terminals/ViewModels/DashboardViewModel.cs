@@ -103,6 +103,7 @@ public sealed class DashboardViewModel
             "AllowedUser.Deactivated" => "تعطيل عضو",
             "AllowedUser.AdminGranted" => "منح صلاحية مشرف",
             "AllowedUser.AdminRevoked" => "إلغاء صلاحية مشرف",
+            "AllowedUser.Updated" => "تعديل عضو",
             "AllowedUser.Deleted" => "حذف عضو",
 
             _ => "عملية"

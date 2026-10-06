@@ -4,5 +4,6 @@ public record AllowedUserDto(
     int EmployeeId,
     string FullName,
     string Email,
-    string Department
+    string Department,
+    string UserType = "Attendance"
 );

@@ -84,6 +84,13 @@
                     <input type="text" value="@allowedUser.EmployeeId"
                            class="form-control" readonly disabled />
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">نوع المستخدم</label>
+                    <select name="userType" class="form-control" required>
+                        <option value="Attendance" selected="@(allowedUser.UserType != "IT")">الدوام</option>
+                        <option value="IT" selected="@(allowedUser.UserType == "IT")">تقنية المعلومات</option>
+                    </select>
+                </div>
             </div>
 
             <div class="mb-3">

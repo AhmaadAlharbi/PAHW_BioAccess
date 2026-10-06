@@ -106,6 +106,12 @@ public class LocalAppDbContext : DbContext
             .Property(x => x.Department)
             .HasMaxLength(200);
 
+        modelBuilder.Entity<AllowedUser>()
+            .Property(x => x.UserType)
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue("Attendance");
+
         modelBuilder.Entity<AllowedUser>().HasData(
             new AllowedUser
             {
@@ -114,6 +120,7 @@ public class LocalAppDbContext : DbContext
                 FullName = "أحمد زيد الحربي",
                 Email = "admin@admin.com",
                 Department = "",
+                UserType = "Attendance",
                 IsActive = true,
                 IsAdmin = true
             }

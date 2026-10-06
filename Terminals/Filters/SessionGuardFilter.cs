@@ -29,6 +29,18 @@ public class SessionGuardFilter : IActionFilter
         if (string.IsNullOrWhiteSpace(empName))
         {
             context.Result = new RedirectToActionResult("Index", "Home", null);
+            return;
+        }
+
+        var isAdmin = context.HttpContext.Session.GetString("IsAdmin") == "1";
+        var userType = context.HttpContext.Session.GetString("UserType") ?? "Attendance";
+
+        if (!isAdmin &&
+            string.Equals(userType, "IT", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(controller, "AttendanceRequests", StringComparison.OrdinalIgnoreCase))
+        {
+            context.HttpContext.Session.SetString("AccessDeniedMessage", "غير مصرح لك بدخول هذه الصفحة.");
+            context.Result = new RedirectToActionResult("Index", "AttendanceRequests", null);
         }
     }
 

@@ -202,6 +202,7 @@ using (var scope = app.Services.CreateScope())
     if (db.Database.IsSqlite())
     {
         var created = db.Database.EnsureCreated();
+        EnsureAllowedUsersUserTypeColumn(db);
 
         if (created && app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Database:SeedModelData"))
         {
@@ -278,3 +279,37 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+static void EnsureAllowedUsersUserTypeColumn(LocalAppDbContext db)
+{
+    var connection = db.Database.GetDbConnection();
+    var shouldClose = connection.State == System.Data.ConnectionState.Closed;
+
+    if (shouldClose)
+    {
+        connection.Open();
+    }
+
+    try
+    {
+        using var checkCommand = connection.CreateCommand();
+        checkCommand.CommandText = "SELECT COUNT(*) FROM pragma_table_info('AllowedUsers') WHERE name = 'UserType';";
+        var exists = Convert.ToInt32(checkCommand.ExecuteScalar()) > 0;
+
+        if (exists)
+        {
+            return;
+        }
+
+        using var alterCommand = connection.CreateCommand();
+        alterCommand.CommandText = "ALTER TABLE \"AllowedUsers\" ADD COLUMN \"UserType\" TEXT NOT NULL DEFAULT 'Attendance';";
+        alterCommand.ExecuteNonQuery();
+    }
+    finally
+    {
+        if (shouldClose)
+        {
+            connection.Close();
+        }
+    }
+}

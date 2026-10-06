@@ -58,6 +58,7 @@ public class AllowedUsersAdminService : IAllowedUsersAdmin
             FullName = dto.FullName,
             Email = dto.Email,
             Department = dto.Department,
+            UserType = dto.UserType,
             ValidUntil = validUntil,
             IsAdmin = isAdmin,
             IsActive = true
@@ -77,6 +78,7 @@ public class AllowedUsersAdminService : IAllowedUsersAdmin
                 x.FullName,
                 x.Email,
                 x.Department,
+                x.UserType,
                 x.IsActive,
                 x.IsAdmin,
                 x.ValidUntil
@@ -95,11 +97,41 @@ public class AllowedUsersAdminService : IAllowedUsersAdmin
                 x.FullName,
                 x.Email,
                 x.Department,
+                x.UserType,
                 x.IsActive,
                 x.IsAdmin,
                 x.ValidUntil
             ))
             .FirstOrDefaultAsync(ct);
+
+    public async Task<bool> UpdateAdministrativeAsync(int employeeId, string userType, DateTime? validUntil, bool isAdmin, bool isActive, int currentEmployeeId, CancellationToken ct)
+    {
+        var user = await _db.AllowedUsers
+            .FirstOrDefaultAsync(x => x.EmployeeId == employeeId, ct);
+
+        if (user == null)
+            return false;
+
+        if (!isActive && employeeId == currentEmployeeId)
+            return false;
+
+        if ((!isAdmin || !isActive) && user.IsAdmin && user.IsActive)
+        {
+            var adminCount = await _db.AllowedUsers
+                .CountAsync(x => x.IsAdmin && x.IsActive, ct);
+
+            if (adminCount <= 1)
+                return false;
+        }
+
+        user.UserType = userType;
+        user.ValidUntil = validUntil;
+        user.IsAdmin = isAdmin;
+        user.IsActive = isActive;
+
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
 
     public async Task<bool> SetActiveAsync(int employeeId, bool isActive, CancellationToken ct)
     {

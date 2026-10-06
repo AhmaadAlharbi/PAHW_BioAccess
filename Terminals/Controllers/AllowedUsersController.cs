@@ -51,9 +51,10 @@ public class AllowedUsersController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(int employeeId, string fullName, string email, string department,
-        DateTime? validUntil, bool isAdmin, CancellationToken ct)
+        string userType, DateTime? validUntil, bool isAdmin, CancellationToken ct)
     {
-        var ok = await _admin.AddAsync(new AllowedUserDto(employeeId, fullName, email, department), validUntil, isAdmin, ct);
+        userType = NormalizeUserType(userType);
+        var ok = await _admin.AddAsync(new AllowedUserDto(employeeId, fullName, email, department, userType), validUntil, isAdmin, ct);
 
         TempData["SuccessMsg"] = ok ? "تمت الإضافة." : "الموظف موجود مسبقًا.";
 
@@ -64,7 +65,7 @@ public class AllowedUsersController : Controller
                 entityType: "AllowedUser",
                 entityId: employeeId.ToString(),
                 summary: $"تمت إضافة العضو {FormatAllowedUserText(fullName, employeeId)} إلى قائمة الصلاحيات.",
-                details: new { employeeId, fullName, isAdmin, validUntil },
+                details: new { employeeId, fullName, userType, isAdmin, validUntil },
                 ct: ct
             );
         }
@@ -76,6 +77,62 @@ public class AllowedUsersController : Controller
     {
         var list = await _admin.ListAsync(ct);
         return View(list);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Edit(int employeeId, CancellationToken ct)
+    {
+        var user = await _admin.FindAsync(employeeId, ct);
+        if (user == null)
+        {
+            TempData["ErrorMsg"] = "لم يتم العثور على العضو.";
+            return RedirectToAction("Index");
+        }
+
+        return View(user);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int employeeId, string userType, DateTime? validUntil, bool isAdmin, bool isActive, CancellationToken ct)
+    {
+        if (!int.TryParse(HttpContext.Session.GetString("EmpId"), out var currentEmpId))
+        {
+            TempData["ErrorMsg"] = "حدث خطأ في الجلسة.";
+            return RedirectToAction("Index");
+        }
+
+        var targetUser = await _admin.FindAsync(employeeId, ct);
+        if (targetUser == null)
+        {
+            TempData["ErrorMsg"] = "لم يتم العثور على العضو.";
+            return RedirectToAction("Index");
+        }
+
+        userType = NormalizeUserType(userType);
+        var ok = await _admin.UpdateAdministrativeAsync(employeeId, userType, validUntil, isAdmin, isActive, currentEmpId, ct);
+
+        if (!ok)
+        {
+            TempData["ErrorMsg"] = "لا يمكن حفظ التعديل (قد يكون آخر مشرف أو حسابك الحالي).";
+            return RedirectToAction("Edit", new { employeeId });
+        }
+
+        if (employeeId == currentEmpId)
+            HttpContext.Session.SetString("IsAdmin", isAdmin ? "1" : "0");
+
+        TempData["SuccessMsg"] = "تم حفظ التعديل بنجاح.";
+
+        await _activity.LogAsync(
+            action: "AllowedUser.Updated",
+            entityType: "AllowedUser",
+            entityId: employeeId.ToString(),
+            summary: $"تم تعديل بيانات العضو {FormatAllowedUserText(targetUser.FullName, employeeId)}.",
+            details: new { employeeId, fullName = targetUser.FullName, userType, isAdmin, isActive, validUntil },
+            ct: ct
+        );
+
+        return RedirectToAction("Index");
     }
 
     [HttpPost]
@@ -209,4 +266,7 @@ public class AllowedUsersController : Controller
         => string.IsNullOrWhiteSpace(fullName)
             ? $"الموظف رقم {employeeId}"
             : $"{fullName.Trim()} ({employeeId})";
+
+    private static string NormalizeUserType(string? userType)
+        => userType == "IT" ? "IT" : "Attendance";
 }

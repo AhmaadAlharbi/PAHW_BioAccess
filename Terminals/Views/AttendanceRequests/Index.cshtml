@@ -1,0 +1,34 @@
+@{
+    ViewData["Title"] = "طلبات استفسار الحضور";
+    var accessDeniedMessage = Context.Session.GetString("AccessDeniedMessage");
+    if (!string.IsNullOrWhiteSpace(accessDeniedMessage))
+    {
+        Context.Session.Remove("AccessDeniedMessage");
+    }
+}
+
+@if (!string.IsNullOrWhiteSpace(accessDeniedMessage))
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <span>@accessDeniedMessage</span>
+    </div>
+}
+
+<div class="allowed-users-page fade-in">
+    <div class="content-card">
+        <div class="allowed-users-header mb-3">
+            <div class="allowed-users-title">
+                <span class="allowed-users-title-icon"><i class="fa-solid fa-clipboard-question"></i></span>
+                <div>
+                    <h1>طلبات استفسار الحضور</h1>
+                    <p>هذه صفحة الطلبات، وسيتم استكمال تفاصيلها لاحقًا.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-state">
+            <div class="empty-state-text">لا توجد بيانات للعرض حاليًا.</div>
+        </div>
+    </div>
+</div>

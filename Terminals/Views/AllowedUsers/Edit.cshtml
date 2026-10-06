@@ -1,0 +1,116 @@
+@model Terminals.Web.DTOs.AllowedUserListItemDto
+@{
+    ViewData["Title"] = "تعديل عضو";
+}
+
+@if (TempData["ErrorMsg"] != null)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <span>@TempData["ErrorMsg"]</span>
+    </div>
+}
+@if (TempData["SuccessMsg"] != null)
+{
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>@TempData["SuccessMsg"]</span>
+    </div>
+}
+
+<div class="allowed-users-page fade-in">
+    <div class="content-card">
+        <div class="allowed-users-header mb-3">
+            <div class="allowed-users-title">
+                <span class="allowed-users-title-icon"><i class="fa-solid fa-user-pen"></i></span>
+                <div>
+                    <h2>تعديل عضو</h2>
+                    <p>مراجعة بيانات العضو وتعديل الحقول الإدارية.</p>
+                </div>
+            </div>
+            <a asp-controller="AllowedUsers" asp-action="Index" class="btn btn-outline btn-sm">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>العودة للقائمة</span>
+            </a>
+        </div>
+
+        <form method="post" asp-action="Edit">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+
+            <h2 class="c-section-title">بيانات الموظف</h2>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">الاسم الكامل</label>
+                    <input type="text" value="@Model.FullName" class="form-control" readonly disabled />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">الرقم الوظيفي</label>
+                    <input type="text" value="@Model.EmployeeId" class="form-control" readonly disabled />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">البريد الإلكتروني</label>
+                    <input type="email" value="@Model.Email" class="form-control" readonly disabled />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">القسم</label>
+                    <input type="text" value="@Model.Department" class="form-control" readonly disabled />
+                </div>
+            </div>
+
+            <h2 class="c-section-title">الحقول الإدارية</h2>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">نوع المستخدم</label>
+                    <select name="userType" class="form-control" required>
+                        <option value="Attendance" selected="@(Model.UserType != "IT")">الدوام</option>
+                        <option value="IT" selected="@(Model.UserType == "IT")">تقنية المعلومات</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">صالح حتى</label>
+                    <input type="date" name="validUntil" value="@(Model.ValidUntil?.ToString("yyyy-MM-dd"))" class="form-control" />
+                    <div class="text-muted small mt-1">اتركه فارغًا إذا كانت الصلاحية دائمة.</div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="permission-toggle" for="isAdmin">
+                    <input type="checkbox" name="isAdmin" id="isAdmin"
+                           value="true" class="permission-toggle-input" checked="@Model.IsAdmin" />
+                    <span class="permission-toggle-icon">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </span>
+                    <span class="permission-toggle-text">
+                        <span class="permission-toggle-title">صلاحية مشرف</span>
+                        <span class="permission-toggle-description">المشرف يستطيع إدارة الأعضاء والمناطق والأجهزة وتنفيذ العمليات الإدارية.</span>
+                    </span>
+                    <span class="permission-toggle-control" aria-hidden="true"></span>
+                </label>
+            </div>
+
+            <div class="mb-3">
+                <label class="permission-toggle" for="isActive">
+                    <input type="checkbox" name="isActive" id="isActive"
+                           value="true" class="permission-toggle-input" checked="@Model.IsActive" />
+                    <span class="permission-toggle-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </span>
+                    <span class="permission-toggle-text">
+                        <span class="permission-toggle-title">الحساب فعال</span>
+                        <span class="permission-toggle-description">الحساب الفعال يستطيع الدخول واستخدام النظام حسب صلاحياته.</span>
+                    </span>
+                    <span class="permission-toggle-control" aria-hidden="true"></span>
+                </label>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <a asp-controller="AllowedUsers" asp-action="Index" class="btn btn-outline">إلغاء</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-check"></i>
+                    <span>حفظ التعديل</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
