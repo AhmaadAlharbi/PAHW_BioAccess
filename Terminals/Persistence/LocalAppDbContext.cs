@@ -18,6 +18,9 @@ public class LocalAppDbContext : DbContext
     public DbSet<TerminalRegionMap> TerminalRegionMaps => Set<TerminalRegionMap>();
     public DbSet<AllowedUser> AllowedUsers => Set<AllowedUser>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<AttendanceRequest> AttendanceRequests => Set<AttendanceRequest>();
+    public DbSet<AttendanceRequestItem> AttendanceRequestItems => Set<AttendanceRequestItem>();
+    public DbSet<AttendanceRequestAttachment> AttendanceRequestAttachments => Set<AttendanceRequestAttachment>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -164,6 +167,82 @@ public class LocalAppDbContext : DbContext
 
         modelBuilder.Entity<ActivityLog>()
             .HasIndex(x => x.CreatedAt);
+
+        // ===== AttendanceRequest =====
+        modelBuilder.Entity<AttendanceRequest>()
+            .HasKey(x => x.Id);
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .Property(x => x.EmployeeName)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .Property(x => x.CreatedByName)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .Property(x => x.HrNote)
+            .HasMaxLength(1000);
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .Property(x => x.Status)
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue("PendingIT");
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .Property(x => x.ITNote)
+            .HasMaxLength(1000);
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .Property(x => x.AnsweredByName)
+            .HasMaxLength(200);
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .HasMany(x => x.Items)
+            .WithOne(x => x.AttendanceRequest)
+            .HasForeignKey(x => x.AttendanceRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AttendanceRequest>()
+            .HasMany(x => x.Attachments)
+            .WithOne(x => x.AttendanceRequest)
+            .HasForeignKey(x => x.AttendanceRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ===== AttendanceRequestItem =====
+        modelBuilder.Entity<AttendanceRequestItem>()
+            .HasKey(x => x.Id);
+
+        modelBuilder.Entity<AttendanceRequestItem>()
+            .Property(x => x.Type)
+            .HasMaxLength(30)
+            .IsRequired();
+
+        modelBuilder.Entity<AttendanceRequestItem>()
+            .Property(x => x.Reply)
+            .HasMaxLength(1000);
+
+        // ===== AttendanceRequestAttachment =====
+        modelBuilder.Entity<AttendanceRequestAttachment>()
+            .HasKey(x => x.Id);
+
+        modelBuilder.Entity<AttendanceRequestAttachment>()
+            .Property(x => x.FileName)
+            .HasMaxLength(255)
+            .IsRequired();
+
+        modelBuilder.Entity<AttendanceRequestAttachment>()
+            .Property(x => x.StoredFileName)
+            .HasMaxLength(255)
+            .IsRequired();
+
+        modelBuilder.Entity<AttendanceRequestAttachment>()
+            .Property(x => x.ContentType)
+            .HasMaxLength(100)
+            .IsRequired();
 
     }
 
