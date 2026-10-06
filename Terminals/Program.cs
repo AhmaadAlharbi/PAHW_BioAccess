@@ -10,6 +10,7 @@ using Terminals.Web.Persistence;
 using Terminals.Web.Persistence.Entities;
 using Terminals.Web.Services.Activity;
 using Terminals.Web.Services.AllowedUsers;
+using Terminals.Web.Services.AttendanceRequests;
 using Terminals.Web.Services.Auth;
 using Terminals.Web.Services.Dashboard;
 using Terminals.Web.Services.Delegations;
@@ -141,6 +142,7 @@ builder.Services.AddSession(options =>
 builder.Services.AddScoped<IAllowedUsersStore, SqliteAllowedUsersStore>();
 builder.Services.AddScoped<AllowedUsersAdminService>();
 builder.Services.AddScoped<IAllowedUsersAdmin, AllowedUsersAdminService>();
+builder.Services.AddScoped<IAttendanceRequestsService, AttendanceRequestsService>();
 builder.Services.AddScoped<DelegationAlpetaSyncService>();
 builder.Services.AddScoped<DelegationService>();
 builder.Services.AddScoped<IDelegationService, DelegationService>();

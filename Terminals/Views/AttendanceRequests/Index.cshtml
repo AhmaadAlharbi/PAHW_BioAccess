@@ -1,5 +1,8 @@
 @{
     ViewData["Title"] = "طلبات استفسار الحضور";
+    var isAdmin = Context.Session.GetString("IsAdmin") == "1";
+    var userType = Context.Session.GetString("UserType") ?? "Attendance";
+    var canCreateRequest = isAdmin || userType == "Attendance";
     var accessDeniedMessage = Context.Session.GetString("AccessDeniedMessage");
     if (!string.IsNullOrWhiteSpace(accessDeniedMessage))
     {
@@ -14,6 +17,20 @@
         <span>@accessDeniedMessage</span>
     </div>
 }
+@if (TempData["ErrorMsg"] != null)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <span>@TempData["ErrorMsg"]</span>
+    </div>
+}
+@if (TempData["SuccessMsg"] != null)
+{
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>@TempData["SuccessMsg"]</span>
+    </div>
+}
 
 <div class="allowed-users-page fade-in">
     <div class="content-card">
@@ -25,6 +42,13 @@
                     <p>هذه صفحة الطلبات، وسيتم استكمال تفاصيلها لاحقًا.</p>
                 </div>
             </div>
+            @if (canCreateRequest)
+            {
+                <a asp-controller="AttendanceRequests" asp-action="Create" class="btn btn-primary">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>طلب جديد</span>
+                </a>
+            }
         </div>
 
         <div class="empty-state">

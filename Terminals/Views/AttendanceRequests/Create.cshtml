@@ -1,0 +1,249 @@
+@model Terminals.Web.DTOs.AttendanceRequestCreateViewModel
+@{
+    ViewData["Title"] = "طلب استفسار حضور جديد";
+    var employeeValidationMessage = Model.ValidationMessages.FirstOrDefault(x => x.Contains("موظف صحيح"));
+    var requestedDateValidationMessage = Model.ValidationMessages.FirstOrDefault(x => x.Contains("تاريخ الحضور"));
+    var typesValidationMessage = Model.ValidationMessages.FirstOrDefault(x => x.Contains("إجراء واحد"));
+}
+
+@if (TempData["ErrorMsg"] != null)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <span>@TempData["ErrorMsg"]</span>
+    </div>
+}
+@if (Model.ValidationMessages.Any())
+{
+    <div id="validationSummaryCard" class="content-card mb-3" role="alert">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge badge-danger"><i class="fa-solid fa-circle-xmark"></i> <span>تنبيه</span></span>
+            <strong>يرجى تصحيح البيانات التالية:</strong>
+        </div>
+        <ul class="mb-0 text-danger">
+            @foreach (var message in Model.ValidationMessages)
+            {
+                var validationKey = message == employeeValidationMessage
+                    ? "employee"
+                    : message == requestedDateValidationMessage
+                        ? "requestedDate"
+                        : message == typesValidationMessage
+                            ? "types"
+                            : "general";
+                <li data-validation-summary-for="@validationKey">@message</li>
+            }
+        </ul>
+    </div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+{
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>@Model.SuccessMessage</span>
+    </div>
+}
+
+<div class="allowed-users-page fade-in">
+    <div class="content-card mb-3">
+        <div class="allowed-users-header mb-3">
+            <div class="allowed-users-title">
+                <span class="allowed-users-title-icon"><i class="fa-solid fa-clipboard-question"></i></span>
+                <div>
+                    <h2>طلب استفسار حضور جديد</h2>
+                    <p>ابدأ بالرقم الوظيفي ثم راجع بيانات الموظف وحدد بيانات الاستفسار.</p>
+                </div>
+            </div>
+            <a asp-controller="AttendanceRequests" asp-action="Index" class="btn btn-outline btn-sm">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>العودة للطلبات</span>
+            </a>
+        </div>
+
+        <h2 class="c-section-title">الخطوة 1 — جلب بيانات الموظف</h2>
+        <p class="text-muted small mb-3">أدخل الرقم الوظيفي لجلب بيانات الموظف من النظام.</p>
+
+        <form id="lookupEmployeeForm" method="post" asp-action="LookupEmployee">
+            @Html.AntiForgeryToken()
+            <div class="d-flex gap-2 align-items-end">
+                <div class="flex-grow-1">
+                    <label class="form-label fw-bold">الرقم الوظيفي</label>
+                    <input type="number" name="employeeId" value="@Model.EmployeeId" required
+                           placeholder="مثال: 7300" class="form-control" data-validation-input="employee" />
+                    @if (!string.IsNullOrWhiteSpace(employeeValidationMessage))
+                    {
+                        <div class="text-danger small mt-1" data-validation-for="employee">@employeeValidationMessage</div>
+                    }
+                </div>
+                <button type="submit" class="btn btn-primary u-nowrap">جلب البيانات</button>
+            </div>
+        </form>
+    </div>
+
+    @if (Model.LookupSucceeded)
+    {
+        <div class="content-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h2 class="c-section-title">الخطوة 2 — بيانات الطلب</h2>
+                <span class="badge badge-success"><i class="fa-solid fa-check"></i> <span>تم جلب البيانات</span></span>
+            </div>
+
+            <form method="post" asp-action="ValidateCreate">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="employeeId" value="@Model.EmployeeId" />
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الاسم الكامل</label>
+                        <input type="text" value="@Model.EmployeeName" class="form-control" readonly disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الرقم الوظيفي</label>
+                        <input type="text" value="@Model.EmployeeId" class="form-control" readonly disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">القسم</label>
+                        <input type="text" value="@Model.Department" class="form-control" readonly disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">المسمى الوظيفي</label>
+                        <input type="text" value="@Model.JobTitle" class="form-control" readonly disabled />
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">تاريخ الحضور المطلوب</label>
+                        <input type="date" name="requestedDate" value="@Model.RequestedDate" class="form-control" data-validation-input="requestedDate" />
+                        <div class="text-muted small mt-1">هذا هو تاريخ الحضور المطلوب الاستفسار عنه.</div>
+                        @if (!string.IsNullOrWhiteSpace(requestedDateValidationMessage))
+                        {
+                            <div class="text-danger small mt-1" data-validation-for="requestedDate">@requestedDateValidationMessage</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">الإجراءات المطلوب التحقق منها</label>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="permission-toggle" for="mobileIn">
+                                <input type="checkbox" name="types" id="mobileIn" value="mobileIn" class="permission-toggle-input" checked="@Model.IsSelected("mobileIn")" />
+                                <span class="permission-toggle-icon"><i class="fa-solid fa-mobile-screen-button"></i></span>
+                                <span class="permission-toggle-text">
+                                    <span class="permission-toggle-title">حضور تطبيق الجوال</span>
+                                </span>
+                                <span class="permission-toggle-control" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="permission-toggle" for="fingerprintIn">
+                                <input type="checkbox" name="types" id="fingerprintIn" value="fingerprintIn" class="permission-toggle-input" checked="@Model.IsSelected("fingerprintIn")" />
+                                <span class="permission-toggle-icon"><i class="fa-solid fa-fingerprint"></i></span>
+                                <span class="permission-toggle-text">
+                                    <span class="permission-toggle-title">حضور جهاز البصمة</span>
+                                </span>
+                                <span class="permission-toggle-control" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="permission-toggle" for="mobileOut">
+                                <input type="checkbox" name="types" id="mobileOut" value="mobileOut" class="permission-toggle-input" checked="@Model.IsSelected("mobileOut")" />
+                                <span class="permission-toggle-icon"><i class="fa-solid fa-mobile-screen-button"></i></span>
+                                <span class="permission-toggle-text">
+                                    <span class="permission-toggle-title">انصراف تطبيق الجوال</span>
+                                </span>
+                                <span class="permission-toggle-control" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="permission-toggle" for="fingerprintOut">
+                                <input type="checkbox" name="types" id="fingerprintOut" value="fingerprintOut" class="permission-toggle-input" checked="@Model.IsSelected("fingerprintOut")" />
+                                <span class="permission-toggle-icon"><i class="fa-solid fa-fingerprint"></i></span>
+                                <span class="permission-toggle-text">
+                                    <span class="permission-toggle-title">انصراف جهاز البصمة</span>
+                                </span>
+                                <span class="permission-toggle-control" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(typesValidationMessage))
+                    {
+                        <div class="text-danger small mt-2" data-validation-for="types">@typesValidationMessage</div>
+                    }
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ملاحظة الموارد البشرية</label>
+                    <textarea name="hrNote" class="form-control" rows="4" placeholder="اكتب الملاحظة عند الحاجة">@Model.HrNote</textarea>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    <a asp-controller="AttendanceRequests" asp-action="Index" class="btn btn-outline">إلغاء</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-check"></i>
+                        <span>إرسال الطلب</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    }
+    else
+    {
+        <div class="content-card">
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div class="empty-state-text">أدخل الرقم الوظيفي في الخطوة الأولى لجلب بيانات الموظف</div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        var lookupEmployeeForm = document.getElementById('lookupEmployeeForm');
+
+        if (lookupEmployeeForm) {
+            lookupEmployeeForm.addEventListener('submit', function () {
+                var btn = lookupEmployeeForm.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الجلب...';
+                }
+            });
+        }
+
+        function hideValidation(key) {
+            document.querySelectorAll('[data-validation-for="' + key + '"]').forEach(function (el) {
+                el.classList.add('d-none');
+            });
+            document.querySelectorAll('[data-validation-summary-for="' + key + '"]').forEach(function (el) {
+                el.classList.add('d-none');
+            });
+
+            var summary = document.getElementById('validationSummaryCard');
+            if (!summary) return;
+            var visibleItems = summary.querySelectorAll('[data-validation-summary-for]:not(.d-none)');
+            if (visibleItems.length === 0) {
+                summary.classList.add('d-none');
+            }
+        }
+
+        document.querySelectorAll('[data-validation-input="employee"]').forEach(function (input) {
+            input.addEventListener('input', function () { hideValidation('employee'); });
+        });
+
+        document.querySelectorAll('[data-validation-input="requestedDate"]').forEach(function (input) {
+            input.addEventListener('change', function () { hideValidation('requestedDate'); });
+            input.addEventListener('input', function () { hideValidation('requestedDate'); });
+        });
+
+        document.querySelectorAll('input[name="types"]').forEach(function (input) {
+            input.addEventListener('change', function () {
+                var anySelected = Array.from(document.querySelectorAll('input[name="types"]')).some(function (item) {
+                    return item.checked;
+                });
+                if (anySelected) hideValidation('types');
+            });
+        });
+    </script>
+}
