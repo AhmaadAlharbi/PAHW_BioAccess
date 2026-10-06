@@ -21,6 +21,13 @@ using Terminals.Web.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+}
+
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add<SessionGuardFilter>();
@@ -29,12 +36,42 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
 
-var connectionString = builder.Configuration.GetConnectionString("serverDB")
-                       ?? throw new Exception("Missing ConnectionStrings:serverDB");
-
+var databaseProvider = builder.Configuration["Database:Provider"]
+                       ?? (builder.Environment.IsDevelopment() ? "Sqlite" : "SqlServer");
 
 builder.Services.AddDbContext<LocalAppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("serverDB")));
+{
+    if (databaseProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        var connectionString = builder.Configuration.GetConnectionString("LocalSqlite")
+                               ?? throw new Exception("Missing ConnectionStrings:LocalSqlite");
+
+        options.UseSqlite(connectionString);
+        return;
+    }
+
+    if (builder.Environment.IsDevelopment())
+    {
+        throw new InvalidOperationException(
+            "Development must use SQLite. Set Database:Provider to Sqlite and ConnectionStrings:LocalSqlite.");
+    }
+
+    if (databaseProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
+    {
+        var connectionString = builder.Configuration.GetConnectionString("serverDB")
+                               ?? throw new Exception("Missing ConnectionStrings:serverDB");
+
+        if (string.IsNullOrWhiteSpace(connectionString) || connectionString.Contains("YOUR_", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("ConnectionStrings:serverDB must be configured from a secure environment-specific source.");
+        }
+
+        options.UseSqlServer(connectionString);
+        return;
+    }
+
+    throw new InvalidOperationException($"Unsupported Database:Provider '{databaseProvider}'.");
+});
 builder.Services.AddScoped<RegionMappingService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddHttpClient<SoapLoginApi>(client =>
@@ -52,7 +89,14 @@ builder.Services.AddHttpClient<SoapLoginApi>(client =>
 // {
 //     client.BaseAddress = new Uri("https://localhost:56497");
 // });
-builder.Services.AddScoped<ILoginApi, SoapLoginApi>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddScoped<ILoginApi, DevelopmentLoginApi>();
+}
+else
+{
+    builder.Services.AddScoped<ILoginApi, SoapLoginApi>();
+}
 builder.Services.AddScoped<ICurrentUser, CompositeCurrentUser>();
 
 builder.Services.AddAuthentication(options =>
@@ -150,11 +194,59 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-// ✅ Ensure DB created (اختياري، لكن OK)
+// Ensure the local app database is ready for the selected provider.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<LocalAppDbContext>();
-    db.Database.Migrate();
+
+    if (db.Database.IsSqlite())
+    {
+        var created = db.Database.EnsureCreated();
+
+        if (created && app.Environment.IsDevelopment() && !builder.Configuration.GetValue<bool>("Database:SeedModelData"))
+        {
+            db.AllowedUsers.RemoveRange(db.AllowedUsers);
+            db.SaveChanges();
+        }
+
+        if (app.Environment.IsDevelopment())
+        {
+            var developmentAdminEmployeeId = builder.Configuration.GetValue<int>("DevelopmentAdmin:EmployeeId");
+            if (developmentAdminEmployeeId <= 0)
+            {
+                throw new InvalidOperationException("DevelopmentAdmin:EmployeeId must be configured for local development.");
+            }
+
+            var developmentAdmin = db.AllowedUsers.SingleOrDefault(x => x.EmployeeId == developmentAdminEmployeeId);
+            if (developmentAdmin is null)
+            {
+                db.AllowedUsers.Add(new AllowedUser
+                {
+                    EmployeeId = developmentAdminEmployeeId,
+                    FullName = builder.Configuration["DevelopmentAdmin:FullName"] ?? "مستخدم التطوير",
+                    Email = builder.Configuration["DevelopmentAdmin:Email"] ?? "dev-admin@localhost",
+                    Department = builder.Configuration["DevelopmentAdmin:Department"] ?? "بيئة التطوير",
+                    IsActive = true,
+                    IsAdmin = true
+                });
+            }
+            else
+            {
+                developmentAdmin.FullName = builder.Configuration["DevelopmentAdmin:FullName"] ?? "مستخدم التطوير";
+                developmentAdmin.Email = builder.Configuration["DevelopmentAdmin:Email"] ?? "dev-admin@localhost";
+                developmentAdmin.Department = builder.Configuration["DevelopmentAdmin:Department"] ?? "بيئة التطوير";
+                developmentAdmin.IsActive = true;
+                developmentAdmin.IsAdmin = true;
+                developmentAdmin.ValidUntil = null;
+            }
+
+            db.SaveChanges();
+        }
+    }
+    else
+    {
+        db.Database.Migrate();
+    }
 }
 
 app.UseExceptionHandler(appErr =>

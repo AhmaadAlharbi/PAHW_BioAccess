@@ -272,6 +272,11 @@ ServiceFabricBackup/
 *.ldf
 *.ndf
 
+# Local SQLite development database
+terminals-dev.db
+terminals-dev.db-shm
+terminals-dev.db-wal
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout

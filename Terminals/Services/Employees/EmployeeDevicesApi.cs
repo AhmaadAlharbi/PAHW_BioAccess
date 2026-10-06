@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Terminals.Web.Contracts;
 using Terminals.Web.DTOs;
 using Terminals.Web.External;
@@ -5,8 +6,6 @@ using Terminals.Web.Persistence;
 using Terminals.Web.Services.Observability;
 using Terminals.Web.Services.Restrictions;
 using Terminals.Web.Services.Terminals;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Terminals.Web.Services.Employees;
 
@@ -86,27 +85,29 @@ public class EmployeeDevicesApi : IEmployeeDevicesApi
         var now = DateTime.Now;
 
         // Active delegations act like temporary assignments on the screen.
-        var activeDelegatedTerminalIds = await _db.Delegations
-            .Where(d =>
-                d.EmployeeId == employeeId &&
-                d.Status == "Active" &&
-                d.StartDate <= now &&
-                d.EndDate > now)
-            .SelectMany(d => d.Terminals.Select(t => t.TerminalId))
+        var activeDelegatedTerminalIds = await _db.DelegationTerminals
+            .Where(t =>
+                t.Delegation.EmployeeId == employeeId &&
+                t.Delegation.Status == "Active" &&
+                t.Delegation.StartDate <= now &&
+                t.Delegation.EndDate > now)
+            .Select(t => t.TerminalId)
             .ToHashSetAsync(ct);
 
         // Load scheduled and active delegation rows so the UI can show status and dates.
-        var delegatedRowsList = await _db.Delegations
-            .Where(d => d.EmployeeId == employeeId &&
-                        (d.Status == "Active" || d.Status == "Scheduled"))
-            .SelectMany(d => d.Terminals.Select(t => new
+        var delegatedRowsList = await _db.DelegationTerminals
+            .Where(t =>
+                t.Delegation.EmployeeId == employeeId &&
+                (t.Delegation.Status == "Active" ||
+                 t.Delegation.Status == "Scheduled"))
+            .Select(t => new
             {
                 TerminalId = t.TerminalId,
-                DelegationId = d.Id,
-                d.Status,
-                d.StartDate,
-                d.EndDate
-            }))
+                DelegationId = t.Delegation.Id,
+                t.Delegation.Status,
+                t.Delegation.StartDate,
+                t.Delegation.EndDate
+            })
             .ToListAsync(ct);
 
         // Keep one delegation row per terminal. Active rows win over scheduled rows.
