@@ -153,8 +153,40 @@ public class AttendanceRequestsService : IAttendanceRequestsService
         }
 
         var createdFiles = new List<string>();
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         try
         {
+            var answeredAt = DateTime.Now;
+            var trimmedITNote = string.IsNullOrWhiteSpace(dto.ITNote) ? null : dto.ITNote.Trim();
+            var claimedRows = await _db.AttendanceRequests
+                .Where(x => x.Id == dto.RequestId && x.Status == "PendingIT")
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.Status, "Answered")
+                    .SetProperty(x => x.ITNote, trimmedITNote)
+                    .SetProperty(x => x.AnsweredByEmployeeId, dto.AnsweredByEmployeeId)
+                    .SetProperty(x => x.AnsweredByName, dto.AnsweredByName)
+                    .SetProperty(x => x.AnsweredAt, answeredAt), ct);
+
+            if (claimedRows != 1)
+            {
+                var currentStatus = await _db.AttendanceRequests
+                    .AsNoTracking()
+                    .Where(x => x.Id == dto.RequestId)
+                    .Select(x => x.Status)
+                    .FirstOrDefaultAsync(ct);
+
+                if (currentStatus == "Answered")
+                {
+                    AddAlreadyAnsweredMessage(result);
+                }
+                else
+                {
+                    result.ValidationMessages.Add("لا يمكن إرسال الرد إلا للطلبات التي بانتظار رد تقنية المعلومات.");
+                }
+
+                return result;
+            }
+
             var storageFolder = GetAttachmentStorageFolder();
             Directory.CreateDirectory(storageFolder);
 
@@ -181,7 +213,7 @@ public class AttendanceRequestsService : IAttendanceRequestsService
                     FileName = ToSafeDisplayFileName(upload.FileName),
                     StoredFileName = storedFileName,
                     ContentType = imageType.ContentType,
-                    UploadedAt = DateTime.Now
+                    UploadedAt = answeredAt
                 });
             }
 
@@ -190,16 +222,13 @@ public class AttendanceRequestsService : IAttendanceRequestsService
                 item.Reply = dto.Replies[item.Id]?.Trim();
             }
 
-            request.ITNote = string.IsNullOrWhiteSpace(dto.ITNote) ? null : dto.ITNote.Trim();
-            request.Status = "Answered";
-            request.AnsweredByEmployeeId = dto.AnsweredByEmployeeId;
-            request.AnsweredByName = dto.AnsweredByName;
-            request.AnsweredAt = DateTime.Now;
-
             await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
         }
         catch
         {
+            await transaction.RollbackAsync(CancellationToken.None);
+
             foreach (var path in createdFiles)
             {
                 TryDeleteFile(path);
@@ -260,7 +289,11 @@ public class AttendanceRequestsService : IAttendanceRequestsService
 
         result.RequestExists = true;
 
-        if (request.Status != "PendingIT")
+        if (request.Status == "Answered")
+        {
+            AddAlreadyAnsweredMessage(result);
+        }
+        else if (request.Status != "PendingIT")
         {
             result.ValidationMessages.Add("لا يمكن إرسال الرد إلا للطلبات التي بانتظار رد تقنية المعلومات.");
         }
@@ -321,6 +354,12 @@ public class AttendanceRequestsService : IAttendanceRequestsService
                 result.ValidationMessages.Add("نوع ملف الصورة غير مسموح.");
             }
         }
+    }
+
+    private static void AddAlreadyAnsweredMessage(AttendanceRequestReplyValidationResultDto result)
+    {
+        result.ValidationMessages.Add("تم الرد على هذا الطلب مسبقًا");
+        result.ValidationMessages.Add("تم حفظ الرد على هذا الطلب، ولا يمكن إرسال رد آخر.");
     }
 
     private static bool IsAllowedDeclaredContentType(string? declaredContentType, string detectedContentType)

@@ -123,6 +123,7 @@ public class AttendanceRequestsController : Controller
             return NotFound();
         }
 
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
         return PhysicalFile(attachment.FilePath, attachment.ContentType, attachment.FileName);
     }
 
