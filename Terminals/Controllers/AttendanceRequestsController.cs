@@ -51,6 +51,81 @@ public class AttendanceRequestsController : Controller
         return View(request);
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SubmitReply(int id, Dictionary<int, string?> replies, string? itNote, List<IFormFile> images, CancellationToken ct)
+    {
+        var request = await _attendanceRequests.FindDetailsAsync(id, ct);
+        if (request == null)
+        {
+            return NotFound();
+        }
+
+        if (!CanSubmitReply())
+        {
+            request.ValidationMessages.Add("غير مصرح لك بإرسال رد تقنية المعلومات.");
+            return View("Details", request);
+        }
+
+        if (!int.TryParse(HttpContext.Session.GetString("EmpId"), out var currentEmployeeId))
+        {
+            request.ReplyInputs = replies ?? new Dictionary<int, string?>();
+            request.ITNoteInput = itNote;
+            request.ValidationMessages.Add("حدث خطأ في الجلسة، يرجى تسجيل الدخول مرة أخرى.");
+            return View("Details", request);
+        }
+
+        try
+        {
+            var validation = await _attendanceRequests.SubmitReplyAsync(new SubmitAttendanceRequestReplyDto
+            {
+                RequestId = id,
+                Replies = replies ?? new Dictionary<int, string?>(),
+                ITNote = itNote,
+                Images = images ?? new List<IFormFile>(),
+                AnsweredByEmployeeId = currentEmployeeId,
+                AnsweredByName = HttpContext.Session.GetString("EmpName") ?? ""
+            }, ct);
+
+            if (!validation.RequestExists)
+            {
+                return NotFound();
+            }
+
+            if (!validation.IsValid)
+            {
+                request.ReplyInputs = validation.ReplyInputs;
+                request.ReplyErrors = validation.ReplyErrors;
+                request.ITNoteInput = validation.ITNoteInput;
+                request.ValidationMessages = validation.ValidationMessages;
+                return View("Details", request);
+            }
+
+            TempData["SuccessMsg"] = "تم إرسال رد تقنية المعلومات بنجاح.";
+            return RedirectToAction("Details", new { id });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to submit attendance request reply for requestId={RequestId}", id);
+            request.ReplyInputs = replies ?? new Dictionary<int, string?>();
+            request.ITNoteInput = itNote;
+            request.ValidationMessages.Add("تعذر إرسال رد تقنية المعلومات، حاول مرة أخرى لاحقًا.");
+            return View("Details", request);
+        }
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Attachment(int id, CancellationToken ct)
+    {
+        var attachment = await _attendanceRequests.FindAttachmentFileAsync(id, ct);
+        if (attachment == null)
+        {
+            return NotFound();
+        }
+
+        return PhysicalFile(attachment.FilePath, attachment.ContentType, attachment.FileName);
+    }
+
     [HttpGet]
     public IActionResult Create()
     {
@@ -183,6 +258,11 @@ public class AttendanceRequestsController : Controller
         var userType = HttpContext.Session.GetString("UserType") ?? "Attendance";
 
         return isAdmin || userType == "Attendance";
+    }
+
+    private bool CanSubmitReply()
+    {
+        return HttpContext.Session.GetString("UserType") == "IT";
     }
 
     private IActionResult BlockCreateAccess()

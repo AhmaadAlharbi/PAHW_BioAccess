@@ -8,5 +8,6 @@ public record AttendanceRequestListItemDto(
     int CreatedByEmployeeId,
     string CreatedByName,
     string Status,
+    string? AnsweredByName,
     DateTime CreatedAt
 );

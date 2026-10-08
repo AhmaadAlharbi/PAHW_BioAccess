@@ -1,16 +1,199 @@
 @model Terminals.Web.DTOs.AttendanceRequestDetailsDto
 @{
     ViewData["Title"] = "تفاصيل طلب استفسار الحضور";
+    var userType = Context.Session.GetString("UserType") ?? "Attendance";
+    var canReply = userType == "IT";
+    var isPendingIt = Model.Status == "PendingIT";
+    var isAnswered = Model.Status == "Answered";
+    var showReplyForm = Model.Items.Any() && canReply && isPendingIt;
 }
 
+<style>
+    .attendance-details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .attendance-meta-item,
+    .attendance-note-box,
+    .attendance-inquiry-card {
+        border: 1px solid rgba(105, 47, 57, 0.14);
+        background: #fff;
+        border-radius: 8px;
+    }
+
+    .attendance-meta-item {
+        padding: 0.75rem 0.85rem;
+    }
+
+    .attendance-meta-label {
+        display: block;
+        color: #6b7280;
+        font-size: 0.82rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .attendance-meta-value {
+        color: #1f2937;
+        font-weight: 700;
+    }
+
+    .attendance-note-box {
+        padding: 0.9rem 1rem;
+        line-height: 1.8;
+        color: #374151;
+    }
+
+    .attendance-inquiries-list {
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .attendance-inquiry-card {
+        padding: 1rem;
+        border-right: 4px solid #692f39;
+    }
+
+    .attendance-inquiry-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+    }
+
+    .attendance-inquiry-title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        color: #1f2937;
+        font-weight: 800;
+    }
+
+    .attendance-inquiry-title i {
+        color: #692f39;
+    }
+
+    .attendance-reply-panel {
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 0.85rem;
+        color: #374151;
+        line-height: 1.8;
+        white-space: pre-wrap;
+    }
+
+    .attendance-reply-label {
+        display: block;
+        color: #6b7280;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+
+    .attendance-followup-card {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .attendance-attachments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.8rem;
+    }
+
+    .attendance-attachment-card {
+        border: 1px solid rgba(105, 47, 57, 0.14);
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .attendance-attachment-card img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        background: #f9fafb;
+    }
+
+    .attendance-attachment-name {
+        display: block;
+        padding: 0.55rem 0.65rem;
+        color: #374151;
+        font-size: 0.82rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .attendance-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+    }
+
+    .attendance-preview-card {
+        position: relative;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .attendance-preview-card img {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        display: block;
+    }
+
+    .attendance-preview-remove {
+        position: absolute;
+        top: 0.4rem;
+        left: 0.4rem;
+        width: 2rem;
+        height: 2rem;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(105, 47, 57, 0.92);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
 <div class="allowed-users-page fade-in">
+    @if (TempData["SuccessMsg"] != null)
+    {
+        <div class="alert alert-success d-flex align-items-center gap-2 mb-3" role="alert">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>@TempData["SuccessMsg"]</span>
+        </div>
+    }
+
+    @if (Model.ValidationMessages.Any())
+    {
+        <div class="alert alert-danger d-flex flex-column gap-1 mb-3" role="alert">
+            @foreach (var message in Model.ValidationMessages)
+            {
+                <span>@message</span>
+            }
+        </div>
+    }
+
     <div class="content-card mb-3">
         <div class="allowed-users-header mb-3">
             <div class="allowed-users-title">
                 <span class="allowed-users-title-icon"><i class="fa-solid fa-clipboard-question"></i></span>
                 <div>
                     <h1>تفاصيل طلب استفسار الحضور</h1>
-                    <p>عرض بيانات الطلب والاستفسارات المطلوبة من تقنية المعلومات.</p>
+                    <p>بيانات الطلب وردود تقنية المعلومات في عرض واحد واضح.</p>
                 </div>
             </div>
             <a asp-controller="AttendanceRequests" asp-action="Index" class="btn btn-outline btn-sm">
@@ -19,38 +202,36 @@
             </a>
         </div>
 
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label fw-bold">رقم الطلب</label>
-                <input type="text" value="@Model.Id" class="form-control" readonly disabled />
+        <div class="attendance-details-grid">
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">رقم الطلب</span>
+                <span class="attendance-meta-value">@Model.Id</span>
             </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold">الحالة</label>
-                <div>
-                    <span class="@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToStatusBadgeClass(Model.Status)">
-                        @Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicStatus(Model.Status)
-                    </span>
-                </div>
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">الحالة</span>
+                <span class="@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToStatusBadgeClass(Model.Status)">
+                    @Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicStatus(Model.Status)
+                </span>
             </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold">تاريخ إنشاء الطلب</label>
-                <input type="text" value="@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")" class="form-control" readonly disabled />
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">تاريخ إنشاء الطلب</span>
+                <span class="attendance-meta-value">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-bold">اسم الموظف</label>
-                <input type="text" value="@Model.EmployeeName" class="form-control" readonly disabled />
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">اسم الموظف</span>
+                <span class="attendance-meta-value">@Model.EmployeeName</span>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-bold">الرقم الوظيفي</label>
-                <input type="text" value="@Model.EmployeeId" class="form-control" readonly disabled />
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">الرقم الوظيفي</span>
+                <span class="attendance-meta-value">@Model.EmployeeId</span>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-bold">تاريخ الحضور</label>
-                <input type="text" value="@Model.AttendanceDate.ToString("dd/MM/yyyy")" class="form-control" readonly disabled />
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">تاريخ الحضور</span>
+                <span class="attendance-meta-value">@Model.AttendanceDate.ToString("dd/MM/yyyy")</span>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-bold">مقدم الطلب</label>
-                <input type="text" value="@($"{Model.CreatedByName} ({Model.CreatedByEmployeeId})")" class="form-control" readonly disabled />
+            <div class="attendance-meta-item">
+                <span class="attendance-meta-label">مقدم الطلب</span>
+                <span class="attendance-meta-value">@Model.CreatedByName (@Model.CreatedByEmployeeId)</span>
             </div>
         </div>
     </div>
@@ -59,49 +240,209 @@
     {
         <div class="content-card mb-3">
             <h2 class="c-section-title">ملاحظة الدوام</h2>
-            <p class="mb-0">@Model.HrNote</p>
+            <div class="attendance-note-box">@Model.HrNote</div>
         </div>
     }
 
-    <div class="content-card">
-        <h2 class="c-section-title">الاستفسارات المطلوبة</h2>
+    <div class="content-card mb-3">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="c-section-title mb-0">الاستفسارات وردود تقنية المعلومات</h2>
+            @if (isPendingIt)
+            {
+                <span class="badge badge-warning">بانتظار رد تقنية المعلومات</span>
+            }
+            else if (isAnswered)
+            {
+                <span class="badge badge-success">تم الرد</span>
+            }
+        </div>
 
-        @if (Model.Items.Any())
-        {
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>نوع الاستفسار</th>
-                            <th>رد تقنية المعلومات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in Model.Items)
-                        {
-                            <tr>
-                                <td>@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicType(item.Type)</td>
-                                <td>
-                                    @if (string.IsNullOrWhiteSpace(item.Reply))
-                                    {
-                                        <span class="badge badge-warning">بانتظار رد تقنية المعلومات</span>
-                                    }
-                                    else
-                                    {
-                                        <span>@item.Reply</span>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-        else
+        @if (!Model.Items.Any())
         {
             <div class="empty-state">
                 <div class="empty-state-text">لا توجد استفسارات مسجلة لهذا الطلب</div>
             </div>
         }
+        else if (showReplyForm)
+        {
+            <form method="post" asp-action="SubmitReply" asp-route-id="@Model.Id" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+
+                <div class="attendance-inquiries-list">
+                    @foreach (var item in Model.Items)
+                    {
+                        var replyValue = Model.ReplyInputs.TryGetValue(item.Id, out var enteredReply) ? enteredReply : "";
+                        var hasError = Model.ReplyErrors.TryGetValue(item.Id, out var replyError);
+
+                        <section class="attendance-inquiry-card">
+                            <div class="attendance-inquiry-header">
+                                <div class="attendance-inquiry-title">
+                                    <i class="fa-solid fa-circle-question"></i>
+                                    <span>@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicType(item.Type)</span>
+                                </div>
+                                <span class="badge badge-warning">بانتظار الرد</span>
+                            </div>
+
+                            <label class="attendance-reply-label">رد تقنية المعلومات</label>
+                            <textarea name="replies[@item.Id]" class="form-control" rows="3" placeholder="اكتب رد تقنية المعلومات هنا">@replyValue</textarea>
+                            @if (hasError)
+                            {
+                                <div class="text-danger small mt-1">@replyError</div>
+                            }
+                        </section>
+                    }
+                </div>
+
+                @foreach (var error in Model.ReplyErrors.Where(error => !Model.Items.Any(item => item.Id == error.Key)))
+                {
+                    <div class="text-danger small mt-2">@error.Value</div>
+                }
+
+                <div class="attendance-followup-card">
+                    <label class="form-label fw-bold">ملاحظة تقنية المعلومات</label>
+                    <textarea name="itNote" class="form-control" rows="3" placeholder="ملاحظة اختيارية">@Model.ITNoteInput</textarea>
+                </div>
+
+                <div class="attendance-followup-card">
+                    <label class="form-label fw-bold">صور مرفقة</label>
+                    <input id="replyImages" name="images" type="file" class="form-control" accept="image/*" multiple />
+                    <div class="text-muted small mt-1">يمكن إرفاق حتى 5 صور اختيارية.</div>
+                    <div id="replyImagePreview" class="attendance-preview-grid"></div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>إرسال الرد</span>
+                    </button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="attendance-inquiries-list">
+                @foreach (var item in Model.Items)
+                {
+                    <section class="attendance-inquiry-card">
+                        <div class="attendance-inquiry-header">
+                            <div class="attendance-inquiry-title">
+                                <i class="fa-solid fa-circle-question"></i>
+                                <span>@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicType(item.Type)</span>
+                            </div>
+                            @if (string.IsNullOrWhiteSpace(item.Reply))
+                            {
+                                <span class="badge badge-warning">بانتظار الرد</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-success">تم الرد</span>
+                            }
+                        </div>
+
+                        <span class="attendance-reply-label">رد تقنية المعلومات</span>
+                        @if (string.IsNullOrWhiteSpace(item.Reply))
+                        {
+                            <div class="attendance-reply-panel">لم يتم تسجيل رد بعد.</div>
+                        }
+                        else
+                        {
+                            <div class="attendance-reply-panel">@item.Reply</div>
+                        }
+                    </section>
+                }
+            </div>
+        }
     </div>
+
+    @if (isAnswered && (!string.IsNullOrWhiteSpace(Model.ITNote) || Model.AnsweredByEmployeeId.HasValue || !string.IsNullOrWhiteSpace(Model.AnsweredByName) || Model.AnsweredAt.HasValue))
+    {
+        <div class="content-card">
+            <h2 class="c-section-title">ملخص رد تقنية المعلومات</h2>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ITNote))
+            {
+                <div class="attendance-note-box mb-3">
+                    <span class="attendance-reply-label">ملاحظة تقنية المعلومات</span>
+                    @Model.ITNote
+                </div>
+            }
+
+            <div class="attendance-details-grid">
+                <div class="attendance-meta-item">
+                    <span class="attendance-meta-label">تم الرد بواسطة</span>
+                    <span class="attendance-meta-value">@(string.IsNullOrWhiteSpace(Model.AnsweredByName) ? "غير مسجل" : Model.AnsweredByName)</span>
+                </div>
+                <div class="attendance-meta-item">
+                    <span class="attendance-meta-label">الرقم الوظيفي</span>
+                    <span class="attendance-meta-value">@(Model.AnsweredByEmployeeId?.ToString() ?? "غير مسجل")</span>
+                </div>
+                <div class="attendance-meta-item">
+                    <span class="attendance-meta-label">تاريخ ووقت الرد</span>
+                    <span class="attendance-meta-value">@(Model.AnsweredAt?.ToString("dd/MM/yyyy HH:mm") ?? "غير مسجل")</span>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (Model.Attachments.Any())
+    {
+        <div class="content-card mt-3">
+            <h2 class="c-section-title">الصور المرفقة</h2>
+            <div class="attendance-attachments-grid">
+                @foreach (var attachment in Model.Attachments)
+                {
+                    <a class="attendance-attachment-card" asp-action="Attachment" asp-route-id="@attachment.Id" target="_blank" rel="noopener">
+                        <img src="@Url.Action("Attachment", "AttendanceRequests", new { id = attachment.Id })" alt="@attachment.FileName" />
+                        <span class="attendance-attachment-name">@attachment.FileName</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var input = document.getElementById('replyImages');
+            var preview = document.getElementById('replyImagePreview');
+            if (!input || !preview) return;
+
+            var selectedFiles = [];
+
+            function syncInput() {
+                var transfer = new DataTransfer();
+                selectedFiles.forEach(function (file) {
+                    transfer.items.add(file);
+                });
+                input.files = transfer.files;
+            }
+
+            function renderPreview() {
+                preview.innerHTML = '';
+                selectedFiles.forEach(function (file, index) {
+                    var url = URL.createObjectURL(file);
+                    var card = document.createElement('div');
+                    card.className = 'attendance-preview-card';
+                    card.innerHTML =
+                        '<button type="button" class="attendance-preview-remove" aria-label="إزالة الصورة"><i class="fa-solid fa-xmark"></i></button>' +
+                        '<img alt="معاينة الصورة" src="' + url + '" />' +
+                        '<span class="attendance-attachment-name"></span>';
+                    card.querySelector('.attendance-attachment-name').textContent = file.name;
+                    card.querySelector('button').addEventListener('click', function () {
+                        URL.revokeObjectURL(url);
+                        selectedFiles.splice(index, 1);
+                        syncInput();
+                        renderPreview();
+                    });
+                    preview.appendChild(card);
+                });
+            }
+
+            input.addEventListener('change', function () {
+                selectedFiles = Array.from(input.files || []);
+                renderPreview();
+            });
+        })();
+    </script>
+}

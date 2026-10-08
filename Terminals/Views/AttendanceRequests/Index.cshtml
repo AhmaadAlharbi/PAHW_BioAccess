@@ -116,6 +116,7 @@
                             <th>مقدم الطلب</th>
                             <th>تاريخ إنشاء الطلب</th>
                             <th>الحالة</th>
+                            <th>تم الرد بواسطة</th>
                             <th class="u-text-center">الإجراءات</th>
                         </tr>
                     </thead>
@@ -145,6 +146,16 @@
                                     <span class="@Terminals.Web.DTOs.AttendanceRequestsIndexViewModel.ToStatusBadgeClass(request.Status)">
                                         @Terminals.Web.DTOs.AttendanceRequestsIndexViewModel.ToArabicStatus(request.Status)
                                     </span>
+                                </td>
+                                <td>
+                                    @if (request.Status == "Answered" && !string.IsNullOrWhiteSpace(request.AnsweredByName))
+                                    {
+                                        <span>@request.AnsweredByName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
                                 </td>
                                 <td>
                                     <div class="c-actions-row">

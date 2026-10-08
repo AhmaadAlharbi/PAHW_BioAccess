@@ -9,9 +9,18 @@ public class AttendanceRequestDetailsDto
     public int CreatedByEmployeeId { get; set; }
     public string CreatedByName { get; set; } = "";
     public string? HrNote { get; set; }
+    public string? ITNote { get; set; }
+    public int? AnsweredByEmployeeId { get; set; }
+    public string? AnsweredByName { get; set; }
+    public DateTime? AnsweredAt { get; set; }
     public string Status { get; set; } = "";
     public DateTime CreatedAt { get; set; }
     public List<AttendanceRequestItemDetailsDto> Items { get; set; } = new();
+    public List<AttendanceRequestAttachmentDetailsDto> Attachments { get; set; } = new();
+    public Dictionary<int, string?> ReplyInputs { get; set; } = new();
+    public Dictionary<int, string> ReplyErrors { get; set; } = new();
+    public string? ITNoteInput { get; set; }
+    public List<string> ValidationMessages { get; set; } = new();
 
     public static string ToArabicStatus(string status)
         => status switch
@@ -41,6 +50,14 @@ public class AttendanceRequestDetailsDto
 }
 
 public record AttendanceRequestItemDetailsDto(
+    int Id,
     string Type,
     string? Reply
+);
+
+public record AttendanceRequestAttachmentDetailsDto(
+    int Id,
+    string FileName,
+    string ContentType,
+    DateTime UploadedAt
 );
