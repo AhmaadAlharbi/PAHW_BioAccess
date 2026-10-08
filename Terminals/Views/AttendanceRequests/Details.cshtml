@@ -1,0 +1,107 @@
+@model Terminals.Web.DTOs.AttendanceRequestDetailsDto
+@{
+    ViewData["Title"] = "تفاصيل طلب استفسار الحضور";
+}
+
+<div class="allowed-users-page fade-in">
+    <div class="content-card mb-3">
+        <div class="allowed-users-header mb-3">
+            <div class="allowed-users-title">
+                <span class="allowed-users-title-icon"><i class="fa-solid fa-clipboard-question"></i></span>
+                <div>
+                    <h1>تفاصيل طلب استفسار الحضور</h1>
+                    <p>عرض بيانات الطلب والاستفسارات المطلوبة من تقنية المعلومات.</p>
+                </div>
+            </div>
+            <a asp-controller="AttendanceRequests" asp-action="Index" class="btn btn-outline btn-sm">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>العودة إلى الطلبات</span>
+            </a>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">رقم الطلب</label>
+                <input type="text" value="@Model.Id" class="form-control" readonly disabled />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">الحالة</label>
+                <div>
+                    <span class="@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToStatusBadgeClass(Model.Status)">
+                        @Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicStatus(Model.Status)
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">تاريخ إنشاء الطلب</label>
+                <input type="text" value="@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")" class="form-control" readonly disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">اسم الموظف</label>
+                <input type="text" value="@Model.EmployeeName" class="form-control" readonly disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">الرقم الوظيفي</label>
+                <input type="text" value="@Model.EmployeeId" class="form-control" readonly disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">تاريخ الحضور</label>
+                <input type="text" value="@Model.AttendanceDate.ToString("dd/MM/yyyy")" class="form-control" readonly disabled />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">مقدم الطلب</label>
+                <input type="text" value="@($"{Model.CreatedByName} ({Model.CreatedByEmployeeId})")" class="form-control" readonly disabled />
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.HrNote))
+    {
+        <div class="content-card mb-3">
+            <h2 class="c-section-title">ملاحظة الدوام</h2>
+            <p class="mb-0">@Model.HrNote</p>
+        </div>
+    }
+
+    <div class="content-card">
+        <h2 class="c-section-title">الاستفسارات المطلوبة</h2>
+
+        @if (Model.Items.Any())
+        {
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>نوع الاستفسار</th>
+                            <th>رد تقنية المعلومات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>@Terminals.Web.DTOs.AttendanceRequestDetailsDto.ToArabicType(item.Type)</td>
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(item.Reply))
+                                    {
+                                        <span class="badge badge-warning">بانتظار رد تقنية المعلومات</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@item.Reply</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <div class="empty-state-text">لا توجد استفسارات مسجلة لهذا الطلب</div>
+            </div>
+        }
+    </div>
+</div>

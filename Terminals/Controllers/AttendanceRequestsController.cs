@@ -20,9 +20,35 @@ public class AttendanceRequestsController : Controller
     }
 
     [HttpGet]
-    public IActionResult Index()
+    public async Task<IActionResult> Index(string? month, string? employeeId, string? attendanceDate, string? status, CancellationToken ct)
     {
-        return View();
+        var filter = new AttendanceRequestListFilterDto
+        {
+            Month = month,
+            EmployeeId = employeeId,
+            AttendanceDate = attendanceDate,
+            Status = status
+        };
+
+        var requests = await _attendanceRequests.ListAsync(filter, ct);
+
+        return View(new AttendanceRequestsIndexViewModel
+        {
+            Filter = filter,
+            Requests = requests
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Details(int id, CancellationToken ct)
+    {
+        var request = await _attendanceRequests.FindDetailsAsync(id, ct);
+        if (request == null)
+        {
+            return NotFound();
+        }
+
+        return View(request);
     }
 
     [HttpGet]

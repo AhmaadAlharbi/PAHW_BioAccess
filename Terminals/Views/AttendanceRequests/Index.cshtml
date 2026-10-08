@@ -1,3 +1,4 @@
+@model Terminals.Web.DTOs.AttendanceRequestsIndexViewModel
 @{
     ViewData["Title"] = "طلبات استفسار الحضور";
     var isAdmin = Context.Session.GetString("IsAdmin") == "1";
@@ -34,12 +35,12 @@
 
 <div class="allowed-users-page fade-in">
     <div class="content-card">
-        <div class="allowed-users-header mb-3">
+        <div class="allowed-users-header">
             <div class="allowed-users-title">
                 <span class="allowed-users-title-icon"><i class="fa-solid fa-clipboard-question"></i></span>
                 <div>
                     <h1>طلبات استفسار الحضور</h1>
-                    <p>هذه صفحة الطلبات، وسيتم استكمال تفاصيلها لاحقًا.</p>
+                    <p>متابعة طلبات استفسار الحضور وحالتها.</p>
                 </div>
             </div>
             @if (canCreateRequest)
@@ -51,8 +52,120 @@
             }
         </div>
 
-        <div class="empty-state">
-            <div class="empty-state-text">لا توجد بيانات للعرض حاليًا.</div>
+        <div class="divider"></div>
+
+        <form method="get" asp-action="Index" class="mb-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">الشهر</label>
+                    <input type="month" name="month" value="@Model.Filter.Month" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">الرقم الوظيفي</label>
+                    <input type="text" name="employeeId" value="@Model.Filter.EmployeeId" class="form-control" placeholder="مثال: 7300" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">تاريخ الحضور</label>
+                    <input type="date" name="attendanceDate" value="@Model.Filter.AttendanceDate" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">الحالة</label>
+                    <select name="status" class="form-control">
+                        <option value="" selected="@(string.IsNullOrWhiteSpace(Model.Filter.Status))">الكل</option>
+                        <option value="PendingIT" selected="@(Model.Filter.Status == "PendingIT")">بانتظار رد تقنية المعلومات</option>
+                        <option value="Answered" selected="@(Model.Filter.Status == "Answered")">تم الرد</option>
+                    </select>
+                </div>
+                <div class="col-12 d-flex gap-2 justify-content-end">
+                    <a asp-action="Index" class="btn btn-outline">
+                        <i class="fa-solid fa-xmark"></i>
+                        <span>مسح</span>
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>بحث</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="c-stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">@Model.TotalCount</div>
+                <div class="stat-label">إجمالي النتائج</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-amber">@Model.PendingCount</div>
+                <div class="stat-label">بانتظار الرد</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-emerald">@Model.AnsweredCount</div>
+                <div class="stat-label">تم الرد</div>
+            </div>
         </div>
+
+        @if (Model.Requests.Any())
+        {
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>رقم الطلب</th>
+                            <th>الموظف</th>
+                            <th>تاريخ الحضور</th>
+                            <th>مقدم الطلب</th>
+                            <th>تاريخ إنشاء الطلب</th>
+                            <th>الحالة</th>
+                            <th class="u-text-center">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var request in Model.Requests)
+                        {
+                            <tr>
+                                <td>@request.Id</td>
+                                <td>
+                                    <div class="allowed-user-cell">
+                                        <span class="allowed-user-avatar">
+                                            <i class="fa-solid fa-user"></i>
+                                        </span>
+                                        <span>
+                                            <span class="allowed-user-name">@request.EmployeeName</span>
+                                            <span class="allowed-user-id">@request.EmployeeId</span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>@request.AttendanceDate.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <span>@request.CreatedByName</span>
+                                    <span class="text-muted small d-block">@request.CreatedByEmployeeId</span>
+                                </td>
+                                <td>@request.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <span class="@Terminals.Web.DTOs.AttendanceRequestsIndexViewModel.ToStatusBadgeClass(request.Status)">
+                                        @Terminals.Web.DTOs.AttendanceRequestsIndexViewModel.ToArabicStatus(request.Status)
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="c-actions-row">
+                                        <a asp-action="Details" asp-route-id="@request.Id" class="btn btn-sm btn-outline">
+                                            <i class="fa-solid fa-eye"></i>
+                                            <span>عرض</span>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-text">لا توجد طلبات مطابقة للفلاتر الحالية</div>
+            </div>
+        }
     </div>
 </div>
